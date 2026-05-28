@@ -1,0 +1,64 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { PublicLayout } from "../components/site/Layout";
+import { ArrowUpRight, Clock } from "lucide-react";
+
+export const Route = createFileRoute("/blog")({ component: Blog });
+
+const POSTS = [
+  { cat: "Career",    date: "May 18, 2026", read: "6 min", title: "What hospitals actually look for in a Staff Nurse hire", excerpt: "Insights from 50+ HR heads at India's leading hospital chains.", featured: true },
+  { cat: "Clinical",  date: "May 12, 2026", read: "8 min", title: "ICU monitoring trends every junior tech should master", excerpt: "Modern bedside monitoring is shifting. Here's the new baseline." },
+  { cat: "Exam Prep", date: "May 04, 2026", read: "5 min", title: "How to pass our proctored DMLT exam (without panic)", excerpt: "A study plan from candidates who scored in the top 5%." },
+  { cat: "Stories",   date: "Apr 28, 2026", read: "4 min", title: "From village clinic to ICU — Priya's 14-month journey",  excerpt: "How a small-town student now leads a critical-care shift at Apollo." },
+  { cat: "Career",    date: "Apr 20, 2026", read: "7 min", title: "Salary benchmarks for paramedical roles in 2026",        excerpt: "A city-by-city, role-by-role compensation breakdown." },
+  { cat: "Clinical",  date: "Apr 15, 2026", read: "9 min", title: "The radiologist's quick-reference for MRI protocols",   excerpt: "Common protocols across abdomen, brain, and musculoskeletal imaging." },
+  { cat: "Stories",   date: "Apr 08, 2026", read: "5 min", title: "How three OT techs revolutionized their hospital's flow", excerpt: "A real-world case study of process improvement on the floor." },
+];
+
+function Blog() {
+  const [hero, ...rest] = POSTS;
+  return (
+    <PublicLayout>
+      <section className="py-20 lg:py-28">
+        <div className="mx-auto max-w-7xl px-5 lg:px-8">
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— Journal</div>
+          <h1 className="mt-3 max-w-3xl font-display text-4xl lg:text-7xl font-bold text-plum-dark tracking-[-0.03em] leading-[1.02]">
+            Notes from the<br/><span className="text-plum">clinical floor.</span>
+          </h1>
+
+          {/* Featured */}
+          <article className="mt-14 group grid lg:grid-cols-2 gap-8 rounded-3xl border border-border bg-card overflow-hidden">
+            <div className="relative aspect-[16/10] lg:aspect-auto bg-gradient-to-br from-plum to-plum-dark overflow-hidden">
+              <div className="absolute inset-0 bg-noise opacity-30" />
+              <span className="absolute top-4 left-4 rounded-full bg-lime px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plum-dark">Featured · {hero.cat}</span>
+            </div>
+            <div className="p-8 lg:p-10 flex flex-col justify-center">
+              <div className="text-xs text-foreground/55 font-mono">{hero.date} · {hero.read} read</div>
+              <h2 className="mt-3 font-display text-2xl lg:text-4xl font-bold text-plum-dark leading-tight">{hero.title}</h2>
+              <p className="mt-4 text-foreground/70 leading-relaxed">{hero.excerpt}</p>
+              <Link to="/blog" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-plum-dark w-fit">
+                Read article <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </article>
+
+          {/* Grid */}
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {rest.map(p => (
+              <article key={p.title} className="group rounded-3xl border border-border bg-card overflow-hidden hover:-translate-y-1 transition-all">
+                <div className="relative aspect-[16/10] bg-gradient-to-br from-plum-dark to-plum overflow-hidden">
+                  <div className="absolute inset-0 bg-noise opacity-30" />
+                  <span className="absolute top-4 left-4 rounded-full bg-cream/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-plum-dark">{p.cat}</span>
+                </div>
+                <div className="p-6">
+                  <div className="text-xs text-foreground/55 font-mono flex items-center gap-2">{p.date} <span>·</span> <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{p.read}</span></div>
+                  <h3 className="mt-3 font-display font-semibold text-plum-dark leading-snug">{p.title}</h3>
+                  <p className="mt-2 text-sm text-foreground/70 line-clamp-2">{p.excerpt}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </PublicLayout>
+  );
+}
