@@ -21,7 +21,6 @@ import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudentStudentScheduleRouteImport } from './routes/_student.student.schedule'
 import { Route as StudentStudentProfileRouteImport } from './routes/_student.student.profile'
-import { Route as StudentStudentMyCoursesRouteImport } from './routes/_student.student.my-courses'
 import { Route as StudentStudentMessagesRouteImport } from './routes/_student.student.messages'
 import { Route as StudentStudentLiveRouteImport } from './routes/_student.student.live'
 import { Route as StudentStudentExamsRouteImport } from './routes/_student.student.exams'
@@ -36,7 +35,13 @@ import { Route as AdminAdminExamsRouteImport } from './routes/_admin.admin.exams
 import { Route as AdminAdminDashboardRouteImport } from './routes/_admin.admin.dashboard'
 import { Route as AdminAdminCoursesRouteImport } from './routes/_admin.admin.courses'
 import { Route as AdminAdminAnalyticsRouteImport } from './routes/_admin.admin.analytics'
+import { Route as StudentStudentMyCoursesIndexRouteImport } from './routes/_student.student.my-courses.index'
+import { Route as StudentStudentClassroomsIndexRouteImport } from './routes/_student.student.classrooms.index'
+import { Route as AdminAdminClassroomsIndexRouteImport } from './routes/_admin.admin.classrooms.index'
+import { Route as StudentStudentJitsiRoomIdRouteImport } from './routes/_student.student.jitsi.$roomId'
 import { Route as StudentStudentCourseIdRouteImport } from './routes/_student.student.course.$id'
+import { Route as StudentStudentClassroomIdRouteImport } from './routes/_student.student.classroom.$id'
+import { Route as AdminAdminClassroomsIdRouteImport } from './routes/_admin.admin.classrooms.$id'
 
 const PlacementsRoute = PlacementsRouteImport.update({
   id: '/placements',
@@ -94,11 +99,6 @@ const StudentStudentScheduleRoute = StudentStudentScheduleRouteImport.update({
 const StudentStudentProfileRoute = StudentStudentProfileRouteImport.update({
   id: '/student/profile',
   path: '/student/profile',
-  getParentRoute: () => StudentRoute,
-} as any)
-const StudentStudentMyCoursesRoute = StudentStudentMyCoursesRouteImport.update({
-  id: '/student/my-courses',
-  path: '/student/my-courses',
   getParentRoute: () => StudentRoute,
 } as any)
 const StudentStudentMessagesRoute = StudentStudentMessagesRouteImport.update({
@@ -172,10 +172,45 @@ const AdminAdminAnalyticsRoute = AdminAdminAnalyticsRouteImport.update({
   path: '/admin/analytics',
   getParentRoute: () => AdminRoute,
 } as any)
+const StudentStudentMyCoursesIndexRoute =
+  StudentStudentMyCoursesIndexRouteImport.update({
+    id: '/student/my-courses/',
+    path: '/student/my-courses/',
+    getParentRoute: () => StudentRoute,
+  } as any)
+const StudentStudentClassroomsIndexRoute =
+  StudentStudentClassroomsIndexRouteImport.update({
+    id: '/student/classrooms/',
+    path: '/student/classrooms/',
+    getParentRoute: () => StudentRoute,
+  } as any)
+const AdminAdminClassroomsIndexRoute =
+  AdminAdminClassroomsIndexRouteImport.update({
+    id: '/admin/classrooms/',
+    path: '/admin/classrooms/',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const StudentStudentJitsiRoomIdRoute =
+  StudentStudentJitsiRoomIdRouteImport.update({
+    id: '/student/jitsi/$roomId',
+    path: '/student/jitsi/$roomId',
+    getParentRoute: () => StudentRoute,
+  } as any)
 const StudentStudentCourseIdRoute = StudentStudentCourseIdRouteImport.update({
   id: '/student/course/$id',
   path: '/student/course/$id',
   getParentRoute: () => StudentRoute,
+} as any)
+const StudentStudentClassroomIdRoute =
+  StudentStudentClassroomIdRouteImport.update({
+    id: '/student/classroom/$id',
+    path: '/student/classroom/$id',
+    getParentRoute: () => StudentRoute,
+  } as any)
+const AdminAdminClassroomsIdRoute = AdminAdminClassroomsIdRouteImport.update({
+  id: '/admin/classrooms/$id',
+  path: '/admin/classrooms/$id',
+  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -201,10 +236,15 @@ export interface FileRoutesByFullPath {
   '/student/exams': typeof StudentStudentExamsRoute
   '/student/live': typeof StudentStudentLiveRoute
   '/student/messages': typeof StudentStudentMessagesRoute
-  '/student/my-courses': typeof StudentStudentMyCoursesRoute
   '/student/profile': typeof StudentStudentProfileRoute
   '/student/schedule': typeof StudentStudentScheduleRoute
+  '/admin/classrooms/$id': typeof AdminAdminClassroomsIdRoute
+  '/student/classroom/$id': typeof StudentStudentClassroomIdRoute
   '/student/course/$id': typeof StudentStudentCourseIdRoute
+  '/student/jitsi/$roomId': typeof StudentStudentJitsiRoomIdRoute
+  '/admin/classrooms/': typeof AdminAdminClassroomsIndexRoute
+  '/student/classrooms/': typeof StudentStudentClassroomsIndexRoute
+  '/student/my-courses/': typeof StudentStudentMyCoursesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -229,10 +269,15 @@ export interface FileRoutesByTo {
   '/student/exams': typeof StudentStudentExamsRoute
   '/student/live': typeof StudentStudentLiveRoute
   '/student/messages': typeof StudentStudentMessagesRoute
-  '/student/my-courses': typeof StudentStudentMyCoursesRoute
   '/student/profile': typeof StudentStudentProfileRoute
   '/student/schedule': typeof StudentStudentScheduleRoute
+  '/admin/classrooms/$id': typeof AdminAdminClassroomsIdRoute
+  '/student/classroom/$id': typeof StudentStudentClassroomIdRoute
   '/student/course/$id': typeof StudentStudentCourseIdRoute
+  '/student/jitsi/$roomId': typeof StudentStudentJitsiRoomIdRoute
+  '/admin/classrooms': typeof AdminAdminClassroomsIndexRoute
+  '/student/classrooms': typeof StudentStudentClassroomsIndexRoute
+  '/student/my-courses': typeof StudentStudentMyCoursesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -260,10 +305,15 @@ export interface FileRoutesById {
   '/_student/student/exams': typeof StudentStudentExamsRoute
   '/_student/student/live': typeof StudentStudentLiveRoute
   '/_student/student/messages': typeof StudentStudentMessagesRoute
-  '/_student/student/my-courses': typeof StudentStudentMyCoursesRoute
   '/_student/student/profile': typeof StudentStudentProfileRoute
   '/_student/student/schedule': typeof StudentStudentScheduleRoute
+  '/_admin/admin/classrooms/$id': typeof AdminAdminClassroomsIdRoute
+  '/_student/student/classroom/$id': typeof StudentStudentClassroomIdRoute
   '/_student/student/course/$id': typeof StudentStudentCourseIdRoute
+  '/_student/student/jitsi/$roomId': typeof StudentStudentJitsiRoomIdRoute
+  '/_admin/admin/classrooms/': typeof AdminAdminClassroomsIndexRoute
+  '/_student/student/classrooms/': typeof StudentStudentClassroomsIndexRoute
+  '/_student/student/my-courses/': typeof StudentStudentMyCoursesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -290,10 +340,15 @@ export interface FileRouteTypes {
     | '/student/exams'
     | '/student/live'
     | '/student/messages'
-    | '/student/my-courses'
     | '/student/profile'
     | '/student/schedule'
+    | '/admin/classrooms/$id'
+    | '/student/classroom/$id'
     | '/student/course/$id'
+    | '/student/jitsi/$roomId'
+    | '/admin/classrooms/'
+    | '/student/classrooms/'
+    | '/student/my-courses/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -318,10 +373,15 @@ export interface FileRouteTypes {
     | '/student/exams'
     | '/student/live'
     | '/student/messages'
-    | '/student/my-courses'
     | '/student/profile'
     | '/student/schedule'
+    | '/admin/classrooms/$id'
+    | '/student/classroom/$id'
     | '/student/course/$id'
+    | '/student/jitsi/$roomId'
+    | '/admin/classrooms'
+    | '/student/classrooms'
+    | '/student/my-courses'
   id:
     | '__root__'
     | '/'
@@ -348,10 +408,15 @@ export interface FileRouteTypes {
     | '/_student/student/exams'
     | '/_student/student/live'
     | '/_student/student/messages'
-    | '/_student/student/my-courses'
     | '/_student/student/profile'
     | '/_student/student/schedule'
+    | '/_admin/admin/classrooms/$id'
+    | '/_student/student/classroom/$id'
     | '/_student/student/course/$id'
+    | '/_student/student/jitsi/$roomId'
+    | '/_admin/admin/classrooms/'
+    | '/_student/student/classrooms/'
+    | '/_student/student/my-courses/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -453,13 +518,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentStudentProfileRouteImport
       parentRoute: typeof StudentRoute
     }
-    '/_student/student/my-courses': {
-      id: '/_student/student/my-courses'
-      path: '/student/my-courses'
-      fullPath: '/student/my-courses'
-      preLoaderRoute: typeof StudentStudentMyCoursesRouteImport
-      parentRoute: typeof StudentRoute
-    }
     '/_student/student/messages': {
       id: '/_student/student/messages'
       path: '/student/messages'
@@ -558,12 +616,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_student/student/my-courses/': {
+      id: '/_student/student/my-courses/'
+      path: '/student/my-courses'
+      fullPath: '/student/my-courses/'
+      preLoaderRoute: typeof StudentStudentMyCoursesIndexRouteImport
+      parentRoute: typeof StudentRoute
+    }
+    '/_student/student/classrooms/': {
+      id: '/_student/student/classrooms/'
+      path: '/student/classrooms'
+      fullPath: '/student/classrooms/'
+      preLoaderRoute: typeof StudentStudentClassroomsIndexRouteImport
+      parentRoute: typeof StudentRoute
+    }
+    '/_admin/admin/classrooms/': {
+      id: '/_admin/admin/classrooms/'
+      path: '/admin/classrooms'
+      fullPath: '/admin/classrooms/'
+      preLoaderRoute: typeof AdminAdminClassroomsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_student/student/jitsi/$roomId': {
+      id: '/_student/student/jitsi/$roomId'
+      path: '/student/jitsi/$roomId'
+      fullPath: '/student/jitsi/$roomId'
+      preLoaderRoute: typeof StudentStudentJitsiRoomIdRouteImport
+      parentRoute: typeof StudentRoute
+    }
     '/_student/student/course/$id': {
       id: '/_student/student/course/$id'
       path: '/student/course/$id'
       fullPath: '/student/course/$id'
       preLoaderRoute: typeof StudentStudentCourseIdRouteImport
       parentRoute: typeof StudentRoute
+    }
+    '/_student/student/classroom/$id': {
+      id: '/_student/student/classroom/$id'
+      path: '/student/classroom/$id'
+      fullPath: '/student/classroom/$id'
+      preLoaderRoute: typeof StudentStudentClassroomIdRouteImport
+      parentRoute: typeof StudentRoute
+    }
+    '/_admin/admin/classrooms/$id': {
+      id: '/_admin/admin/classrooms/$id'
+      path: '/admin/classrooms/$id'
+      fullPath: '/admin/classrooms/$id'
+      preLoaderRoute: typeof AdminAdminClassroomsIdRouteImport
+      parentRoute: typeof AdminRoute
     }
   }
 }
@@ -578,6 +678,8 @@ interface AdminRouteChildren {
   AdminAdminPlacementsRoute: typeof AdminAdminPlacementsRoute
   AdminAdminSettingsRoute: typeof AdminAdminSettingsRoute
   AdminAdminStudentsRoute: typeof AdminAdminStudentsRoute
+  AdminAdminClassroomsIdRoute: typeof AdminAdminClassroomsIdRoute
+  AdminAdminClassroomsIndexRoute: typeof AdminAdminClassroomsIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -590,6 +692,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminPlacementsRoute: AdminAdminPlacementsRoute,
   AdminAdminSettingsRoute: AdminAdminSettingsRoute,
   AdminAdminStudentsRoute: AdminAdminStudentsRoute,
+  AdminAdminClassroomsIdRoute: AdminAdminClassroomsIdRoute,
+  AdminAdminClassroomsIndexRoute: AdminAdminClassroomsIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -600,10 +704,13 @@ interface StudentRouteChildren {
   StudentStudentExamsRoute: typeof StudentStudentExamsRoute
   StudentStudentLiveRoute: typeof StudentStudentLiveRoute
   StudentStudentMessagesRoute: typeof StudentStudentMessagesRoute
-  StudentStudentMyCoursesRoute: typeof StudentStudentMyCoursesRoute
   StudentStudentProfileRoute: typeof StudentStudentProfileRoute
   StudentStudentScheduleRoute: typeof StudentStudentScheduleRoute
+  StudentStudentClassroomIdRoute: typeof StudentStudentClassroomIdRoute
   StudentStudentCourseIdRoute: typeof StudentStudentCourseIdRoute
+  StudentStudentJitsiRoomIdRoute: typeof StudentStudentJitsiRoomIdRoute
+  StudentStudentClassroomsIndexRoute: typeof StudentStudentClassroomsIndexRoute
+  StudentStudentMyCoursesIndexRoute: typeof StudentStudentMyCoursesIndexRoute
 }
 
 const StudentRouteChildren: StudentRouteChildren = {
@@ -612,10 +719,13 @@ const StudentRouteChildren: StudentRouteChildren = {
   StudentStudentExamsRoute: StudentStudentExamsRoute,
   StudentStudentLiveRoute: StudentStudentLiveRoute,
   StudentStudentMessagesRoute: StudentStudentMessagesRoute,
-  StudentStudentMyCoursesRoute: StudentStudentMyCoursesRoute,
   StudentStudentProfileRoute: StudentStudentProfileRoute,
   StudentStudentScheduleRoute: StudentStudentScheduleRoute,
+  StudentStudentClassroomIdRoute: StudentStudentClassroomIdRoute,
   StudentStudentCourseIdRoute: StudentStudentCourseIdRoute,
+  StudentStudentJitsiRoomIdRoute: StudentStudentJitsiRoomIdRoute,
+  StudentStudentClassroomsIndexRoute: StudentStudentClassroomsIndexRoute,
+  StudentStudentMyCoursesIndexRoute: StudentStudentMyCoursesIndexRoute,
 }
 
 const StudentRouteWithChildren =

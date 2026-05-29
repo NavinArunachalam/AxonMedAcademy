@@ -4,6 +4,7 @@ import {
   ArrowUpRight, ArrowDownRight, Activity,
 } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
+import { useClassroomStore } from "@/lib/classroomStore";
 
 export const Route = createFileRoute("/_admin/admin/dashboard")({
   component: AdminHome,
@@ -27,13 +28,31 @@ function Stat({ label, value, delta, up = true, icon: Icon }: {
   );
 }
 
+function timeAgoStr(dateIso: string) {
+  const diff = (Date.now() - new Date(dateIso).getTime()) / 60000;
+  if(diff < 0) return "Upcoming";
+  if(diff < 60) return `${Math.floor(diff)}m`;
+  if(diff < 1440) return `${Math.floor(diff/60)}h`;
+  return `${Math.floor(diff/1440)}d`;
+}
+
 function AdminHome() {
+  const { classrooms } = useClassroomStore();
+  const activeStudents = classrooms.reduce((s, c) => s + c.students.filter(st => st.status === 'active').length, 0);
+  const totalEnrolments = classrooms.reduce((s, c) => s + c.students.length, 0);
+
+  const activities = classrooms.flatMap(c => [
+    ...c.announcements.map(a => ({ c: "News", t: `${c.name} - ${a.content.substring(0, 40)}...`, stamp: new Date(a.createdAt).getTime(), w: timeAgoStr(a.createdAt) })),
+    ...c.meetings.filter(m => m.status === 'scheduled').map(m => ({ c: "Live", t: `${m.title} scheduled for ${c.name}`, stamp: new Date(m.scheduledAt).getTime() - 100000, w: timeAgoStr(m.scheduledAt) })),
+    ...c.quizzes.filter(q => q.status === 'published').map(q => ({ c: "Exam", t: `${q.title} published in ${c.name}`, stamp: new Date(q.availableFrom).getTime(), w: timeAgoStr(q.availableFrom) })),
+  ]).sort((a, b) => b.stamp - a.stamp).slice(0, 5);
+
   return (
     <div className="space-y-6 text-cream">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold">Overview</h1>
-          <p className="text-cream/60 text-sm mt-1">Academy performance · March 2026</p>
+          <p className="text-cream/60 text-sm mt-1">Academy performance · Real-time</p>
         </div>
         <div className="flex gap-2">
           {["7d", "30d", "90d", "All"].map((t, i) => (
@@ -43,8 +62,8 @@ function AdminHome() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Active Students" value="2,847" delta="+12.4%" icon={Users} />
-        <Stat label="Course Enrolments" value="4,128" delta="+8.1%" icon={BookOpen} />
+        <Stat label="Active Students" value={activeStudents.toString()} delta="+12.4%" icon={Users} />
+        <Stat label="Course Enrolments" value={totalEnrolments.toString()} delta="+8.1%" icon={BookOpen} />
         <Stat label="Revenue (MTD)" value="₹86.4L" delta="+18.7%" icon={IndianRupee} />
         <Stat label="Placement Rate" value="95.2%" delta="-0.3%" up={false} icon={Briefcase} />
       </div>
@@ -93,19 +112,13 @@ function AdminHome() {
         <DarkCard>
           <h3 className="font-display font-bold text-lg">Recent activity</h3>
           <ul className="mt-4 space-y-3">
-            {[
-              { c: "Enrolment", t: "Aanya Sharma joined Staff Nursing", w: "2m" },
-              { c: "Payment", t: "₹45,000 received from Rahul Verma", w: "11m" },
-              { c: "Placement", t: "Apollo confirmed 12 hires", w: "1h" },
-              { c: "Exam", t: "Anatomy Final completed by 184 students", w: "3h" },
-              { c: "Course", t: "New module published · Trauma Care", w: "5h" },
-            ].map((a) => (
-              <li key={a.t} className="flex items-start gap-3 border-b border-cream/10 pb-3 last:border-0">
+            {activities.length > 0 ? activities.map((a, i) => (
+              <li key={i} className="flex items-start gap-3 border-b border-cream/10 pb-3 last:border-0 hover:bg-cream/[0.02] transition-colors rounded p-1">
                 <span className="bg-lime/15 text-lime text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded">{a.c}</span>
-                <span className="flex-1 text-sm">{a.t}</span>
-                <span className="text-[10px] text-cream/50 font-mono">{a.w}</span>
+                <span className="flex-1 text-sm line-clamp-2">{a.t}</span>
+                <span className="text-[10px] text-cream/50 font-mono shrink-0 pt-0.5">{a.w}</span>
               </li>
-            ))}
+            )) : <li className="text-sm text-cream/50 text-center py-4">No recent activity</li>}
           </ul>
         </DarkCard>
 

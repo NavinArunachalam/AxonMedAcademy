@@ -1,9 +1,34 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Stethoscope, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { authActions, classroomStore } from "@/lib/classroomStore";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
 function Login() {
+  const navigate = useNavigate();
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    const success = authActions.login(userId, password);
+    if (!success) {
+      setError("Invalid User ID or Password");
+      return;
+    }
+    
+    // Check role and navigate
+    const state = classroomStore.getState();
+    if (state.currentUser?.role === "admin") {
+      navigate({ to: "/admin/dashboard" });
+    } else {
+      navigate({ to: "/student/dashboard" });
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Left visual */}
@@ -45,20 +70,21 @@ function Login() {
           <h2 className="font-display text-3xl font-bold text-plum-dark">Sign in</h2>
           <p className="mt-2 text-sm text-foreground/65">Enter your credentials to access your portal.</p>
 
-          <form className="mt-8 space-y-4">
+          <form onSubmit={handleLogin} className="mt-8 space-y-4">
+            {error && <div className="text-red-500 text-sm font-semibold p-3 bg-red-50 rounded-lg">{error}</div>}
             <div>
-              <label className="block text-xs font-semibold text-plum-dark mb-1.5">Email</label>
-              <input type="email" placeholder="you@example.com" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" />
+              <label className="block text-xs font-semibold text-plum-dark mb-1.5">User ID</label>
+              <input value={userId} onChange={e => setUserId(e.target.value)} type="text" placeholder="e.g. Ajay or Admin" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" required />
             </div>
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-xs font-semibold text-plum-dark">Password</label>
                 <a href="#" className="text-xs text-plum font-semibold">Forgot?</a>
               </div>
-              <input type="password" placeholder="••••••••" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" />
+              <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" required />
             </div>
 
-            <button type="button" className="group w-full inline-flex items-center justify-center gap-2 rounded-full bg-plum-dark px-6 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition">
+            <button type="submit" className="group w-full inline-flex items-center justify-center gap-2 rounded-full bg-plum-dark px-6 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition">
               Sign in <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
@@ -67,19 +93,12 @@ function Login() {
             <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
           </div>
 
-          <button className="w-full rounded-full border border-border bg-card px-6 py-3 text-sm font-semibold text-plum-dark hover:bg-secondary transition">
-            Continue with Google
-          </button>
-
           <div className="mt-6 rounded-2xl border border-dashed border-plum/30 bg-secondary/60 p-4">
-            <div className="text-[10px] uppercase tracking-widest text-plum font-bold">Demo access</div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Link to="/student/dashboard" className="rounded-full bg-plum-dark text-cream text-xs font-semibold py-2.5 text-center hover:bg-plum">
-                Student portal →
-              </Link>
-              <Link to="/admin/dashboard" className="rounded-full bg-lime text-plum-dark text-xs font-bold py-2.5 text-center hover:brightness-95">
-                Admin console →
-              </Link>
+            <div className="text-[10px] uppercase tracking-widest text-plum font-bold">Demo Accounts</div>
+            <div className="mt-2 text-xs text-foreground/60 space-y-1">
+              <p>Admin: ID `Admin`, Pass `axon@admin`</p>
+              <p>Student 1: ID `Ajay`, Pass `1111`</p>
+              <p>Student 2: ID `Navin`, Pass `2222`</p>
             </div>
           </div>
 

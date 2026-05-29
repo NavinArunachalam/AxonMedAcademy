@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, Link } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -58,15 +58,15 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
         {nav.map((item) => {
           const isActive = currentPath === item.to || (item.to !== "/" && currentPath.startsWith(item.to + "/"));
           return (
-            <a
+            <Link
               key={item.label}
-              href={item.to}
+              to={item.to}
               onClick={() => setMobileMenuOpen(false)}
               className={`${linkBaseClass} ${isActive ? linkActiveClass : ""}`}
             >
               <item.icon className="w-[18px] h-[18px] opacity-75 shrink-0" />
               {item.label}
-            </a>
+            </Link>
           );
         })}
       </nav>

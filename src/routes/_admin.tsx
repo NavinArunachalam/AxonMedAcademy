@@ -1,12 +1,14 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, ClipboardList,
-  Briefcase, BarChart3, CreditCard, Settings,
+  Briefcase, BarChart3, CreditCard, Settings, School,
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
+import { useClassroomStore } from "@/lib/classroomStore";
 
 const NAV = [
   { label: "Overview", to: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Classrooms", to: "/admin/classrooms", icon: School },
   { label: "Courses", to: "/admin/courses", icon: BookOpen },
   { label: "Students", to: "/admin/students", icon: Users },
   { label: "Faculty", to: "/admin/faculty", icon: GraduationCap },
@@ -18,14 +20,28 @@ const NAV = [
 ];
 
 export const Route = createFileRoute("/_admin")({
-  component: () => (
+  component: AdminLayout,
+});
+
+function AdminLayout() {
+  const { currentUser } = useClassroomStore();
+
+  if (!currentUser || currentUser.role !== "admin") {
+    return <Navigate to="/login" />;
+  }
+
+  return (
     <PortalShell
       variant="admin"
       brand="Medicore Academy"
       nav={NAV}
-      user={{ name: "Vikram Mehta", role: "Super Admin", initials: "VM" }}
+      user={{
+        name: currentUser.name,
+        role: "Super Admin",
+        initials: currentUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
+      }}
     >
       <Outlet />
     </PortalShell>
-  ),
-});
+  );
+}
