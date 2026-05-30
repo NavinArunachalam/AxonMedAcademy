@@ -1,0 +1,608 @@
+const express = require('express');
+const router = express.Router();
+
+const User = require('../models/User');
+const Quiz = require('../models/Quiz');
+const QuizAttempt = require('../models/QuizAttempt');
+const Classroom = require('../models/Classroom');
+const { protect, restrictTo } = require('../middleware/auth');
+
+// Helper to shuffle an array (Fisher-Yates)
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// GET /classroom/:classroomId → Get all quizzes for a classroom
+router.get('/classroom/:classroomId', protect, async (req, res, next) => {
+  try {
+    const classroom = await Classroom.findById(req.params.classroomId);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isEnrolled = classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active');
+    if (!isAdmin && !isEnrolled) {
+      return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
+    }
+
+    // Students only see published or closed quizzes. Admins see all (draft, published, closed)
+    const filter = { classroom: req.params.classroomId };
+    if (!isAdmin) {
+      filter.status = { $in: ['published', 'closed'] };
+    }
+
+    // Project out correct options for students
+    let quizzes = await Quiz.find(filter).sort({ createdAt: -1 });
+
+    if (!isAdmin) {
+      quizzes = quizzes.map(quiz => {
+        const qObj = quiz.toObject();
+        qObj.questions = qObj.questions.map(q => {
+          q.options = q.options.map(opt => {
+            const { isCorrect, ...rest } = opt;
+            return rest;
+          });
+          delete q.explanation;
+          return q;
+        });
+        return qObj;
+      });
+    }
+
+    res.json({ success: true, quizzes });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id → Get quiz detail
+router.get('/:id', protect, async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    const classroom = await Classroom.findById(quiz.classroom);
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
+
+    if (!isAdmin && !isEnrolled) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (!isAdmin && quiz.status === 'draft') {
+      return res.status(403).json({ success: false, message: 'Quiz is not available yet' });
+    }
+
+    let quizResponse = quiz.toObject();
+    // Hide correct answers and explanations for students
+    if (!isAdmin) {
+      quizResponse.questions = quizResponse.questions.map(q => {
+        q.options = q.options.map(opt => {
+          const { isCorrect, ...rest } = opt;
+          return rest;
+        });
+        delete q.explanation;
+        return q;
+      });
+    }
+
+    res.json({ success: true, quiz: quizResponse });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /:id/attempt/start → Student: start quiz attempt
+router.post('/:id/attempt/start', protect, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const quiz = await Quiz.findById(id);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    if (quiz.status !== 'published') {
+      return res.status(400).json({ success: false, message: 'This quiz is not open for attempts' });
+    }
+
+    // Check available dates
+    const now = new Date();
+    if (quiz.availableFrom && now < new Date(quiz.availableFrom)) {
+      return res.status(400).json({ success: false, message: 'This quiz is not available yet' });
+    }
+    if (quiz.availableUntil && now > new Date(quiz.availableUntil)) {
+      return res.status(400).json({ success: false, message: 'This quiz deadline has passed' });
+    }
+
+    // Check attempt limits
+    const existingAttempts = await QuizAttempt.countDocuments({ quiz: id, student: req.user._id });
+    if (existingAttempts >= quiz.maxAttempts) {
+      return res.status(400).json({ success: false, message: 'You have reached the maximum number of attempts allowed for this quiz' });
+    }
+
+    // Snapshot question order for this student (apply randomization if enabled)
+    let questionsList = [...quiz.questions];
+    if (quiz.randomizeQuestions) {
+      questionsList = shuffleArray(questionsList);
+    }
+
+    const questionOrder = questionsList.map(q => q._id);
+
+    const attempt = await QuizAttempt.create({
+      quiz: id,
+      student: req.user._id,
+      classroom: quiz.classroom,
+      attemptNo: existingAttempts + 1,
+      status: 'in_progress',
+      startedAt: new Date(),
+      questionOrder,
+      answers: []
+    });
+
+    // Strip answers and return questions
+    const sanitizedQuestions = questionsList.map(q => {
+      let optionsList = [...q.options];
+      if (quiz.randomizeOptions && q.type !== 'true_false') {
+        optionsList = shuffleArray(optionsList);
+      }
+      return {
+        _id: q._id,
+        type: q.type,
+        text: q.text,
+        image: q.image,
+        marks: q.marks,
+        options: optionsList.map(o => ({ label: o.label, text: o.text })) // omit isCorrect
+      };
+    });
+
+    res.json({
+      success: true,
+      attempt: {
+        _id: attempt._id,
+        startedAt: attempt.startedAt,
+        attemptNo: attempt.attemptNo,
+        duration: quiz.duration
+      },
+      questions: sanitizedQuestions
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /:id/attempt/answer → Student: save/update answer during quiz
+router.put('/:id/attempt/answer', protect, async (req, res, next) => {
+  try {
+    const { attemptId, questionId, selectedOptions, timeTakenSec } = req.body;
+    const attempt = await QuizAttempt.findOne({ _id: attemptId, student: req.user._id });
+
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Active attempt not found' });
+    }
+
+    if (attempt.status !== 'in_progress') {
+      return res.status(400).json({ success: false, message: 'Attempt has already been submitted' });
+    }
+
+    // Check if answer already exists
+    const answerIndex = attempt.answers.findIndex(a => a.questionId.toString() === questionId.toString());
+    if (answerIndex > -1) {
+      attempt.answers[answerIndex].selectedOptions = selectedOptions;
+      if (timeTakenSec !== undefined) {
+        attempt.answers[answerIndex].timeTakenSec = timeTakenSec;
+      }
+    } else {
+      attempt.answers.push({
+        questionId,
+        selectedOptions,
+        timeTakenSec: timeTakenSec || 0
+      });
+    }
+
+    await attempt.save();
+    res.json({ success: true, message: 'Answer saved' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /:id/attempt/submit → Student: submit quiz and auto-score
+router.post('/:id/attempt/submit', protect, async (req, res, next) => {
+  try {
+    const { attemptId } = req.body;
+    const attempt = await QuizAttempt.findOne({ _id: attemptId, student: req.user._id }).populate('quiz');
+
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Active attempt not found' });
+    }
+
+    if (attempt.status !== 'in_progress') {
+      return res.status(400).json({ success: false, message: 'Attempt already submitted' });
+    }
+
+    const quiz = attempt.quiz;
+    let rawMarks = 0;
+
+    // Loop questions and grade answers
+    attempt.answers = attempt.answers.map(ans => {
+      const q = quiz.questions.find(quest => quest._id.toString() === ans.questionId.toString());
+      if (!q) return ans;
+
+      // Extract correct labels
+      const correctOptions = q.options.filter(o => o.isCorrect).map(o => o.label);
+
+      // Check if selected matches correct exactly
+      const isCorrect = ans.selectedOptions.length === correctOptions.length &&
+        ans.selectedOptions.every(opt => correctOptions.includes(opt));
+
+      let marksAwarded = 0;
+      if (isCorrect) {
+        marksAwarded = q.marks;
+        rawMarks += q.marks;
+      } else {
+        if (quiz.negativeMarking) {
+          marksAwarded = -quiz.negativeMarkValue;
+          rawMarks -= quiz.negativeMarkValue;
+        }
+      }
+
+      return {
+        questionId: ans.questionId,
+        selectedOptions: ans.selectedOptions,
+        isCorrect,
+        marksAwarded,
+        timeTakenSec: ans.timeTakenSec
+      };
+    });
+
+    const finalMarks = Math.max(0, rawMarks);
+    const percentage = quiz.totalMarks > 0 ? (finalMarks / quiz.totalMarks) * 100 : 0;
+    const passed = percentage >= quiz.passPercent;
+
+    attempt.status = 'submitted';
+    attempt.submittedAt = new Date();
+    attempt.score = {
+      rawMarks: finalMarks,
+      totalMarks: quiz.totalMarks,
+      percentage,
+      passed
+    };
+
+    await attempt.save();
+    res.json({ success: true, message: 'Quiz submitted successfully', score: attempt.score });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/attempt/my-result → Student: get my own attempt result
+router.get('/:id/attempt/my-result', protect, async (req, res, next) => {
+  try {
+    const { attemptId } = req.query;
+    let attempt;
+    if (attemptId) {
+      attempt = await QuizAttempt.findOne({ _id: attemptId, student: req.user._id }).populate('quiz');
+    } else {
+      // get latest attempt
+      attempt = await QuizAttempt.findOne({ quiz: req.params.id, student: req.user._id })
+        .populate('quiz')
+        .sort({ attemptNo: -1 });
+    }
+
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt result not found' });
+    }
+
+    // Join options isCorrect and explanations to results
+    const quiz = attempt.quiz;
+    const answersWithExplanations = attempt.answers.map(ans => {
+      const q = quiz.questions.find(quest => quest._id.toString() === ans.questionId.toString());
+      return {
+        questionId: ans.questionId,
+        selectedOptions: ans.selectedOptions,
+        isCorrect: ans.isCorrect,
+        marksAwarded: ans.marksAwarded,
+        timeTakenSec: ans.timeTakenSec,
+        questionText: q ? q.text : '',
+        explanation: q ? q.explanation : '',
+        correctOptions: q ? q.options.filter(o => o.isCorrect).map(o => o.label) : [],
+        options: q ? q.options.map(o => ({ label: o.label, text: o.text, isCorrect: o.isCorrect })) : []
+      };
+    });
+
+    res.json({
+      success: true,
+      score: attempt.score,
+      submittedAt: attempt.submittedAt,
+      attemptNo: attempt.attemptNo,
+      answers: answersWithExplanations
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/leaderboard → Get leaderboard if enabled or if user is admin
+router.get('/:id/leaderboard', protect, async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    if (!quiz.showLeaderboard && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Leaderboard is disabled for this quiz' });
+    }
+
+    // Get best attempt per student
+    const attempts = await QuizAttempt.aggregate([
+      { $match: { quiz: quiz._id, status: 'submitted' } },
+      { $sort: { 'score.rawMarks': -1, submittedAt: 1 } },
+      {
+        $group: {
+          _id: '$student',
+          bestAttempt: { $first: '$$ROOT' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'studentInfo'
+        }
+      },
+      { $unwind: '$studentInfo' },
+      {
+        $project: {
+          studentName: { $concat: ['$studentInfo.firstName', ' ', '$studentInfo.lastName'] },
+          avatar: '$studentInfo.avatar',
+          score: '$bestAttempt.score.rawMarks',
+          totalMarks: '$bestAttempt.score.totalMarks',
+          percentage: '$bestAttempt.score.percentage',
+          timeTaken: '$bestAttempt.submittedAt',
+          attemptNo: '$bestAttempt.attemptNo'
+        }
+      },
+      { $sort: { score: -1, percentage: -1 } }
+    ]);
+
+    res.json({ success: true, leaderboard: attempts });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Admin-only endpoints
+router.use(protect);
+router.use(restrictTo('admin', 'superadmin'));
+
+// POST / → Admin: create quiz
+router.post('/', async (req, res, next) => {
+  try {
+    const {
+      classroom, title, instructions, availableFrom, availableUntil, duration,
+      maxAttempts, randomizeQuestions, randomizeOptions, showLeaderboard,
+      negativeMarking, negativeMarkValue, passPercent, questions, status
+    } = req.body;
+
+    if (!classroom || !title) {
+      return res.status(400).json({ success: false, message: 'Classroom and title are required' });
+    }
+
+    const quiz = await Quiz.create({
+      classroom,
+      title,
+      instructions,
+      createdBy: req.user._id,
+      availableFrom,
+      availableUntil,
+      duration: duration || null,
+      maxAttempts: maxAttempts || 1,
+      randomizeQuestions: randomizeQuestions !== undefined ? randomizeQuestions : true,
+      randomizeOptions: randomizeOptions !== undefined ? randomizeOptions : true,
+      showLeaderboard: !!showLeaderboard,
+      negativeMarking: !!negativeMarking,
+      negativeMarkValue: negativeMarkValue || 0.25,
+      passPercent: passPercent || 40,
+      questions: questions || [],
+      status: status || 'draft'
+    });
+
+    // Increment quiz counts in classroom
+    await Classroom.findByIdAndUpdate(classroom, {
+      $inc: { 'stats.totalQuizzes': 1 }
+    });
+
+    res.status(201).json({ success: true, message: 'Quiz created successfully', quiz });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /:id → Admin: update quiz settings and questions
+router.put('/:id', async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    // Update settings
+    const keys = [
+      'title', 'instructions', 'availableFrom', 'availableUntil', 'duration',
+      'maxAttempts', 'randomizeQuestions', 'randomizeOptions', 'showLeaderboard',
+      'negativeMarking', 'negativeMarkValue', 'passPercent', 'questions', 'status'
+    ];
+    keys.forEach(k => {
+      if (req.body[k] !== undefined) {
+        quiz[k] = req.body[k];
+      }
+    });
+
+    await quiz.save();
+    res.json({ success: true, message: 'Quiz updated successfully', quiz });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /:id → Admin: delete quiz
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findByIdAndDelete(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    // Decrement quiz counts in classroom
+    await Classroom.findByIdAndUpdate(quiz.classroom, {
+      $inc: { 'stats.totalQuizzes': -1 }
+    });
+
+    res.json({ success: true, message: 'Quiz deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /:id/publish → Admin: publish quiz and notify
+router.put('/:id/publish', async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    quiz.status = 'published';
+    quiz.notified = true;
+    quiz.notifiedAt = new Date();
+    await quiz.save();
+
+    // Socket alert
+    try {
+      const { getIO } = require('../config/socket');
+      const io = getIO();
+      io.to(`classroom:${quiz.classroom}`).emit('quiz:published', {
+        quizId: quiz._id,
+        title: quiz.title,
+        availableUntil: quiz.availableUntil
+      });
+    } catch (socketErr) {
+      console.log('[Socket Error] Could not emit quiz published alert:', socketErr.message);
+    }
+
+    res.json({ success: true, message: 'Quiz published successfully. Students notified.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /:id/close → Admin: close quiz submissions
+router.put('/:id/close', async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status: 'closed' } },
+      { new: true }
+    );
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+    res.json({ success: true, message: 'Quiz submissions closed', quiz });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/report → Admin: get quiz mark report table
+router.get('/:id/report', async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' })
+      .populate('student', 'firstName lastName email phone')
+      .sort({ 'score.rawMarks': -1 });
+
+    res.json({ success: true, attempts });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/report/export → Admin: CSV export template
+router.get('/:id/report/export', async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' })
+      .populate('student', 'firstName lastName email');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=quiz-${req.params.id}-report.csv`);
+
+    let csvContent = 'Student Name,Email,Attempt No,Raw Score,Total Marks,Percentage,Passed,Submitted Time\n';
+    attempts.forEach(a => {
+      const name = `${a.student.firstName} ${a.student.lastName}`;
+      csvContent += `"${name}","${a.student.email}",${a.attemptNo},${a.score.rawMarks},${a.score.totalMarks},${a.score.percentage.toFixed(2)}%,${a.score.passed ? 'Yes' : 'No'},"${a.submittedAt.toISOString()}"\n`;
+    });
+
+    res.send(csvContent);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/analytics → Admin: question analytics (identify weak topics)
+router.get('/:id/analytics', async (req, res, next) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' });
+    const totalAttempts = attempts.length;
+
+    // Compile analytics per question
+    const questionAnalytics = quiz.questions.map(q => {
+      let wrongCount = 0;
+      let correctCount = 0;
+      let unansweredCount = 0;
+
+      attempts.forEach(attempt => {
+        const answer = attempt.answers.find(a => a.questionId.toString() === q._id.toString());
+        if (!answer || answer.selectedOptions.length === 0) {
+          unansweredCount++;
+        } else if (answer.isCorrect) {
+          correctCount++;
+        } else {
+          wrongCount++;
+        }
+      });
+
+      const wrongRate = totalAttempts > 0 ? (wrongCount / totalAttempts) * 100 : 0;
+      const correctRate = totalAttempts > 0 ? (correctCount / totalAttempts) * 100 : 0;
+
+      return {
+        questionId: q._id,
+        text: q.text,
+        type: q.type,
+        correctCount,
+        wrongCount,
+        unansweredCount,
+        correctRate,
+        wrongRate
+      };
+    });
+
+    res.json({
+      success: true,
+      totalAttempts,
+      analytics: questionAnalytics
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+module.exports = router;

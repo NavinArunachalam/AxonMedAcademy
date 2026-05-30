@@ -1,0 +1,36 @@
+const http = require('http');
+const dotenv = require('dotenv');
+const app = require('./src/app');
+const connectDB = require('./src/config/db');
+const { initSocket } = require('./src/config/socket');
+
+// Load environment configurations
+dotenv.config();
+
+const PORT = process.env.PORT || 5000;
+
+// Initialize Server
+const server = http.createServer(app);
+
+// Initialize Socket.io
+initSocket(server);
+
+// Boot database & listen
+const startServer = async () => {
+  try {
+    await connectDB();
+    
+    server.listen(PORT, () => {
+      console.log(`===================================================`);
+      console.log(`🏥 HTA Platform Service is running on port ${PORT}`);
+      console.log(`🌐 Development Endpoint: http://localhost:${PORT}`);
+      console.log(`🛡️  Current Environment: ${process.env.NODE_ENV}`);
+      console.log(`===================================================`);
+    });
+  } catch (error) {
+    console.error(`[Boot Error] Platform failed to start:`, error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

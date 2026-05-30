@@ -1,0 +1,112 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Stethoscope, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { authActions, classroomStore } from "@/lib/classroomStore";
+
+export const Route = createFileRoute("/login")({ component: Login });
+
+function Login() {
+  const navigate = useNavigate();
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    const success = authActions.login(userId, password);
+    if (!success) {
+      setError("Invalid User ID or Password");
+      return;
+    }
+    
+    // Check role and navigate
+    const state = classroomStore.getState();
+    if (state.currentUser?.role === "admin") {
+      navigate({ to: "/admin/dashboard" });
+    } else {
+      navigate({ to: "/student/dashboard" });
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Left visual */}
+      <div className="hidden lg:flex w-1/2 relative bg-plum-dark text-cream p-12 flex-col justify-between overflow-hidden">
+        <div className="absolute inset-0 bg-noise opacity-30" />
+        <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full bg-lime/30 blur-3xl" />
+        <div className="absolute -bottom-32 -right-20 h-80 w-80 rounded-full bg-plum/50 blur-3xl" />
+
+        <Link to="/" className="relative inline-flex items-center gap-2 w-fit">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-lime text-plum-dark">
+            <Stethoscope className="h-5 w-5" />
+          </span>
+          <span className="font-display text-lg font-bold">Medicore.Academy</span>
+        </Link>
+
+        <div className="relative">
+          <h1 className="font-display text-4xl lg:text-5xl font-bold leading-[1.05] tracking-[-0.02em]">
+            Welcome back.<br />
+            Your <span className="bg-lime text-plum-dark px-2 rounded">cohort</span> is waiting.
+          </h1>
+          <p className="mt-5 text-cream/70 max-w-md">
+            Pick up where you left off — live classes, recorded modules, exam prep, and your career roadmap.
+          </p>
+        </div>
+
+        <div className="relative text-xs text-cream/50">© {new Date().getFullYear()} Medicore Academy</div>
+      </div>
+
+      {/* Right form */}
+      <div className="flex-1 grid place-items-center p-6 lg:p-12 bg-background">
+        <div className="w-full max-w-md">
+          <Link to="/" className="lg:hidden inline-flex items-center gap-2 mb-8">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-plum-dark text-lime">
+              <Stethoscope className="h-5 w-5" />
+            </span>
+            <span className="font-display font-bold text-plum-dark">Medicore.Academy</span>
+          </Link>
+
+          <h2 className="font-display text-3xl font-bold text-plum-dark">Sign in</h2>
+          <p className="mt-2 text-sm text-foreground/65">Enter your credentials to access your portal.</p>
+
+          <form onSubmit={handleLogin} className="mt-8 space-y-4">
+            {error && <div className="text-red-500 text-sm font-semibold p-3 bg-red-50 rounded-lg">{error}</div>}
+            <div>
+              <label className="block text-xs font-semibold text-plum-dark mb-1.5">User ID</label>
+              <input value={userId} onChange={e => setUserId(e.target.value)} type="text" placeholder="e.g. Ajay or Admin" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" required />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-xs font-semibold text-plum-dark">Password</label>
+                <a href="#" className="text-xs text-plum font-semibold">Forgot?</a>
+              </div>
+              <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" required />
+            </div>
+
+            <button type="submit" className="group w-full inline-flex items-center justify-center gap-2 rounded-full bg-plum-dark px-6 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition">
+              Sign in <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </form>
+
+          <div className="my-6 flex items-center gap-3 text-xs text-foreground/50">
+            <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-dashed border-plum/30 bg-secondary/60 p-4">
+            <div className="text-[10px] uppercase tracking-widest text-plum font-bold">Demo Accounts</div>
+            <div className="mt-2 text-xs text-foreground/60 space-y-1">
+              <p>Admin: ID `Admin`, Pass `axon@admin`</p>
+              <p>Student 1: ID `Ajay`, Pass `1111`</p>
+              <p>Student 2: ID `Navin`, Pass `2222`</p>
+            </div>
+          </div>
+
+          <p className="mt-6 text-center text-sm text-foreground/65">
+            New to Medicore? <Link to="/courses" className="font-semibold text-plum-dark">Browse courses →</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

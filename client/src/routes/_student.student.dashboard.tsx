@@ -1,0 +1,193 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  Flame, Trophy, Clock, BookOpen, PlayCircle, ChevronRight, CheckCircle2,
+} from "lucide-react";
+import { Card, StatTile } from "@/components/portal/PortalShell";
+import { useClassroomStore } from "@/lib/classroomStore";
+
+function timeUntil(dateIso: string) {
+  const diff = (new Date(dateIso).getTime() - Date.now()) / 60000;
+  if(diff < 0) return "Started";
+  if(diff < 60) return `${Math.floor(diff)}m`;
+  return `${Math.floor(diff/60)}h ${Math.floor(diff%60)}m`;
+}
+
+function timeAgoDate(dateIso: string) {
+  return new Date(dateIso).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+export const Route = createFileRoute("/_student/student/dashboard")({
+  component: Dashboard,
+});
+
+function Dashboard() {
+  const { classrooms, currentUser } = useClassroomStore();
+  const studentId = currentUser?.id || "";
+  
+  const enrolledClassrooms = classrooms.filter(c => c.students.some(s => s.id === studentId && s.status === 'active'));
+  const activeCoursesCount = enrolledClassrooms.length;
+  
+  const allMeetings = enrolledClassrooms.flatMap(c => c.meetings.map(m => ({ ...m, classroomName: c.name })));
+  const nextLiveMeeting = allMeetings.filter(m => m.status === 'scheduled').sort((a,b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+  
+  const totalQuizzes = enrolledClassrooms.reduce((s, c) => s + c.quizzes.filter(q => q.status === 'published').length, 0);
+  const totalSubmissions = enrolledClassrooms.reduce((s, c) => s + c.quizzes.reduce((ss, q) => ss + q.attempts.filter(a => a.studentId === studentId && a.status === 'submitted').length, 0), 0);
+  
+  const studentAnnouncements = enrolledClassrooms.flatMap(c => c.announcements.map(a => ({ ...a, classroomName: c.name }))).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3);
+  const upcomingEvents = allMeetings.filter(m => m.status === 'scheduled' || m.status === 'live').sort((a,b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()).slice(0, 3);
+  const nextClassText = nextLiveMeeting ? timeUntil(nextLiveMeeting.scheduledAt) : "No classes scheduled";
+
+  const totalWatchedSeconds = enrolledClassrooms.reduce((s, c) => {
+    return s + c.recordings.reduce((ss, r) => {
+      const vs = r.viewStats.find(v => v.studentId === studentId);
+      return ss + (vs ? (vs.watchedPercent / 100) * r.duration : 0);
+    }, 0);
+  }, 0);
+  const totalHoursWatched = Math.round(totalWatchedSeconds / 3600);
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome */}
+      <div className="rounded-3xl bg-plum-dark text-cream p-7 lg:p-9 relative overflow-hidden">
+        <div className="absolute -top-20 -right-20 h-72 w-72 rounded-full bg-lime/20 blur-3xl" />
+        <div className="relative flex flex-col lg:flex-row lg:items-center gap-6 justify-between">
+          <div className="max-w-xl">
+            <div className="text-xs uppercase tracking-widest text-lime">Welcome back</div>
+            <h1 className="mt-2 font-display text-3xl lg:text-4xl font-bold">
+              Hello, {currentUser?.name?.split(" ")[0] || "Student"} 👋
+            </h1>
+            <p className="mt-2 text-cream/75 text-sm">
+              You are enrolled in <b className="text-lime">{activeCoursesCount} classroom{activeCoursesCount !== 1 ? "s" : ""}</b>. Your next live class
+              starts in <b className="text-cream">{nextClassText}</b>.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <Link to="/student/live" className="inline-flex items-center gap-2 rounded-full bg-lime px-5 py-2.5 text-sm font-semibold text-plum-dark">
+                Join live class <PlayCircle className="h-4 w-4" />
+              </Link>
+              <Link to="/student/my-courses" className="rounded-full border border-cream/30 px-5 py-2.5 text-sm font-semibold">
+                Continue learning
+              </Link>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 lg:w-[380px]">
+            {[
+              { k: "Hours", v: totalHoursWatched.toString() },
+              { k: "Exams Done", v: totalSubmissions.toString() },
+              { k: "Classrooms", v: activeCoursesCount.toString() },
+            ].map((s) => (
+              <div key={s.k} className="rounded-2xl bg-cream/10 border border-cream/10 p-4 text-center">
+                <div className="font-display text-2xl font-bold text-lime">{s.v}</div>
+                <div className="text-[11px] uppercase tracking-widest mt-1 text-cream/70">{s.k}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile label="Active Courses" value={activeCoursesCount.toString()} delta="+1 this month" icon={BookOpen} accent="plum" />
+        <StatTile label="Hours This Week" value="18.5" delta="+12% vs last" icon={Clock} accent="lime" />
+        <StatTile label="Assignments Done" value={`${totalSubmissions}/${totalQuizzes}`} icon={CheckCircle2} accent="plum" />
+        <StatTile label="Achievement Points" value="1,284" delta="+86 today" icon={Trophy} accent="lime" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Continue */}
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-lg font-bold text-plum-dark">Continue learning</h3>
+            <Link to="/student/my-courses" className="text-xs font-medium text-plum hover:text-plum-dark inline-flex items-center gap-1">
+              All courses <ChevronRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="mt-4 space-y-3">
+            {enrolledClassrooms.map((c) => {
+              const enrolledStudentDetails = c.students.find(s => s.id === studentId);
+              const progress = enrolledStudentDetails ? enrolledStudentDetails.progress : 0;
+              return (
+              <div key={c.id} className="flex items-center gap-4 rounded-2xl border border-border p-4 hover:border-plum/40 transition-colors">
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-plum-dark shrink-0">
+                  <PlayCircle className="h-6 w-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-plum-dark truncate">{c.name}</div>
+                  <div className="text-xs text-muted-foreground">{c.program}</div>
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                    <div className="h-full bg-plum-dark rounded-full" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+                <div className="text-xs font-mono text-muted-foreground">{progress}%</div>
+              </div>
+            )})}
+            {enrolledClassrooms.length === 0 && <p className="text-sm text-muted-foreground">You are not enrolled in any courses.</p>}
+          </div>
+        </Card>
+
+        {/* Streak */}
+        <Card>
+          <div className="flex items-center gap-2">
+            <Flame className="h-5 w-5 text-orange-500" />
+            <h3 className="font-display text-lg font-bold text-plum-dark">Streak</h3>
+          </div>
+          <div className="mt-3 font-display text-5xl font-bold text-plum-dark">14<span className="text-base font-medium text-muted-foreground"> days</span></div>
+          <p className="mt-1 text-xs text-muted-foreground">Best: 21 days · Keep it up!</p>
+          <div className="mt-4 grid grid-cols-7 gap-1.5">
+            {Array.from({ length: 28 }).map((_, i) => (
+              <div
+                key={i}
+                className={`aspect-square rounded ${
+                  i < 14 ? "bg-lime" : i < 21 ? "bg-lime-soft" : "bg-secondary"
+                }`}
+              />
+            ))}
+          </div>
+          <div className="mt-5 rounded-xl bg-plum-dark text-cream p-4">
+            <div className="text-xs uppercase tracking-widest text-lime">Next badge</div>
+            <div className="font-display font-bold mt-1">Iron Discipline</div>
+            <div className="text-xs text-cream/70 mt-1">7 more days to unlock</div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Upcoming + Announcements */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <h3 className="font-display text-lg font-bold text-plum-dark">Upcoming Classes</h3>
+          <ul className="mt-4 space-y-3">
+            {upcomingEvents.map((e) => (
+              <li key={e.id} className="flex items-center gap-4 rounded-xl border border-border p-3">
+                <div className="text-center w-14 shrink-0">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{new Date(e.scheduledAt).toLocaleDateString("en-IN", { weekday: "short" })}</div>
+                  <div className="font-display font-bold text-plum-dark text-sm">{new Date(e.scheduledAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-plum-dark truncate">{e.title}</div>
+                  <div className="text-xs text-muted-foreground truncate">{e.classroomName}</div>
+                </div>
+                <button className={`text-xs font-semibold rounded-full px-3 py-1.5 ${e.status === 'live' ? "bg-red-500/20 text-red-600" : "bg-plum-dark text-cream"}`}>{e.status === 'live' ? "Live" : "Join"}</button>
+              </li>
+            ))}
+            {upcomingEvents.length === 0 && <li className="text-sm text-muted-foreground">No upcoming classes.</li>}
+          </ul>
+        </Card>
+
+        <Card>
+          <h3 className="font-display text-lg font-bold text-plum-dark">Announcements</h3>
+          <ul className="mt-4 space-y-3">
+            {studentAnnouncements.map((a) => (
+              <li key={a.id} className="rounded-xl bg-secondary p-3.5">
+                <div className="flex justify-between items-start mb-0.5">
+                  <div className="text-[10px] uppercase tracking-widest text-plum">{a.classroomName}</div>
+                  <div className="text-[9px] text-muted-foreground">{timeAgoDate(a.createdAt)}</div>
+                </div>
+                <div className="text-sm font-semibold text-plum-dark line-clamp-2">{a.content}</div>
+              </li>
+            ))}
+            {studentAnnouncements.length === 0 && <li className="text-sm text-muted-foreground">No announcements.</li>}
+          </ul>
+        </Card>
+      </div>
+    </div>
+  );
+}

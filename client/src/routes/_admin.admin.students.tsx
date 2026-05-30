@@ -1,0 +1,384 @@
+import { createFileRoute } from "@tanstack/react-router";
+import React from "react";
+import { Search, Plus, Download, Mail, ChevronDown, ChevronUp, Video, BookOpen, ClipboardList, X } from "lucide-react";
+import { DarkCard } from "@/components/portal/PortalShell";
+import { useClassroomStore, adminActions, classroomActions, messageActions, type EnrolledStudent } from "@/lib/classroomStore";
+import { useState, useMemo } from "react";
+
+export const Route = createFileRoute("/_admin/admin/students")({
+  component: AdminStudents,
+});
+
+const statusStyle: Record<string, string> = {
+  active: "bg-lime/20 text-lime",
+  placed: "bg-blue-500/20 text-blue-300",
+  "at risk": "bg-red-500/20 text-red-300",
+  removed: "bg-red-900/40 text-red-200",
+  held: "bg-yellow-500/20 text-yellow-300",
+};
+
+function SendMessageModal({ studentId, studentName, onClose }: { studentId: string; studentName: string; onClose: () => void }) {
+  const { threads, currentUser } = useClassroomStore();
+  const [text, setText] = useState("");
+
+  const thread = threads.find(t => t.participantIds.includes(studentId) && t.participantIds.includes("admin-01") && t.type === "direct");
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    let t = thread;
+    if (!t) {
+      t = messageActions.createThread(studentId, studentName);
+    }
+    messageActions.sendMessage(t.id, "admin-01", "Admin", text.trim());
+    setText("");
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <DarkCard className="w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display text-lg font-bold text-cream">Message {studentName}</h2>
+          <button onClick={onClose} className="text-cream/50 hover:text-cream"><X className="h-5 w-5" /></button>
+        </div>
+        {thread && thread.messages.length > 0 && (
+          <div className="mb-4 space-y-2 max-h-48 overflow-y-auto">
+            {thread.messages.slice(-3).map(m => (
+              <div key={m.id} className={`rounded-xl px-3 py-2 text-sm ${m.senderId === "admin-01" ? "bg-lime/10 text-lime ml-8" : "bg-cream/5 text-cream/80 mr-8"}`}>
+                <div className="text-[10px] text-cream/50 mb-0.5">{m.senderName}</div>
+                {m.text}
+              </div>
+            ))}
+          </div>
+        )}
+        <textarea value={text} onChange={e => setText(e.target.value)} rows={3}
+          placeholder="Type your message to the student…"
+          className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-3 text-cream text-sm outline-none focus:border-lime/50 resize-none" />
+        <div className="flex gap-3 mt-3">
+          <button onClick={onClose} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
+          <button onClick={handleSend} disabled={!text.trim()} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-40">Send Message</button>
+        </div>
+      </DarkCard>
+    </div>
+  );
+}
+
+function StudentDetail({ studentId }: { studentId: string }) {
+  const { classrooms } = useClassroomStore();
+  const enrolled = classrooms.filter(c => c.students.some(s => s.id === studentId));
+
+  const totalPublishedRecs = enrolled.reduce((s, c) => s + c.recordings.filter(r => r.isPublished).length, 0);
+  const totalWatchedRecs = enrolled.reduce((s, c) =>
+    s + c.recordings.filter(r => r.isPublished && r.viewStats.some(v => v.studentId === studentId && v.watchedPercent > 0)).length, 0);
+  const totalHoursWatched = enrolled.reduce((s, c) =>
+    s + c.recordings.reduce((ss, r) => {
+      const vs = r.viewStats.find(v => v.studentId === studentId);
+      return ss + (vs ? (vs.watchedPercent / 100) * r.duration : 0);
+    }, 0), 0);
+  const avgWatchPct = totalPublishedRecs > 0
+    ? Math.round(enrolled.reduce((s, c) => s + c.recordings.filter(r => r.isPublished).reduce((ss, r) => {
+        const vs = r.viewStats.find(v => v.studentId === studentId);
+        return ss + (vs?.watchedPercent || 0);
+      }, 0), 0) / totalPublishedRecs)
+    : 0;
+
+  return (
+    <div className="bg-cream/5 rounded-xl p-4 mt-2 space-y-4">
+      {/* Activity Summary */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { l: "Classrooms", v: enrolled.length },
+          { l: "Videos Watched", v: `${totalWatchedRecs}/${totalPublishedRecs}` },
+          { l: "Hours Watched", v: `${Math.round(totalHoursWatched / 3600)}h` },
+          { l: "Avg Watch %", v: `${avgWatchPct}%` },
+        ].map(s => (
+          <div key={s.l} className="bg-cream/5 rounded-lg p-2 text-center">
+            <div className="font-display font-bold text-cream text-sm">{s.v}</div>
+            <div className="text-[9px] text-cream/50 uppercase tracking-wider mt-0.5">{s.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-classroom breakdown */}
+      {enrolled.map(c => {
+        const me = c.students.find(s => s.id === studentId)!;
+        const pubRecs = c.recordings.filter(r => r.isPublished);
+        const watchedRecs = pubRecs.filter(r => r.viewStats.some(v => v.studentId === studentId && v.watchedPercent > 0));
+        const quizAttempts = c.quizzes.flatMap(q => q.attempts.filter(a => a.studentId === studentId));
+        return (
+          <div key={c.id} className="border border-cream/10 rounded-xl p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <div className="text-cream font-semibold text-sm">{c.name}</div>
+                <div className="text-cream/50 text-[10px]">{c.program}</div>
+              </div>
+              <select value={me.status} onChange={e => classroomActions.updateStudentStatus(c.id, studentId, e.target.value as EnrolledStudent["status"])}
+                className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded border border-cream/10 bg-cream/5 text-cream outline-none`}>
+                <option value="active">Active</option>
+                <option value="held">Hold</option>
+                <option value="at risk">At Risk</option>
+                <option value="placed">Placed</option>
+                <option value="removed">Remove</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="text-cream/60">
+                <div className="text-cream/40 text-[10px] uppercase tracking-widest mb-0.5">Progress</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-cream/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-lime rounded-full" style={{ width: `${me.progress}%` }} />
+                  </div>
+                  <span className="font-mono">{me.progress}%</span>
+                </div>
+              </div>
+              <div className="text-cream/60">
+                <div className="text-cream/40 text-[10px] uppercase tracking-widest mb-0.5">Videos</div>
+                <span className="flex items-center gap-1"><Video className="h-3 w-3 text-lime" />{watchedRecs.length}/{pubRecs.length}</span>
+              </div>
+              <div className="text-cream/60">
+                <div className="text-cream/40 text-[10px] uppercase tracking-widest mb-0.5">Quiz Attempts</div>
+                <span className="flex items-center gap-1"><ClipboardList className="h-3 w-3 text-lime" />{quizAttempts.length}</span>
+              </div>
+            </div>
+            {pubRecs.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <div className="text-[10px] uppercase tracking-widest text-cream/40">Recording Progress</div>
+                {pubRecs.map(r => {
+                  const vs = r.viewStats.find(v => v.studentId === studentId);
+                  return (
+                    <div key={r.id} className="flex items-center gap-2">
+                      <span className="text-[11px] text-cream/60 flex-1 truncate">{r.title}</span>
+                      <div className="w-20 h-1.5 bg-cream/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-lime rounded-full" style={{ width: `${vs?.watchedPercent || 0}%` }} />
+                      </div>
+                      <span className="text-[11px] font-mono text-cream/50 w-8">{vs?.watchedPercent || 0}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AdminStudents() {
+  const { classrooms, courses, users } = useClassroomStore();
+  const [search, setSearch] = useState("");
+  const [courseFilter, setCourseFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", password: "", selectedClassroom: "" });
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [msgStudent, setMsgStudent] = useState<{ id: string; name: string } | null>(null);
+
+  const enrollments = useMemo(() => {
+    return classrooms.flatMap(c =>
+      c.students.map(s => ({
+        ...s,
+        course: c.program,
+        batch: c.name.split("—")[1]?.trim() || "N/A",
+        classroomId: c.id,
+        classroomName: c.name,
+        totalPubRecs: c.recordings.filter(r => r.isPublished).length,
+        watchedRecs: c.recordings.filter(r => r.isPublished && r.viewStats.some(v => v.studentId === s.id && v.watchedPercent > 0)).length,
+      }))
+    );
+  }, [classrooms]);
+
+  const filtered = enrollments.filter(e => {
+    if (courseFilter !== "All" && e.course !== courseFilter) return false;
+    if (statusFilter !== "All" && e.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!e.name.toLowerCase().includes(q) && !e.email.toLowerCase().includes(q) && !e.enrollmentId.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const total = enrollments.length;
+  const active = enrollments.filter(e => e.status === "active").length;
+  const placed = enrollments.filter(e => e.status === "placed").length;
+  const atRisk = enrollments.filter(e => e.status === "at risk").length;
+
+  const handleAddStudent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name || !form.email) return;
+    const user = adminActions.createUser({ name: form.name, email: form.email, role: "student", password: form.password || "1111" });
+    if (form.selectedClassroom) {
+      classroomActions.addStudent(form.selectedClassroom, {
+        id: user.id, name: user.name, email: user.email,
+        enrollmentId: `MCA-${new Date().getFullYear()}-${user.name.split(" ")[0].toUpperCase().slice(0,4)}`,
+        progress: 0, attendance: 0, quizAvg: 0, status: "active", addedAt: new Date().toISOString()
+      });
+    }
+    setShowAdd(false);
+    setForm({ name: "", email: "", password: "", selectedClassroom: "" });
+  };
+
+  const handleExport = () => {
+    const csv = ["Name,Email,Course,Batch,Progress,Attendance,Quiz Avg,Status,Watch Progress",
+      ...filtered.map(e => `${e.name},${e.email},${e.course},${e.batch},${e.progress}%,${e.attendance}%,${e.quizAvg}%,${e.status},${e.watchedRecs}/${e.totalPubRecs}`)
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "students.csv"; a.click();
+  };
+
+  return (
+    <div className="space-y-6 text-cream">
+      {msgStudent && <SendMessageModal studentId={msgStudent.id} studentName={msgStudent.name} onClose={() => setMsgStudent(null)} />}
+
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Students</h1>
+          <p className="text-cream/60 text-sm mt-1">{total} total enrollments</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleExport} className="inline-flex items-center gap-2 rounded-full bg-cream/10 text-cream px-4 py-2 text-sm font-semibold"><Download className="h-4 w-4" /> Export CSV</button>
+          <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold"><Plus className="h-4 w-4" /> Add Student</button>
+        </div>
+      </div>
+
+      {showAdd && (
+        <DarkCard>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-cream">Register New Student</h3>
+            <button onClick={() => setShowAdd(false)} className="text-cream/50 hover:text-cream"><X className="h-5 w-5" /></button>
+          </div>
+          <form onSubmit={handleAddStudent} className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Full Name *</label>
+                <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Student name"
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Email *</label>
+                <input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="student@example.com"
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Initial Password</label>
+                <input value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Defaults to 1111"
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Enroll in Classroom</label>
+                <select value={form.selectedClassroom} onChange={e => setForm({ ...form, selectedClassroom: e.target.value })}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+                  <option value="">None (Just register)</option>
+                  {classrooms.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={() => setShowAdd(false)} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
+              <button type="submit" className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold">Register & Enroll</button>
+            </div>
+          </form>
+        </DarkCard>
+      )}
+
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-4">
+        {[{ l: "Total", v: total }, { l: "Active", v: active }, { l: "Placed", v: placed }, { l: "At Risk", v: atRisk, warn: true }].map(s => (
+          <div key={s.l} className="rounded-2xl bg-[#1A0F33] border border-cream/10 p-4">
+            <div className="text-[10px] uppercase tracking-widest text-cream/60">{s.l}</div>
+            <div className={`font-display text-2xl font-bold mt-1 ${s.warn && s.v > 0 ? "text-red-400" : "text-cream"}`}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <DarkCard className="p-0 overflow-hidden">
+        <div className="p-4 border-b border-cream/10 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-cream/5 rounded-full px-3 py-2 flex-1 min-w-[200px]">
+            <Search className="h-4 w-4 text-cream/50" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, ID, email…" className="bg-transparent outline-none text-sm flex-1 text-cream placeholder:text-cream/40" />
+          </div>
+          <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className="bg-cream/5 rounded-full px-4 py-2 text-sm outline-none text-cream">
+            <option value="All">All programs</option>
+            {courses.map(c => <option key={c.id} value={c.title}>{c.title}</option>)}
+          </select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-cream/5 rounded-full px-4 py-2 text-sm outline-none text-cream">
+            <option value="All">All statuses</option>
+            {["active", "held", "at risk", "placed", "removed"].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-cream/5">
+              <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60">
+                <th className="p-4">Student</th><th>Program / Batch</th><th>Progress</th><th>Videos</th><th>Quiz Avg</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-cream/50">No students found.</td></tr>}
+              {filtered.map(s => (
+                <React.Fragment key={s.id + s.classroomId}>
+                  <tr className={`border-t border-cream/10 hover:bg-cream/5 cursor-pointer ${expandedId === s.id + s.classroomId ? "bg-cream/5" : ""}`}
+                    onClick={() => setExpandedId(prev => prev === s.id + s.classroomId ? null : s.id + s.classroomId)}>
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-9 w-9 place-items-center rounded-full bg-lime text-plum-dark text-xs font-bold">{s.name.split(" ").map(w => w[0]).join("").slice(0, 2)}</div>
+                        <div>
+                          <div className="font-semibold">{s.name}</div>
+                          <div className="text-[11px] text-cream/60 font-mono">{s.enrollmentId}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="text-cream/80 text-xs">{s.course}</div>
+                      <div className="text-cream/50 text-[11px]">{s.batch}</div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2 w-28">
+                        <div className="flex-1 h-1.5 bg-cream/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-lime" style={{ width: `${s.progress}%` }} />
+                        </div>
+                        <span className="text-[11px] font-mono">{s.progress}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <Video className="h-3 w-3 text-lime" />
+                        <span className="font-mono">{s.watchedRecs}/{s.totalPubRecs}</span>
+                      </span>
+                    </td>
+                    <td className="font-mono text-xs">{s.quizAvg}%</td>
+                    <td>
+                      <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded capitalize ${statusStyle[s.status] || "bg-cream/10 text-cream/60"}`}>{s.status}</span>
+                    </td>
+                    <td className="pr-4">
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setMsgStudent({ id: s.id, name: s.name })} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-cream/10" title="Send message">
+                          <Mail className="h-4 w-4" />
+                        </button>
+                        <button className="grid h-8 w-8 place-items-center rounded-lg hover:bg-cream/10">
+                          {expandedId === s.id + s.classroomId ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {expandedId === s.id + s.classroomId && (
+                    <tr className="border-t border-cream/10">
+                      <td colSpan={7} className="px-4 pb-4">
+                        <StudentDetail studentId={s.id} />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DarkCard>
+    </div>
+  );
+}
