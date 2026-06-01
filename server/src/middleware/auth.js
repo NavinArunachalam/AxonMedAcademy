@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
+const Session = require('../models/Session');
 
 const protect = async (req, res, next) => {
   try {
@@ -26,7 +27,20 @@ const protect = async (req, res, next) => {
       ? req.headers['x-dev-user-name']
       : null;
 
+    // No token provided, try persistent session cookie
     if (!token) {
+      const sessionToken = req.cookies.session;
+      if (sessionToken) {
+        // Find a valid session that matches the token
+        const potentialSessions = await Session.find({ expiresAt: { $gt: new Date() } }).populate('user');
+        for (const sess of potentialSessions) {
+          if (await sess.isValid(sessionToken)) {
+            req.user = sess.user;
+            return next();
+          }
+        }
+      }
+      // If dev override also not present, return unauthenticated
       if (devUserEmail) {
         let currentUser = await User.findOne({ email: devUserEmail });
         if (!currentUser) {

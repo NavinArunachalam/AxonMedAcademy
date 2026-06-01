@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const Session = require('../models/Session');
 const path = require('path');
 const fs = require('fs');
 
@@ -244,6 +245,12 @@ router.post('/login', async (req, res, next) => {
       lastLogin: new Date()
     });
 
+    // ---------- Persistent session creation ----------
+    const crypto = require('crypto');
+    const rawSessionToken = crypto.randomBytes(32).toString('hex');
+    const SESSION_EXPIRES_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+    await Session.createSession(user._id, rawSessionToken, SESSION_EXPIRES_MS, req.headers['user-agent'] || '');
+
     // Set cookies
     const cookieOptions = {
       httpOnly: true,
@@ -252,6 +259,9 @@ router.post('/login', async (req, res, next) => {
     };
     res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    // Persistent session cookie
+    res.cookie('session', rawSessionToken, { ...cookieOptions, maxAge: SESSION_EXPIRES_MS });
+    // -----------------------------------------------
 
     const sanitizedUser = {
       _id: user._id,
@@ -384,9 +394,25 @@ router.put('/me', protect, async (req, res, next) => {
 });
 
 // POST /logout → Invalidate session cookies
-router.post('/logout', (req, res) => {
+router.post('/logout', protect, async (req, res) => {
+  // Retrieve session token before clearing cookies
+  const sessionToken = req.cookies.session;
+
+  // Remove session from DB if present
+  if (sessionToken && req.user) {
+    const userSessions = await Session.find({ user: req.user._id });
+    for (const s of userSessions) {
+      if (await s.isValid(sessionToken)) {
+        await s.remove();
+        break;
+      }
+    }
+  }
+
   res.clearCookie('accessToken');
   res.clearCookie('refreshToken');
+  res.clearCookie('session');
+
   res.json({ success: true, message: 'Logged out successfully' });
 });
 

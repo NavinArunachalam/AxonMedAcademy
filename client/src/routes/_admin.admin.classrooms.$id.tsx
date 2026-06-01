@@ -17,7 +17,7 @@ import {
   type Classroom,
   type Option,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -665,6 +665,9 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
 function TestsTab({ classroomId }: { classroomId: string }) {
   const { classrooms } = useClassroomStore();
   const cls = classrooms.find((c) => c.id === classroomId)!;
+  const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [quizOperationQuizId, setQuizOperationQuizId] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [viewQuizId, setViewQuizId] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<Omit<Quiz, "id" | "attempts">>({
@@ -682,11 +685,57 @@ function TestsTab({ classroomId }: { classroomId: string }) {
 
   const totalMarks = quiz.questions.reduce((s, q) => s + q.marks, 0);
 
-  const handleSave = (status: Quiz["status"]) => {
-    if (!quiz.title) return;
-    classroomActions.addQuiz(classroomId, { ...quiz, status });
-    setShowBuilder(false);
-    setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+  const handleSave = async (status: Quiz["status"]) => {
+    if (!quiz.title || quiz.questions.length === 0) return;
+    setSaveError(null);
+    setIsSavingQuiz(true);
+    try {
+      const createdQuiz = await createQuiz(classroomId, { ...quiz, status });
+      classroomActions.addQuiz(classroomId, createdQuiz);
+      setShowBuilder(false);
+      setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+    } catch (error) {
+      console.error(error);
+      setSaveError(error instanceof Error ? error.message : 'Could not save quiz.');
+    } finally {
+      setIsSavingQuiz(false);
+    }
+  };
+
+  const handlePublishQuiz = async (quizId: string) => {
+    setQuizOperationQuizId(quizId);
+    try {
+      await publishQuiz(quizId);
+      classroomActions.updateQuizStatus(classroomId, quizId, "published");
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setQuizOperationQuizId(null);
+    }
+  };
+
+  const handleCloseQuiz = async (quizId: string) => {
+    setQuizOperationQuizId(quizId);
+    try {
+      await closeQuiz(quizId);
+      classroomActions.updateQuizStatus(classroomId, quizId, "closed");
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setQuizOperationQuizId(null);
+    }
+  };
+
+  const handleDeleteQuiz = async (quizId: string) => {
+    setQuizOperationQuizId(quizId);
+    try {
+      await apiDeleteQuiz(quizId);
+      classroomActions.deleteQuiz(classroomId, quizId);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setQuizOperationQuizId(null);
+    }
   };
 
   if (showBuilder) {
@@ -774,13 +823,18 @@ function TestsTab({ classroomId }: { classroomId: string }) {
         </div>
 
         <div className="flex gap-3">
-          <button onClick={() => handleSave("draft")} className="flex-1 rounded-full bg-cream/10 text-cream py-3 text-sm font-semibold">Save Draft</button>
+          <button onClick={() => handleSave("draft")}
+            disabled={quiz.questions.length === 0 || isSavingQuiz}
+            className="flex-1 rounded-full bg-cream/10 text-cream py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50">
+            {isSavingQuiz ? 'Saving...' : 'Save Draft'}
+          </button>
           <button onClick={() => handleSave("published")}
-            disabled={quiz.questions.length === 0}
-            className="flex-1 rounded-full bg-lime text-plum-dark py-3 text-sm font-bold disabled:opacity-40">
-            Publish & Notify Students
+            disabled={quiz.questions.length === 0 || isSavingQuiz}
+            className="flex-1 rounded-full bg-lime text-plum-dark py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">
+            {isSavingQuiz ? 'Publishing...' : 'Publish & Notify Students'}
           </button>
         </div>
+        {saveError && <p className="text-sm text-red-400 mt-2">{saveError}</p>}
       </div>
     );
   }
@@ -883,12 +937,22 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                     <Eye className="h-3 w-3" /> Report
                   </button>
                   {q.status === "draft" && (
-                    <button onClick={() => classroomActions.updateQuizStatus(classroomId, q.id, "published")} className="rounded-full bg-lime/10 text-lime px-3 py-1.5 text-xs font-semibold">Publish</button>
+                    <button onClick={() => handlePublishQuiz(q.id)}
+                      disabled={quizOperationQuizId === q.id}
+                      className="rounded-full bg-lime/10 text-lime px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50">
+                      {quizOperationQuizId === q.id ? 'Publishing...' : 'Publish'}
+                    </button>
                   )}
                   {q.status === "published" && (
-                    <button onClick={() => classroomActions.updateQuizStatus(classroomId, q.id, "closed")} className="rounded-full bg-cream/10 text-cream/70 px-3 py-1.5 text-xs font-semibold">Close</button>
+                    <button onClick={() => handleCloseQuiz(q.id)}
+                      disabled={quizOperationQuizId === q.id}
+                      className="rounded-full bg-cream/10 text-cream/70 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50">
+                      {quizOperationQuizId === q.id ? 'Closing...' : 'Close'}
+                    </button>
                   )}
-                  <button onClick={() => classroomActions.deleteQuiz(classroomId, q.id)} className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
+                  <button onClick={() => handleDeleteQuiz(q.id)}
+                    disabled={quizOperationQuizId === q.id}
+                    className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 disabled:cursor-not-allowed disabled:opacity-50">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
