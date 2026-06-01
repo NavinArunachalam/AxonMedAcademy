@@ -153,6 +153,48 @@ function normalizeBackendClassroom(raw: any) {
   };
 }
 
+function normalizeBackendQuiz(raw: any) {
+  return {
+    id: raw._id || raw.id,
+    title: raw.title || '',
+    instructions: raw.instructions || '',
+    duration: raw.duration ?? null,
+    maxAttempts: raw.maxAttempts || 1,
+    randomizeQuestions: raw.randomizeQuestions || false,
+    randomizeOptions: raw.randomizeOptions || false,
+    showLeaderboard: raw.showLeaderboard || false,
+    negativeMarking: raw.negativeMarking || false,
+    negativeMarkValue: raw.negativeMarkValue ?? 0.25,
+    passPercent: raw.passPercent || 0,
+    availableFrom: raw.availableFrom || '',
+    availableUntil: raw.availableUntil || '',
+    status: raw.status || 'draft',
+    questions: Array.isArray(raw.questions) ? raw.questions.map((quest: any) => ({
+      id: quest._id || quest.id,
+      type: quest.type || 'mcq',
+      text: quest.text || '',
+      marks: quest.marks || 1,
+      explanation: quest.explanation || '',
+      order: quest.order || 0,
+      options: Array.isArray(quest.options) ? quest.options.map((o: any) => ({
+        label: o.label,
+        text: o.text,
+        isCorrect: !!o.isCorrect,
+      })) : [],
+    })) : [],
+    attempts: Array.isArray(raw.attempts) ? raw.attempts.map((att: any) => ({
+      id: att._id || att.id,
+      studentId: String(att.student?._id || att.student || ''),
+      studentName: att.studentName || 'Student',
+      attemptNo: att.attemptNo || 1,
+      status: att.status || 'submitted',
+      startedAt: att.startedAt,
+      submittedAt: att.submittedAt,
+      score: att.score || { rawMarks: 0, totalMarks: 0, percentage: 0, passed: false },
+    })) : [],
+  };
+}
+
 async function fetchJson(path: string, options: RequestInit = {}) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -216,6 +258,26 @@ export async function getClassrooms() {
 export async function getClassroomById(id: string) {
   const payload = await fetchJson(`/classrooms/${encodeURIComponent(id)}`);
   return normalizeBackendClassroom(payload.classroom);
+}
+
+export async function createQuiz(classroomId: string, quiz: any) {
+  const payload = await fetchJson('/quizzes', {
+    method: 'POST',
+    body: JSON.stringify({ ...quiz, classroom: classroomId }),
+  });
+  return normalizeBackendQuiz(payload.quiz);
+}
+
+export async function publishQuiz(quizId: string) {
+  return fetchJson(`/quizzes/${encodeURIComponent(quizId)}/publish`, { method: 'PUT' });
+}
+
+export async function closeQuiz(quizId: string) {
+  return fetchJson(`/quizzes/${encodeURIComponent(quizId)}/close`, { method: 'PUT' });
+}
+
+export async function deleteQuiz(quizId: string) {
+  return fetchJson(`/quizzes/${encodeURIComponent(quizId)}`, { method: 'DELETE' });
 }
 
 export async function uploadClassroomRecordingToCloudflare(formData: FormData) {
