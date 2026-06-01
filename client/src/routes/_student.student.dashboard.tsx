@@ -4,6 +4,13 @@ import {
 } from "lucide-react";
 import { Card, StatTile } from "@/components/portal/PortalShell";
 import { useClassroomStore } from "@/lib/classroomStore";
+import { useQuery } from "@tanstack/react-query";
+import { getMyMeetings, getMyNotifications } from "@/lib/api";
+
+interface MeetingsResponse {
+  success: boolean;
+  meetings: Array<any>;
+}
 
 function timeUntil(dateIso: string) {
   const diff = (new Date(dateIso).getTime() - Date.now()) / 60000;
@@ -22,12 +29,31 @@ export const Route = createFileRoute("/_student/student/dashboard")({
 
 function Dashboard() {
   const { classrooms, currentUser } = useClassroomStore();
+  const { data } = useQuery<MeetingsResponse>({
+    queryKey: ['myMeetings'],
+    queryFn: getMyMeetings,
+    enabled: !!currentUser,
+    staleTime: 1000 * 60,
+    retry: 1,
+  });
   const studentId = currentUser?.id || "";
   
   const enrolledClassrooms = classrooms.filter(c => c.students.some(s => s.id === studentId && s.status === 'active'));
   const activeCoursesCount = enrolledClassrooms.length;
-  
-  const allMeetings = enrolledClassrooms.flatMap(c => c.meetings.map(m => ({ ...m, classroomName: c.name })));
+  const backendMeetings = data?.meetings ?? [];
+  const remoteMeetings = backendMeetings.map((m: any) => ({
+    id: m._id,
+    title: m.title,
+    description: m.description,
+    scheduledAt: m.scheduledAt,
+    duration: m.duration,
+    status: m.status,
+    attendees: m.attendees ? m.attendees.map((a: any) => a.student?.firstName ?? '').filter(Boolean) : [],
+    roomId: m.roomId,
+    classroomName: m.classroom?.name ?? m.classroom?.code ?? 'Classroom',
+  }));
+  const localMeetings = enrolledClassrooms.flatMap(c => c.meetings.map(m => ({ ...m, classroomName: c.name })));
+  const allMeetings = remoteMeetings.length > 0 ? remoteMeetings : localMeetings;
   const nextLiveMeeting = allMeetings.filter(m => m.status === 'scheduled').sort((a,b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
   
   const totalQuizzes = enrolledClassrooms.reduce((s, c) => s + c.quizzes.filter(q => q.status === 'published').length, 0);
@@ -44,6 +70,17 @@ function Dashboard() {
     }, 0);
   }, 0);
   const totalHoursWatched = Math.round(totalWatchedSeconds / 3600);
+
+  const { data: notificationPayload } = useQuery({
+    queryKey: ['myNotifications'],
+    queryFn: getMyNotifications,
+    enabled: !!currentUser,
+    staleTime: 1000 * 30,
+    retry: 1,
+  });
+
+  const notifications = notificationPayload ?? [];
+  const joinableNotifications = notifications.filter((n) => n.actionUrl && n.type === 'live_session');
 
   return (
     <div className="space-y-6">
@@ -69,7 +106,7 @@ function Dashboard() {
               </Link>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 lg:w-[380px]">
+          <div className="grid grid-cols-3 gap-3 lg:w-95">
             {[
               { k: "Hours", v: totalHoursWatched.toString() },
               { k: "Exams Done", v: totalSubmissions.toString() },
@@ -170,6 +207,32 @@ function Dashboard() {
             ))}
             {upcomingEvents.length === 0 && <li className="text-sm text-muted-foreground">No upcoming classes.</li>}
           </ul>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-display text-lg font-bold text-plum-dark">Live session alerts</h3>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">{joinableNotifications.length} actionable</span>
+          </div>
+          <div className="mt-4 space-y-3">
+            {joinableNotifications.length > 0 ? (
+              joinableNotifications.map((notif) => (
+                <div key={notif._id} className="rounded-2xl border border-border p-4 bg-slate-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-plum-dark">{notif.title}</div>
+                      <p className="text-xs text-slate-500 mt-1">{notif.message}</p>
+                    </div>
+                    <a href={notif.actionUrl || '#'} className="rounded-full bg-lime px-4 py-2 text-xs font-semibold text-plum-dark hover:bg-lime/90">
+                      Join now
+                    </a>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No joinable live session alerts yet.</p>
+            )}
+          </div>
         </Card>
 
         <Card>

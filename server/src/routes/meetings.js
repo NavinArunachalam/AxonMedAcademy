@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const LiveMeeting = require('../models/LiveMeeting');
 const Classroom = require('../models/Classroom');
+const Notification = require('../models/Notification');
 const { protect, restrictTo } = require('../middleware/auth');
 
 // Socket notification helper
@@ -23,10 +24,28 @@ const notifyMeetingCreated = async (meeting) => {
   }
 };
 
+const resolveClassroom = async (classroomIdentifier) => {
+  if (!classroomIdentifier) return null;
+  const isObjectId = /^[0-9a-fA-F]{24}$/.test(classroomIdentifier);
+  let classroom = null;
+  if (isObjectId) {
+    classroom = await Classroom.findById(classroomIdentifier);
+  }
+  if (!classroom) {
+    classroom = await Classroom.findOne({
+      $or: [
+        { code: classroomIdentifier },
+        { name: classroomIdentifier }
+      ]
+    });
+  }
+  return classroom;
+};
+
 // GET /classroom/:classroomId → Get all meetings for a classroom (accessible to enrolled students/admins)
 router.get('/classroom/:classroomId', protect, async (req, res, next) => {
   try {
-    const classroom = await Classroom.findById(req.params.classroomId);
+    const classroom = await resolveClassroom(req.params.classroomId);
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
@@ -38,7 +57,7 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
     }
 
-    const meetings = await LiveMeeting.find({ classroom: req.params.classroomId })
+    const meetings = await LiveMeeting.find({ classroom: classroom._id })
       .populate('createdBy', 'firstName lastName')
       .sort({ scheduledAt: 1 });
 
@@ -258,17 +277,30 @@ router.use(restrictTo('admin', 'superadmin'));
 // POST / → Admin: create live meeting for classroom
 router.post('/', async (req, res, next) => {
   try {
-    const { classroom, title, description, scheduledAt, duration, sendWhatsApp, sendPortalNotification } = req.body;
+    const {
+      classroom,
+      title,
+      description,
+      scheduledAt,
+      duration,
+      sendWhatsApp = false,
+      sendPortalNotification = true,
+    } = req.body;
 
     if (!classroom || !title || !scheduledAt) {
       return res.status(400).json({ success: false, message: 'Classroom, title, and scheduled time are required' });
+    }
+
+    const classroomDoc = await resolveClassroom(classroom);
+    if (!classroomDoc) {
+      return res.status(404).json({ success: false, message: 'Classroom not found for meeting creation' });
     }
 
     const uuid = crypto.randomUUID();
     const jitsiRoomName = `HTA-${uuid}`;
 
     const meeting = await LiveMeeting.create({
-      classroom,
+      classroom: classroomDoc._id,
       title,
       description,
       scheduledAt: new Date(scheduledAt),
@@ -285,12 +317,42 @@ router.post('/', async (req, res, next) => {
     });
 
     // Increment totalLiveSessions classroom stats
-    await Classroom.findByIdAndUpdate(classroom, {
+    await Classroom.findByIdAndUpdate(classroomDoc._id, {
       $inc: { 'stats.totalLiveSessions': 1 }
     });
 
     if (sendPortalNotification) {
       await notifyMeetingCreated(meeting);
+
+      const studentIds = classroomDoc.students
+        .filter((s) => s.status === 'active')
+        .map((s) => s.student)
+        .filter(Boolean);
+      const notifications = studentIds.map((studentId) => ({
+        recipient: studentId,
+        type: 'live_session',
+        title: `Join live class: ${title}`,
+        message: `${title} is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Join link: ${process.env.CLIENT_URL || 'http://localhost:8080'}/student/jitsi/${uuid}`,
+        priority: 'medium',
+        actionUrl: `/student/jitsi/${uuid}`,
+        metadata: {
+          classroom: classroomDoc._id,
+          meetingId: meeting._id,
+          roomId: uuid,
+        }
+      }));
+      if (notifications.length > 0) {
+        const createdNotifications = await Notification.insertMany(notifications);
+        try {
+          const { getIO } = require('../config/socket');
+          const io = getIO();
+          createdNotifications.forEach((notif) => {
+            io.to(`user:${notif.recipient}`).emit('notification:new', notif);
+          });
+        } catch (socketErr) {
+          console.log('[Socket Error] Could not emit portal notifications:', socketErr.message);
+        }
+      }
     }
 
     if (sendWhatsApp) {

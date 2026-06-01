@@ -1,7 +1,14 @@
 import { Fragment } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/portal/PortalShell";
 import { useClassroomStore } from "@/lib/classroomStore";
+import { getMyMeetings } from "@/lib/api";
+
+interface MeetingsResponse {
+  success: boolean;
+  meetings: Array<any>;
+}
 
 export const Route = createFileRoute("/_student/student/schedule")({
   component: Schedule,
@@ -16,17 +23,38 @@ const typeStyle: Record<string, string> = {
 function Schedule() {
   const { classrooms, currentUser } = useClassroomStore();
   const studentId = currentUser?.id || "";
+  const { data, isLoading } = useQuery<MeetingsResponse>({
+    queryKey: ['myMeetings'],
+    queryFn: getMyMeetings,
+    enabled: !!currentUser,
+    staleTime: 1000 * 60,
+    retry: 1,
+  });
+
+  const backendMeetings = data?.meetings ?? [];
+  const allMeetings = backendMeetings.map((m: any) => ({
+    id: m._id,
+    title: m.title,
+    description: m.description,
+    scheduledAt: m.scheduledAt,
+    duration: m.duration,
+    status: m.status,
+    attendees: m.attendees ? m.attendees.map((a: any) => a.student?.firstName ?? '').filter(Boolean) : [],
+    roomId: m.roomId,
+    classroomName: m.classroom?.name ?? m.classroom?.code ?? 'Classroom',
+  }));
 
   const enrolledClassrooms = classrooms.filter((c) =>
     c.students.some((s) => s.id === studentId && s.status === "active")
   );
-
-  const allMeetings = enrolledClassrooms.flatMap((c) =>
+  const localMeetings = enrolledClassrooms.flatMap((c) =>
     c.meetings.map((m) => ({ ...m, classroomName: c.name, program: c.program }))
   ).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
-  const upcoming = allMeetings.filter((m) => m.status !== "ended" && m.status !== "cancelled");
-  const past = allMeetings.filter((m) => m.status === "ended" || m.status === "cancelled");
+  const meetings = backendMeetings.length > 0 ? allMeetings.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()) : localMeetings;
+
+  const upcoming = meetings.filter((m) => m.status !== "ended" && m.status !== "cancelled");
+  const past = meetings.filter((m) => m.status === "ended" || m.status === "cancelled");
 
   function fmt(iso: string) {
     return new Date(iso).toLocaleString("en-IN", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true });
@@ -66,12 +94,12 @@ function Schedule() {
                   {m.status}
                 </span>
                 {m.status === "live" && (
-                  <Link
-                    to={`/student/jitsi/${m.roomId}`}
+                  <a
+                    href={`/student/jitsi/${m.roomId}`}
                     className="rounded-full bg-orange-500 text-white text-xs font-bold px-4 py-2 animate-pulse inline-flex"
                   >
                     Join Now
-                  </Link>
+                  </a>
                 )}
               </div>
             </div>

@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const User = require('../models/User');
+const { protect, restrictTo } = require('../middleware/auth');
 
 // GET /stats → Command center stats: sessions, exams, incidents, users
 router.get('/stats', (req, res) => {
@@ -19,8 +21,28 @@ router.get('/stats', (req, res) => {
 // ==========================================
 
 // GET /users → List all users (filter role/status, paginate, search)
-router.get('/users', (req, res) => {
-  res.json({ success: true, users: [] });
+router.get('/users', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { role, status, search } = req.query;
+    const filter = {};
+
+    if (role) filter.role = role;
+    if (status === 'active') filter.isActive = true;
+    if (status === 'inactive') filter.isActive = false;
+    if (search) {
+      const q = new RegExp(String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ firstName: q }, { lastName: q }, { email: q }, { phone: q }];
+    }
+
+    const users = await User.find(filter)
+      .select('firstName lastName email phone role isVerified isActive avatar createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, users });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /users/:id → Get user + profile detail

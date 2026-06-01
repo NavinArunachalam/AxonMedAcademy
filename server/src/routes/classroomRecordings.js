@@ -7,25 +7,15 @@ const fs = require('fs');
 const ClassroomRecording = require('../models/ClassroomRecording');
 const Classroom = require('../models/Classroom');
 const { protect, restrictTo } = require('../middleware/auth');
-const { uploadFileToDrive, deleteFileFromDrive } = require('../config/googleDrive');
+const {
+  uploadFileToCloudflareR2,
+  deleteFileFromCloudflareR2,
+  getR2ObjectUrl,
+  fetchFn,
+} = require('../config/cloudflare');
 
-// Multer storage for mock uploads
-const uploadsDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, 'video-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ storage });
+// ✅ Memory storage — file never touches disk
+const upload = multer({ storage: multer.memoryStorage() });
 
 // GET /classroom/:classroomId → Get all recordings for a classroom
 router.get('/classroom/:classroomId', protect, async (req, res, next) => {
@@ -75,20 +65,72 @@ router.get('/:id', protect, async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Generate signed playback token if using real Mux (mocked for dev)
     const token = `signed_token_for_${recording.muxPlaybackId}`;
 
     res.json({
       success: true,
       recording,
-      playbackToken: token
+      playbackToken: token,
+      playbackUrl: recording.storageProvider === 'cloudflare'
+        ? `/api/v1/recordings/classroom/${recording._id}/stream`
+        : undefined
     });
   } catch (error) {
     next(error);
   }
 });
 
-// GET /:id/progress/my → Student: get my watch progress (for resume)
+// GET /:id/stream → Stream classroom recordings from Cloudflare R2
+router.get('/:id/stream', protect, async (req, res, next) => {
+  try {
+    const recording = await ClassroomRecording.findById(req.params.id)
+      .populate('classroom');
+    if (!recording) {
+      return res.status(404).json({ success: false, message: 'Recording not found' });
+    }
+
+    const classroom = await Classroom.findById(recording.classroom);
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
+    if (!isAdmin && !isEnrolled) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (recording.storageProvider !== 'cloudflare' || !recording.cloudflareKey) {
+      return res.status(404).json({ success: false, message: 'Stream not available for this recording' });
+    }
+
+    // ✅ All recordings are now in R2 — no local fallback branch needed
+    try {
+      const { getS3Client } = require('../config/cloudflare');
+      const { GetObjectCommand } = require('@aws-sdk/client-s3');
+
+      const s3 = getS3Client();
+      const command = new GetObjectCommand({
+        Bucket: process.env.CLOUDFLARE_R2_BUCKET,
+        Key: recording.cloudflareKey,
+        Range: req.headers.range,
+      });
+
+      const s3Response = await s3.send(command);
+
+      if (s3Response.ContentType) res.setHeader('Content-Type', s3Response.ContentType);
+      if (s3Response.ContentLength) res.setHeader('Content-Length', s3Response.ContentLength);
+      if (s3Response.ContentRange) res.setHeader('Content-Range', s3Response.ContentRange);
+      if (s3Response.AcceptRanges) res.setHeader('Accept-Ranges', s3Response.AcceptRanges);
+
+      res.status(s3Response.$metadata.httpStatusCode || 200);
+      s3Response.Body.pipe(res);
+    } catch (s3Error) {
+      console.error('[S3 Streaming Error]:', s3Error.message);
+      res.status(s3Error.$metadata?.httpStatusCode || 500).send(s3Error.message);
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/progress/my → Student: get my watch progress
 router.get('/:id/progress/my', protect, async (req, res, next) => {
   try {
     const recording = await ClassroomRecording.findById(req.params.id);
@@ -106,7 +148,7 @@ router.get('/:id/progress/my', protect, async (req, res, next) => {
   }
 });
 
-// POST /:id/progress → Student: update watch progress (position, duration)
+// POST /:id/progress → Student: update watch progress
 router.post('/:id/progress', protect, async (req, res, next) => {
   try {
     const { position, watchedSec, completed } = req.body;
@@ -156,13 +198,12 @@ router.post('/:id/progress', protect, async (req, res, next) => {
 router.use(protect);
 router.use(restrictTo('admin', 'superadmin'));
 
-// POST /upload-url → Get Mux direct upload URL or mock local upload
+// POST /upload-url → Get Mux direct upload URL or mock
 router.post('/upload-url', async (req, res, next) => {
   try {
     const isMockMux = !process.env.MUX_TOKEN_ID || process.env.MUX_TOKEN_ID.startsWith('mock_');
 
     if (isMockMux) {
-      // Return local server endpoints for video upload
       return res.json({
         success: true,
         isMock: true,
@@ -172,8 +213,6 @@ router.post('/upload-url', async (req, res, next) => {
       });
     }
 
-    // Standard Real Mux API call goes here if needed. Since we're using Mux client API credentials,
-    // we fall back gracefully to local uploads for development testing.
     res.json({
       success: true,
       isMock: true,
@@ -186,26 +225,95 @@ router.post('/upload-url', async (req, res, next) => {
   }
 });
 
-// POST /mock-upload → Endpoint for local file mock uploads
+// POST /mock-upload → Local mock upload (memory-based, no disk write)
 router.post('/mock-upload', upload.single('video'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No video file provided' });
     }
-
-    const localUrl = `/uploads/${req.file.filename}`;
+    // ✅ Buffer is in memory; nothing written to disk
     res.json({
       success: true,
-      playbackId: localUrl, // Use local path as mock playback ID
-      assetId: `mock_asset_${req.file.filename}`,
-      duration: 120 // mock 2 minutes or similar
+      playbackId: `mock_playback_${Date.now()}`,
+      assetId: `mock_asset_${Date.now()}`,
+      duration: 120
     });
   } catch (error) {
     next(error);
   }
 });
 
-// POST / → Admin: save recording metadata to classroom after upload
+// POST /upload-cloudflare → Admin: upload recording DIRECTLY to Cloudflare R2 (no local disk)
+router.post('/upload-cloudflare', upload.single('video'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No video file provided' });
+    }
+
+    const { classroom, title, description, duration, isPublished } = req.body;
+    let chapters = [];
+    if (req.body.chapters) {
+      try {
+        chapters = typeof req.body.chapters === 'string' ? JSON.parse(req.body.chapters) : req.body.chapters;
+      } catch {
+        chapters = [];
+      }
+    }
+    const published = isPublished === 'true' || isPublished === true;
+
+    if (!classroom || !title) {
+      return res.status(400).json({ success: false, message: 'Classroom and title are required' });
+    }
+
+    // ✅ Upload buffer directly to R2 — no temp file, no fallback
+    const objectKey = `classroom-recordings/${classroom}/${Date.now()}-${req.file.originalname}`;
+
+    // Your uploadFileToCloudflareR2 must accept (buffer, key, mimeType)
+    // If it currently expects a file path, update it as shown below in the note
+    const uploadResult = await uploadFileToCloudflareR2(
+      req.file.buffer,   // ← Buffer from memory storage
+      objectKey,
+      req.file.mimetype
+    );
+
+    const recording = await ClassroomRecording.create({
+      classroom,
+      title,
+      description,
+      uploadedBy: req.user._id,
+      storageProvider: 'cloudflare',
+      cloudflareKey: objectKey,
+      cloudflareUrl: uploadResult.url,
+      isPublished: published,
+      chapters,
+      muxStatus: 'ready',
+      duration: duration ? parseInt(duration, 10) : 0,
+      thumbnail: '/default-video-thumb.jpg',
+      security: {
+        signedUrlRequired: false,
+        urlExpiryHours: 0,
+        watermark: true,
+        downloadBlocked: true,
+        screenRecordDetect: false,
+        devToolsBlocked: false
+      }
+    });
+
+    await Classroom.findByIdAndUpdate(classroom, {
+      $inc: { 'stats.totalRecordings': 1 }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Recording uploaded directly to Cloudflare R2 successfully',
+      recording
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST / → Admin: save recording metadata after upload
 router.post('/', async (req, res, next) => {
   try {
     const { classroom, title, description, muxAssetId, muxPlaybackId, duration, security } = req.body;
@@ -234,81 +342,12 @@ router.post('/', async (req, res, next) => {
       }
     });
 
-    // Increment recording counts in classroom
     await Classroom.findByIdAndUpdate(classroom, {
       $inc: { 'stats.totalRecordings': 1 }
     });
 
     res.status(201).json({ success: true, message: 'Recording saved successfully', recording });
   } catch (error) {
-    next(error);
-  }
-});
-
-// POST /upload-drive → Admin: upload recording directly to Google Drive and save metadata
-router.post('/upload-drive', upload.single('video'), async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No video file provided' });
-    }
-
-    const { classroom, title, description, duration } = req.body;
-    if (!classroom || !title) {
-      // Clean up uploaded file
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(400).json({ success: false, message: 'Classroom and title are required' });
-    }
-
-    console.log(`[Classroom Recordings] Uploading recording to Google Drive: ${req.file.originalname}`);
-    const driveResult = await uploadFileToDrive(
-      req.file.path,
-      req.file.originalname,
-      req.file.mimetype
-    );
-
-    const recording = await ClassroomRecording.create({
-      classroom,
-      title,
-      description,
-      uploadedBy: req.user._id,
-      storageProvider: 'google_drive',
-      googleDriveFileId: driveResult.fileId,
-      googleDriveViewLink: driveResult.viewLink,
-      muxStatus: 'ready',
-      duration: duration ? parseInt(duration, 10) : 0,
-      thumbnail: driveResult.thumbnailLink || '/default-video-thumb.jpg',
-      security: {
-        signedUrlRequired: false,
-        urlExpiryHours: 0,
-        watermark: false,
-        downloadBlocked: true,
-        screenRecordDetect: false,
-        devToolsBlocked: false
-      }
-    });
-
-    // Increment recording counts in classroom
-    await Classroom.findByIdAndUpdate(classroom, {
-      $inc: { 'stats.totalRecordings': 1 }
-    });
-
-    // Clean up local temp file
-    if (fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-      console.log(`[Classroom Recordings] Cleaned up temp file: ${req.file.path}`);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Recording uploaded to Google Drive and saved successfully',
-      recording
-    });
-  } catch (error) {
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
     next(error);
   }
 });
@@ -338,25 +377,16 @@ router.delete('/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
-    // Decrement recording counts in classroom
     await Classroom.findByIdAndUpdate(recording.classroom, {
       $inc: { 'stats.totalRecordings': -1 }
     });
 
-    // Delete Google Drive file or local mock file
-    if (recording.storageProvider === 'google_drive' && recording.googleDriveFileId) {
-      const isMock = recording.thumbnail === '/default-video-thumb.jpg' || recording.googleDriveFileId.startsWith('mock_drive_file_');
-      const mockName = isMock ? path.basename(recording.googleDriveViewLink) : null;
-      await deleteFileFromDrive(recording.googleDriveFileId, mockName);
-    } else if (recording.muxPlaybackId && recording.muxPlaybackId.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, '../..', recording.muxPlaybackId);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+    // ✅ Only R2 deletion — no local file path handling
+    if (recording.storageProvider === 'cloudflare' && recording.cloudflareKey) {
+      await deleteFileFromCloudflareR2(recording.cloudflareKey);
     }
 
     await recording.deleteOne();
-
     res.json({ success: true, message: 'Recording deleted successfully' });
   } catch (error) {
     next(error);
@@ -376,7 +406,6 @@ router.put('/:id/publish', async (req, res, next) => {
     recording.notifiedAt = new Date();
     await recording.save();
 
-    // Socket alert
     try {
       const { getIO } = require('../config/socket');
       const io = getIO();
@@ -397,7 +426,7 @@ router.put('/:id/publish', async (req, res, next) => {
 // POST /:id/chapters → Admin: save chapters
 router.post('/:id/chapters', async (req, res, next) => {
   try {
-    const { chapters } = req.body; // Array
+    const { chapters } = req.body;
     const recording = await ClassroomRecording.findByIdAndUpdate(
       req.params.id,
       { $set: { chapters } },
@@ -409,7 +438,7 @@ router.post('/:id/chapters', async (req, res, next) => {
   }
 });
 
-// GET /:id/analytics → Admin: view analytics per student for a video
+// GET /:id/analytics → Admin: per-student analytics for a recording
 router.get('/:id/analytics', async (req, res, next) => {
   try {
     const recording = await ClassroomRecording.findById(req.params.id)
@@ -425,7 +454,7 @@ router.get('/:id/analytics', async (req, res, next) => {
   }
 });
 
-// GET /classroom/:classroomId/analytics → Admin: all recordings' view stats for classroom
+// GET /classroom/:classroomId/analytics → Admin: all recordings' stats for classroom
 router.get('/classroom/:classroomId/analytics', async (req, res, next) => {
   try {
     const recordings = await ClassroomRecording.find({ classroom: req.params.classroomId })

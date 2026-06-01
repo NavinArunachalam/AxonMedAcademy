@@ -3,7 +3,8 @@ import React from "react";
 import { Search, Plus, Download, Mail, ChevronDown, ChevronUp, Video, BookOpen, ClipboardList, X } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 import { useClassroomStore, adminActions, classroomActions, messageActions, type EnrolledStudent } from "@/lib/classroomStore";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { getAdminUsers, getClassrooms as apiGetClassrooms } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/admin/students")({
   component: AdminStudents,
@@ -166,6 +167,8 @@ function StudentDetail({ studentId }: { studentId: string }) {
 
 function AdminStudents() {
   const { classrooms, courses, users } = useClassroomStore();
+  const [backendError, setBackendError] = useState<string | null>(null);
+  const [mongoStudents, setMongoStudents] = useState<Array<{ id: string; name: string; email: string; phone?: string; isActive?: boolean }>>([]);
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -174,8 +177,31 @@ function AdminStudents() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [msgStudent, setMsgStudent] = useState<{ id: string; name: string } | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    const loadClassrooms = async () => {
+      try {
+        const [data, students] = await Promise.all([
+          apiGetClassrooms(),
+          getAdminUsers("student"),
+        ]);
+        if (!active) return;
+        classroomActions.setClassrooms(data);
+        setMongoStudents(students);
+        setBackendError(null);
+      } catch (err) {
+        if (!active) return;
+        setBackendError(err instanceof Error ? err.message : "Could not load students from MongoDB");
+      }
+    };
+    loadClassrooms();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const enrollments = useMemo(() => {
-    return classrooms.flatMap(c =>
+    const classroomEnrollments = classrooms.flatMap(c =>
       c.students.map(s => ({
         ...s,
         course: c.program,
@@ -186,7 +212,30 @@ function AdminStudents() {
         watchedRecs: c.recordings.filter(r => r.isPublished && r.viewStats.some(v => v.studentId === s.id && v.watchedPercent > 0)).length,
       }))
     );
-  }, [classrooms]);
+
+    const enrolledIds = new Set(classroomEnrollments.map((student) => student.id));
+    const unenrolledStudents = mongoStudents
+      .filter((student) => !enrolledIds.has(student.id))
+      .map((student) => ({
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        enrollmentId: "Not enrolled",
+        progress: 0,
+        attendance: 0,
+        quizAvg: 0,
+        status: student.isActive === false ? "removed" : "active",
+        addedAt: "",
+        course: "Not enrolled",
+        batch: "N/A",
+        classroomId: "none",
+        classroomName: "Not enrolled",
+        totalPubRecs: 0,
+        watchedRecs: 0,
+      }));
+
+    return [...classroomEnrollments, ...unenrolledStudents];
+  }, [classrooms, mongoStudents]);
 
   const filtered = enrollments.filter(e => {
     if (courseFilter !== "All" && e.course !== courseFilter) return false;
@@ -202,6 +251,7 @@ function AdminStudents() {
   const active = enrollments.filter(e => e.status === "active").length;
   const placed = enrollments.filter(e => e.status === "placed").length;
   const atRisk = enrollments.filter(e => e.status === "at risk").length;
+  const programOptions = Array.from(new Set(enrollments.map((e) => e.course).filter(Boolean)));
 
   const handleAddStudent = (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,6 +291,8 @@ function AdminStudents() {
           <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold"><Plus className="h-4 w-4" /> Add Student</button>
         </div>
       </div>
+
+      {backendError && <p className="text-sm text-red-400">Using fallback mock data: {backendError}</p>}
 
       {showAdd && (
         <DarkCard>
@@ -303,7 +355,7 @@ function AdminStudents() {
           </div>
           <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className="bg-cream/5 rounded-full px-4 py-2 text-sm outline-none text-cream">
             <option value="All">All programs</option>
-            {courses.map(c => <option key={c.id} value={c.title}>{c.title}</option>)}
+            {(programOptions.length > 0 ? programOptions : courses.map((c) => c.title)).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-cream/5 rounded-full px-4 py-2 text-sm outline-none text-cream">
             <option value="All">All statuses</option>

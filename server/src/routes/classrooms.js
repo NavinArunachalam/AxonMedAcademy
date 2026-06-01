@@ -5,7 +5,153 @@ const User = require('../models/User');
 const Classroom = require('../models/Classroom');
 const ClassroomAnnouncement = require('../models/ClassroomAnnouncement');
 const StudentRequest = require('../models/StudentRequest');
+const Program = require('../models/Program');
+const LiveMeeting = require('../models/LiveMeeting');
+const ClassroomRecording = require('../models/ClassroomRecording');
+const Quiz = require('../models/Quiz');
+const QuizAttempt = require('../models/QuizAttempt');
 const { protect, restrictTo } = require('../middleware/auth');
+const mongoose = require('mongoose');
+
+const slugify = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '');
+
+const resolveProgramId = async (program) => {
+  if (!program) return null;
+  if (mongoose.Types.ObjectId.isValid(program)) return program;
+
+  const title = String(program).trim();
+  if (!title) return null;
+
+  const slug = slugify(title);
+  let existingProgram = await Program.findOne({
+    $or: [
+      { title: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      { slug }
+    ]
+  });
+
+  if (!existingProgram) {
+    existingProgram = await Program.create({
+      title,
+      slug,
+      category: 'other',
+      isPublished: true
+    });
+  }
+
+  return existingProgram._id;
+};
+
+const normalizeClassroomRefs = async (payload) => {
+  const normalized = { ...payload };
+
+  if ('program' in normalized) {
+    normalized.program = await resolveProgramId(normalized.program);
+  }
+
+  if ('batch' in normalized && normalized.batch && !mongoose.Types.ObjectId.isValid(normalized.batch)) {
+    normalized.batch = null;
+  }
+
+  return normalized;
+};
+
+const attachMeetingsToClassrooms = async (classrooms) => {
+  const list = Array.isArray(classrooms) ? classrooms : [classrooms];
+  const classroomIds = list.map((classroom) => classroom._id);
+  const meetings = await LiveMeeting.find({ classroom: { $in: classroomIds } })
+    .populate('createdBy', 'firstName lastName')
+    .sort({ scheduledAt: 1 })
+    .lean();
+
+  const meetingsByClassroom = meetings.reduce((acc, meeting) => {
+    const key = meeting.classroom.toString();
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(meeting);
+    return acc;
+  }, {});
+
+  const withMeetings = list.map((classroom) => ({
+    ...classroom,
+    meetings: meetingsByClassroom[classroom._id.toString()] || []
+  }));
+
+  return Array.isArray(classrooms) ? withMeetings : withMeetings[0];
+};
+
+const attachClassroomDetails = async (classrooms) => {
+  const withMeetings = await attachMeetingsToClassrooms(classrooms);
+  const list = Array.isArray(withMeetings) ? withMeetings : [withMeetings];
+  const classroomIds = list.map((classroom) => classroom._id);
+
+  // Fetch recordings with creator and student details populated
+  const recordings = await ClassroomRecording.find({ classroom: { $in: classroomIds } })
+    .populate('uploadedBy', 'firstName lastName')
+    .populate('viewStats.student', 'firstName lastName')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Fetch quizzes
+  const quizzes = await Quiz.find({ classroom: { $in: classroomIds } })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Fetch quiz attempts for the classrooms
+  const quizAttempts = await QuizAttempt.find({ classroom: { $in: classroomIds } })
+    .populate('student', 'firstName lastName email phone')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const recordingsByClassroom = recordings.reduce((acc, rec) => {
+    const key = rec.classroom.toString();
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(rec);
+    return acc;
+  }, {});
+
+  const quizzesByClassroom = quizzes.reduce((acc, q) => {
+    const key = q.classroom.toString();
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(q);
+    return acc;
+  }, {});
+
+  const attemptsByQuiz = quizAttempts.reduce((acc, att) => {
+    const key = att.quiz.toString();
+    if (!acc[key]) acc[key] = [];
+    acc[key].push({
+      ...att,
+      id: att._id.toString(),
+      studentName: att.student ? `${att.student.firstName} ${att.student.lastName}`.trim() : 'Student'
+    });
+    return acc;
+  }, {});
+
+  const withDetails = list.map((classroom) => ({
+    ...classroom,
+    recordings: (recordingsByClassroom[classroom._id.toString()] || []).map(r => ({
+      ...r,
+      id: r._id.toString()
+    })),
+    quizzes: (quizzesByClassroom[classroom._id.toString()] || []).map(q => ({
+      ...q,
+      id: q._id.toString(),
+      attempts: attemptsByQuiz[q._id.toString()] || []
+    }))
+  }));
+
+  return Array.isArray(classrooms) ? withDetails : withDetails[0];
+};
+
+const getStudentRefId = (studentRef) => {
+  if (!studentRef) return '';
+  if (studentRef._id) return studentRef._id.toString();
+  return studentRef.toString();
+};
 
 // GET /my → Student: get classrooms I'm enrolled in
 router.get('/my', protect, async (req, res, next) => {
@@ -18,9 +164,11 @@ router.get('/my', protect, async (req, res, next) => {
     })
       .populate('program')
       .populate('batch')
-      .populate('instructors', 'firstName lastName email avatar');
+      .populate('students.student', 'firstName lastName email phone avatar role isVerified isActive')
+      .populate('instructors', 'firstName lastName email avatar')
+      .lean();
 
-    res.json({ success: true, classrooms });
+    res.json({ success: true, classrooms: await attachClassroomDetails(classrooms) });
   } catch (error) {
     next(error);
   }
@@ -33,7 +181,9 @@ router.get('/:id', protect, async (req, res, next) => {
       .populate('program')
       .populate('batch')
       .populate('createdBy', 'firstName lastName email')
-      .populate('instructors', 'firstName lastName email avatar');
+      .populate('students.student', 'firstName lastName email phone avatar role isVerified isActive')
+      .populate('instructors', 'firstName lastName email avatar')
+      .lean();
 
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
@@ -41,13 +191,13 @@ router.get('/:id', protect, async (req, res, next) => {
 
     // Verify student is enrolled or user is admin
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isEnrolled = classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active');
+    const isEnrolled = classroom.students.some(s => getStudentRefId(s.student) === req.user._id.toString() && s.status === 'active');
 
     if (!isAdmin && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
     }
 
-    res.json({ success: true, classroom });
+    res.json({ success: true, classroom: await attachClassroomDetails(classroom) });
   } catch (error) {
     next(error);
   }
@@ -99,14 +249,16 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Classroom code already exists' });
     }
 
+    const refs = await normalizeClassroomRefs({ program, batch });
+
     const classroom = await Classroom.create({
       name,
       description,
       thumbnail,
       code,
       createdBy: req.user._id,
-      program: program || null,
-      batch: batch || null,
+      program: refs.program,
+      batch: refs.batch,
       maxStudents: maxStudents || 100,
       settings: settings || {
         allowQuizLeaderboard: false,
@@ -114,6 +266,8 @@ router.post('/', async (req, res, next) => {
         notifyOnUpload: true
       }
     });
+
+    await classroom.populate('program batch instructors');
 
     res.status(201).json({ success: true, message: 'Classroom created successfully', classroom });
   } catch (error) {
@@ -127,15 +281,17 @@ router.get('/', async (req, res, next) => {
     const { status, program } = req.query;
     const filter = {};
     if (status) filter.status = status;
-    if (program) filter.program = program;
+    if (program) filter.program = await resolveProgramId(program);
 
     const classrooms = await Classroom.find(filter)
       .populate('program')
       .populate('batch')
+      .populate('students.student', 'firstName lastName email phone avatar role isVerified isActive')
       .populate('instructors', 'firstName lastName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json({ success: true, classrooms });
+    res.json({ success: true, classrooms: await attachClassroomDetails(classrooms) });
   } catch (error) {
     next(error);
   }
@@ -144,14 +300,16 @@ router.get('/', async (req, res, next) => {
 // PUT /:id → Admin: update classroom info
 router.put('/:id', async (req, res, next) => {
   try {
+    const updates = await normalizeClassroomRefs(req.body);
     const classroom = await Classroom.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { $set: updates },
       { new: true }
     );
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
+    await classroom.populate('program batch instructors');
     res.json({ success: true, message: 'Classroom updated successfully', classroom });
   } catch (error) {
     next(error);

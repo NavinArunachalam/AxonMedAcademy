@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import React, { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Megaphone, Video, BookOpen, ClipboardList,
@@ -118,12 +118,12 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                     </div>
                   </div>
                   {m.status === "live" ? (
-                    <Link
-                      to={`/student/jitsi/${m.roomId}`}
+                    <a
+                      href={`/student/jitsi/${m.roomId}`}
                       className="rounded-full bg-red-500 text-white px-5 py-2.5 text-sm font-bold flex items-center gap-2 shrink-0"
                     >
                       <Radio className="h-4 w-4" /> Join Now
-                    </Link>
+                    </a>
                   ) : (
                     <div className="rounded-full bg-slate-100 text-slate-500 px-4 py-2 text-xs font-semibold shrink-0">
                       Scheduled
@@ -166,25 +166,39 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 
 // ─── Recordings Tab ───────────────────────────────────────────────────────────
 
-function SecurePlayer({ recording, onClose }: { recording: { title: string; duration: number; chapters: { id: string; title: string; startTimeSec: number }[] }; onClose: () => void }) {
+function SecurePlayer({ recording, onClose }: { recording: { id: string; title: string; duration: number; chapters: { id: string; title: string; startTimeSec: number }[]; storageProvider?: string; cloudflareUrl?: string }; onClose: () => void }) {
   const { currentUser } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [blurred, setBlurred] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Simulate playback position
+  const streamUrl = recording.storageProvider === 'cloudflare'
+    ? `/api/v1/recordings/classroom/${recording.id}/stream`
+    : recording.cloudflareUrl;
+
   useEffect(() => {
-    if (isPlaying && !blurred) {
-      timerRef.current = setInterval(() => {
-        setPosition((p) => Math.min(p + 1, recording.duration));
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isPlaying, blurred, recording.duration]);
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTimeUpdate = () => {
+      setPosition(Math.floor(video.currentTime));
+    };
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+    };
+  }, [recording.id]);
 
   // Blur on tab switch
   useEffect(() => {
@@ -220,12 +234,41 @@ function SecurePlayer({ recording, onClose }: { recording: { title: string; dura
 
       {/* Video area */}
       <div className="flex flex-1 relative select-none">
-        {/* Fake video frame */}
-        <div className="flex-1 bg-gradient-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative">
+        {/* Video area */}
+        <div className="flex-1 bg-linear-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative">
           {/* Watermark */}
           <div className="absolute top-4 right-4 text-white/20 text-xs font-mono pointer-events-none select-none">
             {CURRENT_STUDENT.name} · SECURE
           </div>
+
+          {streamUrl ? (
+            <video
+              ref={videoRef}
+              src={streamUrl}
+              className="w-full h-full object-contain bg-black"
+              controls
+              poster="/default-video-thumb.jpg"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            />
+          ) : (
+            <>
+              {/* Fake video frame */}
+              <button onClick={() => {
+                if (blurred) return;
+                setIsPlaying((p) => !p);
+              }} className="text-white/80 hover:text-white transition-colors">
+                {isPlaying ? (
+                  <div className="flex gap-2">
+                    <div className="w-3 h-10 bg-white rounded-sm" />
+                    <div className="w-3 h-10 bg-white rounded-sm" />
+                  </div>
+                ) : (
+                  <Play className="h-16 w-16 fill-current" />
+                )}
+              </button>
+            </>
+          )}
 
           {/* Blur overlay */}
           {blurred && (
@@ -235,18 +278,6 @@ function SecurePlayer({ recording, onClose }: { recording: { title: string; dura
             </div>
           )}
 
-          {!blurred && (
-            <button onClick={() => setIsPlaying(!isPlaying)} className="text-white/80 hover:text-white transition-colors">
-              {isPlaying ? (
-                <div className="flex gap-2">
-                  <div className="w-3 h-10 bg-white rounded-sm" />
-                  <div className="w-3 h-10 bg-white rounded-sm" />
-                </div>
-              ) : (
-                <Play className="h-16 w-16 fill-current" />
-              )}
-            </button>
-          )}
         </div>
 
         {/* Chapters sidebar */}
@@ -318,7 +349,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
           return (
             <div key={rec.id} className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-plum/30 transition-colors">
               <div className="flex items-start gap-4">
-                <div className="w-20 h-14 rounded-xl bg-gradient-to-br from-plum/20 to-plum-dark/10 flex items-center justify-center shrink-0">
+                <div className="w-20 h-14 rounded-xl bg-linear-to-br from-plum/20 to-plum-dark/10 flex items-center justify-center shrink-0">
                   <Play className="h-5 w-5 text-plum" />
                 </div>
                 <div className="flex-1 min-w-0">

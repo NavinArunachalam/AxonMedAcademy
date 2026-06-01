@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 
+const CURRENT_USER_KEY = "htaCurrentUser";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -9,6 +11,26 @@ export interface User {
   role: "student" | "admin";
   password?: string;
   phone?: string;
+}
+
+function loadStoredCurrentUser(): User | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CURRENT_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistCurrentUser(user: User | null | undefined) {
+  if (typeof window === "undefined" || user === undefined) return;
+  if (user) {
+    window.localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  } else {
+    window.localStorage.removeItem(CURRENT_USER_KEY);
+    window.localStorage.removeItem("htaAccessToken");
+  }
 }
 
 export interface Course {
@@ -99,6 +121,9 @@ export interface Recording {
   description: string;
   duration: number;
   isPublished: boolean;
+  storageProvider?: 'mux' | 'cloudflare';
+  cloudflareUrl?: string;
+  cloudflareKey?: string;
   chapters: Chapter[];
   viewStats: ViewStat[];
   uploadedAt: string;
@@ -357,7 +382,9 @@ function createStore(initial: StoreState) {
   return {
     getState: () => state,
     setState: (updater: (s: StoreState) => Partial<StoreState>) => {
-      state = { ...state, ...updater(state) };
+      const patch = updater(state);
+      persistCurrentUser(patch.currentUser);
+      state = { ...state, ...patch };
       listeners.forEach((l) => l());
     },
     subscribe: (listener: Listener) => {
@@ -371,7 +398,7 @@ export const classroomStore = createStore({
   classrooms: INITIAL_CLASSROOMS,
   users: INITIAL_USERS,
   courses: INITIAL_COURSES,
-  currentUser: null, // Require login
+  currentUser: loadStoredCurrentUser(),
   threads: INITIAL_THREADS,
   payments: INITIAL_PAYMENTS,
 });
@@ -470,6 +497,12 @@ export const classroomActions = {
     classroomStore.setState((s) => ({ classrooms: [...s.classrooms, newCls] }));
     return newCls;
   },
+  addClassroom: (c: Classroom) => {
+    classroomStore.setState((s) => ({ classrooms: [...s.classrooms, c] }));
+  },
+  setClassrooms: (classrooms: Classroom[]) => {
+    classroomStore.setState(() => ({ classrooms }));
+  },
 
   updateClassroom: (id: string, updates: Partial<Classroom>) => {
     classroomStore.setState((s) => ({
@@ -502,8 +535,14 @@ export const classroomActions = {
   },
 
   // Meetings
-  addMeeting: (classroomId: string, m: Omit<Meeting, "id" | "attendees" | "status" | "roomId">) => {
-    const meeting: Meeting = { ...m, id: `meet-${Date.now()}`, roomId: `room-${Date.now()}`, status: "scheduled", attendees: [] };
+  addMeeting: (classroomId: string, m: Omit<Meeting, "id" | "attendees"> & { roomId?: string; status?: Meeting["status"]; attendees?: string[]; id?: string }) => {
+    const meeting: Meeting = {
+      ...m,
+      id: m.id ?? `meet-${Date.now()}`,
+      roomId: m.roomId ?? `room-${Date.now()}`,
+      status: m.status ?? "scheduled",
+      attendees: m.attendees ?? []
+    };
     classroomStore.setState((s) => ({
       classrooms: s.classrooms.map((c) =>
         c.id === classroomId ? { ...c, meetings: [...c.meetings, meeting] } : c,
@@ -541,8 +580,13 @@ export const classroomActions = {
   },
 
   // Recordings
-  addRecording: (classroomId: string, r: Omit<Recording, "id" | "viewStats" | "uploadedAt">) => {
-    const rec: Recording = { ...r, id: `rec-${Date.now()}`, viewStats: [], uploadedAt: new Date().toISOString() };
+  addRecording: (classroomId: string, r: Omit<Recording, "viewStats" | "uploadedAt"> & Partial<Pick<Recording, "id">>) => {
+    const rec: Recording = {
+      ...r,
+      id: 'id' in r && r.id ? r.id : `rec-${Date.now()}`,
+      viewStats: [],
+      uploadedAt: new Date().toISOString(),
+    };
     classroomStore.setState((s) => ({
       classrooms: s.classrooms.map((c) =>
         c.id === classroomId ? { ...c, recordings: [...c.recordings, rec] } : c,

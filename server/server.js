@@ -22,9 +22,9 @@ const startServer = async () => {
     
     server.listen(PORT, () => {
       console.log(`===================================================`);
-      console.log(`🏥 HTA Platform Service is running on port ${PORT}`);
+      console.log(`🏥 Platform Service is running on port ${PORT}`);
       console.log(`🌐 Development Endpoint: http://localhost:${PORT}`);
-      console.log(`🛡️  Current Environment: ${process.env.NODE_ENV}`);
+      console.log(`🛡️ Current Environment: ${process.env.NODE_ENV}`);
       console.log(`===================================================`);
     });
   } catch (error) {

@@ -1,8 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Plus, School, Users, Video, ClipboardList, Archive,
-  Search, BookOpen, X, ChevronRight,
+  Plus,
+  School,
+  Users,
+  Video,
+  ClipboardList,
+  Archive,
+  Search,
+  BookOpen,
+  X,
+  ChevronRight,
 } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 import {
@@ -10,21 +18,29 @@ import {
   classroomActions,
   type Classroom,
 } from "@/lib/classroomStore";
+import { createClassroom as apiCreateClassroom, getClassrooms as apiGetClassrooms } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/")({
   component: AdminClassrooms,
 });
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+const PROGRAMS = [
+  "ICU Critical Care",
+  "Staff Nursing",
+  "OT Technician",
+  "Lab Technician",
+  "Radiology",
+  "Pharmacy",
+];
 
 function StatusBadge({ status }: { status: Classroom["status"] }) {
   const cls =
     status === "active"
       ? "bg-lime/20 text-lime"
       : status === "archived"
-        ? "bg-cream/10 text-cream/60"
-        : "bg-yellow-500/20 text-yellow-300";
+      ? "bg-cream/10 text-cream/60"
+      : "bg-yellow-500/20 text-yellow-300";
   return (
     <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${cls}`}>
       {status}
@@ -32,11 +48,13 @@ function StatusBadge({ status }: { status: Classroom["status"] }) {
   );
 }
 
-// ─── Create Classroom Modal ───────────────────────────────────────────────────
-
-const PROGRAMS = ["ICU Critical Care", "Staff Nursing", "OT Technician", "Lab Technician", "Radiology", "Pharmacy"];
-
-function CreateClassroomModal({ onClose }: { onClose: () => void }) {
+function CreateClassroomModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated?: (classroom: Classroom) => void;
+}) {
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -46,10 +64,18 @@ function CreateClassroomModal({ onClose }: { onClose: () => void }) {
     status: "active" as Classroom["status"],
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    classroomActions.createClassroom(form);
+
+    try {
+      const created = await apiCreateClassroom(form);
+      classroomActions.addClassroom(created);
+      onCreated?.(created);
+    } catch (error) {
+      classroomActions.createClassroom(form);
+    }
+
     onClose();
   };
 
@@ -58,11 +84,16 @@ function CreateClassroomModal({ onClose }: { onClose: () => void }) {
       <DarkCard className="w-full max-w-lg">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-xl font-bold text-cream">Create Classroom</h2>
-          <button onClick={onClose} className="text-cream/50 hover:text-cream"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="text-cream/50 hover:text-cream">
+            <X className="h-5 w-5" />
+          </button>
         </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Classroom Name *</label>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Classroom Name *
+            </label>
             <input
               required
               value={form.name}
@@ -71,8 +102,11 @@ function CreateClassroomModal({ onClose }: { onClose: () => void }) {
               className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
             />
           </div>
+
           <div>
-            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Description
+            </label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -81,17 +115,23 @@ function CreateClassroomModal({ onClose }: { onClose: () => void }) {
               className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Class Code</label>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+                Class Code
+              </label>
               <input
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}
                 className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 font-mono"
               />
             </div>
+
             <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Max Students</label>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+                Max Students
+              </label>
               <input
                 type="number"
                 min={1}
@@ -102,27 +142,44 @@ function CreateClassroomModal({ onClose }: { onClose: () => void }) {
               />
             </div>
           </div>
+
           <div>
-            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Program</label>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Program
+            </label>
             <select
               value={form.program}
               onChange={(e) => setForm({ ...form, program: e.target.value })}
               className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
             >
-              {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
+              {PROGRAMS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
             </select>
           </div>
+
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
-            <button type="submit" className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold">Create Classroom</button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold"
+            >
+              Create Classroom
+            </button>
           </div>
         </form>
       </DarkCard>
     </div>
   );
 }
-
-// ─── Classroom Card ───────────────────────────────────────────────────────────
 
 function ClassroomCard({ cls }: { cls: Classroom }) {
   const activeStudents = cls.students.filter((s) => s.status === "active").length;
@@ -132,8 +189,7 @@ function ClassroomCard({ cls }: { cls: Classroom }) {
 
   return (
     <div className="rounded-2xl bg-[#1A0F33] border border-cream/10 overflow-hidden hover:border-lime/30 transition-colors group">
-      {/* Header gradient */}
-      <div className="h-2 bg-gradient-to-r from-lime/60 to-lime" />
+      <div className="h-2 bg-linear-to-r from-lime/60 to-lime" />
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
@@ -142,9 +198,11 @@ function ClassroomCard({ cls }: { cls: Classroom }) {
           </div>
           <StatusBadge status={cls.status} />
         </div>
-        <p className="text-cream/60 text-xs leading-relaxed line-clamp-2 mb-4">{cls.description || "No description."}</p>
 
-        {/* Stats row */}
+        <p className="text-cream/60 text-xs leading-relaxed line-clamp-2 mb-4">
+          {cls.description || "No description."}
+        </p>
+
         <div className="grid grid-cols-4 gap-2 mb-4">
           {[
             { icon: Users, val: activeStudents, label: "Students" },
@@ -183,36 +241,81 @@ function ClassroomCard({ cls }: { cls: Classroom }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 function AdminClassrooms() {
   const { classrooms } = useClassroomStore();
+  const [backendClassrooms, setBackendClassrooms] = useState<Classroom[] | null>(null);
+  const [loadingBackend, setLoadingBackend] = useState(false);
+  const [backendError, setBackendError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "archived" | "draft">("all");
 
-  const filtered = classrooms.filter((c) => {
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoadingBackend(true);
+      try {
+        const data = await apiGetClassrooms();
+        if (active) {
+          setBackendClassrooms(data);
+          classroomActions.setClassrooms(data);
+          setBackendError(null);
+        }
+      } catch (err) {
+        if (active) {
+          setBackendError(String(err instanceof Error ? err.message : err));
+        }
+      } finally {
+        if (active) setLoadingBackend(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const sourceClassrooms = backendClassrooms ?? classrooms;
+  const filtered = sourceClassrooms.filter((c) => {
+    const matchSearch =
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.code.toLowerCase().includes(search.toLowerCase()) ||
       c.program.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "all" || c.status === filterStatus;
     return matchSearch && matchStatus;
   });
 
-  const totalStudents = classrooms.reduce((s, c) => s + c.students.filter((st) => st.status === "active").length, 0);
-  const totalRecordings = classrooms.reduce((s, c) => s + c.recordings.filter((r) => r.isPublished).length, 0);
+  const totalStudents = sourceClassrooms.reduce(
+    (s, c) => s + c.students.filter((st) => st.status === "active").length,
+    0,
+  );
+  const totalRecordings = sourceClassrooms.reduce(
+    (s, c) => s + c.recordings.filter((r) => r.isPublished).length,
+    0,
+  );
 
   return (
     <div className="space-y-6 text-cream">
-      {showCreate && <CreateClassroomModal onClose={() => setShowCreate(false)} />}
+      {showCreate && (
+        <CreateClassroomModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(classroom) => {
+            setBackendClassrooms((prev) => (prev ? [...prev, classroom] : [classroom]));
+          }}
+        />
+      )}
 
-      {/* Header */}
+      {loadingBackend && <p className="text-sm text-cream/60">Loading classrooms from MongoDB…</p>}
+      {backendError && <p className="text-sm text-red-400">Using fallback mock data: {backendError}</p>}
+
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold flex items-center gap-3">
             <School className="h-8 w-8 text-lime" /> Classrooms
           </h1>
-          <p className="text-cream/60 text-sm mt-1">Manage live classes, recordings, and quizzes per batch</p>
+          <p className="text-cream/60 text-sm mt-1">
+            Manage live classes, recordings, and quizzes per batch
+          </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -222,11 +325,10 @@ function AdminClassrooms() {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
         {[
-          { label: "Total Classrooms", value: classrooms.length },
-          { label: "Active", value: classrooms.filter((c) => c.status === "active").length },
+          { label: "Total Classrooms", value: sourceClassrooms.length },
+          { label: "Active", value: sourceClassrooms.filter((c) => c.status === "active").length },
           { label: "Total Students", value: totalStudents },
           { label: "Published Recordings", value: totalRecordings },
         ].map((s) => (
@@ -237,9 +339,8 @@ function AdminClassrooms() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 bg-cream/5 rounded-full px-4 py-2 flex-1 min-w-[200px] max-w-xs">
+        <div className="flex items-center gap-2 bg-cream/5 rounded-full px-4 py-2 flex-1 min-w-50 max-w-xs">
           <Search className="h-4 w-4 text-cream/50" />
           <input
             value={search}
@@ -253,7 +354,9 @@ function AdminClassrooms() {
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
-              className={`text-xs font-semibold rounded-full px-3 py-1.5 capitalize transition-colors ${filterStatus === s ? "bg-lime text-plum-dark" : "bg-cream/10 text-cream/70"}`}
+              className={`text-xs font-semibold rounded-full px-3 py-1.5 capitalize transition-colors ${
+                filterStatus === s ? "bg-lime text-plum-dark" : "bg-cream/10 text-cream/70"
+              }`}
             >
               {s}
             </button>
@@ -261,7 +364,6 @@ function AdminClassrooms() {
         </div>
       </div>
 
-      {/* Grid */}
       {filtered.length === 0 ? (
         <DarkCard className="text-center py-16">
           <School className="h-12 w-12 text-cream/20 mx-auto mb-3" />
@@ -269,7 +371,9 @@ function AdminClassrooms() {
         </DarkCard>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((c) => <ClassroomCard key={c.id} cls={c} />)}
+          {filtered.map((c) => (
+            <ClassroomCard key={c.id} cls={c} />
+          ))}
         </div>
       )}
     </div>

@@ -14,8 +14,10 @@ import {
   type Meeting,
   type Quiz,
   type Question,
+  type Classroom,
   type Option,
 } from "@/lib/classroomStore";
+import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -23,7 +25,6 @@ export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
@@ -149,15 +150,65 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
 function LiveClassesTab({ classroomId }: { classroomId: string }) {
   const { classrooms } = useClassroomStore();
   const cls = classrooms.find((c) => c.id === classroomId)!;
+  const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", scheduledAt: "", duration: 60 });
+  const [notifyStudents, setNotifyStudents] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const formatForDateTimeLocal = (value: string) => {
+    if (!value) return "";
+    // normalize ISO and local datetime values for the browser picker
+    const local = value.includes("T") ? value.slice(0, 16) : value;
+    return local;
+  };
+
+  const handleDeleteMeeting = async (meetingId: string) => {
+    setError("");
+    setDeletingMeetingId(meetingId);
+    try {
+      await deleteMeeting(meetingId);
+      classroomActions.deleteMeeting(classroomId, meetingId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete meeting");
+    } finally {
+      setDeletingMeetingId(null);
+    }
+  };
 
   const handleSchedule = (e: React.FormEvent) => {
-    e.preventDefault();
     if (!form.title || !form.scheduledAt) return;
-    classroomActions.addMeeting(classroomId, form);
-    setForm({ title: "", description: "", scheduledAt: "", duration: 60 });
-    setShowForm(false);
+    setError("");
+    setSaving(true);
+    createMeeting({
+      classroom: cls.code || classroomId,
+      title: form.title,
+      description: form.description,
+      scheduledAt: new Date(form.scheduledAt).toISOString(),
+      duration: form.duration,
+      sendPortalNotification: notifyStudents,
+      sendWhatsApp: false,
+    })
+      .then((res) => {
+        const meeting = res.meeting;
+        classroomActions.addMeeting(classroomId, {
+          id: meeting._id || meeting.id,
+          title: meeting.title,
+          description: meeting.description,
+          scheduledAt: meeting.scheduledAt,
+          duration: meeting.duration,
+          status: meeting.status,
+          roomId: meeting.roomId,
+          attendees: [],
+        });
+        setForm({ title: "", description: "", scheduledAt: "", duration: 60 });
+        setShowForm(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Could not schedule meeting");
+      })
+      .finally(() => setSaving(false));
   };
 
   const upcoming = cls.meetings.filter((m) => m.status !== "ended" && m.status !== "cancelled");
@@ -193,7 +244,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Date & Time *</label>
-                <input required type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: new Date(e.target.value).toISOString() })}
+                <input required type="datetime-local" value={formatForDateTimeLocal(form.scheduledAt)} onChange={(e) => setForm({ ...form, scheduledAt: e.currentTarget.value })}
                   className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
               </div>
               <div>
@@ -207,9 +258,20 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                 </select>
               </div>
             </div>
+            <div className="flex items-center gap-2 text-sm text-cream/70">
+              <input
+                  id="notify-students"
+                  type="checkbox"
+                  checked={notifyStudents}
+                  onChange={(e) => setNotifyStudents(e.target.checked)}
+                  className="h-4 w-4 rounded border-cream/20 bg-cream/5 text-lime focus:ring-lime"
+                />
+                <label htmlFor="notify-students" className="select-none">Send join-link notification to active students</label>
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
-              <button type="submit" className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold">Confirm & Schedule</button>
+              <button type="submit" disabled={saving} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-50">{saving ? 'Scheduling…' : 'Confirm & Schedule'}</button>
             </div>
           </form>
         </DarkCard>
@@ -257,7 +319,8 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                     </>
                   )}
                   <button onClick={() => classroomActions.deleteMeeting(classroomId, m.id)}
-                    className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 text-xs">
+                    disabled={deletingMeetingId === m.id}
+                    className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 text-xs disabled:opacity-50">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -266,6 +329,8 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
           </div>
         </div>
       )}
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       {/* Past */}
       {past.length > 0 && (
@@ -311,13 +376,50 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
   const cls = classrooms.find((c) => c.id === classroomId)!;
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title) return;
-    classroomActions.addRecording(classroomId, form);
+    if (!videoFile) {
+      setUploadError('Please select a video file to upload');
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('classroom', classroomId);
+      formData.append('title', form.title);
+      formData.append('description', form.description);
+      formData.append('duration', String(form.duration));
+      formData.append('isPublished', String(form.isPublished));
+      formData.append('chapters', JSON.stringify(form.chapters));
+      formData.append('video', videoFile);
+      const payload = await uploadClassroomRecordingToCloudflare(formData);
+      const recording = payload.recording;
+      classroomActions.addRecording(classroomId, {
+        title: recording.title,
+        description: recording.description,
+        duration: recording.duration || 0,
+        isPublished: recording.isPublished || false,
+        chapters: recording.chapters || [],
+        storageProvider: recording.storageProvider,
+        cloudflareKey: recording.cloudflareKey,
+        cloudflareUrl: recording.cloudflareUrl,
+        id: recording._id || recording.id,
+      } as any);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
     setForm({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] });
+    setVideoFile(null);
     setShowForm(false);
   };
 
@@ -343,6 +445,11 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Recording Title *</label>
               <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="e.g. Module 3: Advanced Haemodynamics" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Video File *</label>
+              <input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
+                className="w-full text-cream text-sm file:bg-cream/10 file:border-cream/10 file:rounded-xl file:px-3 file:py-2 file:text-cream" />
             </div>
             <div>
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
@@ -381,8 +488,11 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
 
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
-              <button type="submit" className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold">Save Recording</button>
+              <button type="submit" disabled={uploading} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-60">
+                {uploading ? 'Uploading…' : 'Save Recording'}
+              </button>
             </div>
+            {uploadError && <p className="text-sm text-red-400 mt-1">{uploadError}</p>}
           </form>
         </DarkCard>
       )}
@@ -403,7 +513,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
             <DarkCard key={rec.id}>
               <div className="flex items-start gap-4">
                 {/* Thumbnail */}
-                <div className="w-20 h-14 rounded-lg bg-gradient-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0">
+                <div className="w-20 h-14 rounded-lg bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0">
                   <Play className="h-5 w-5 text-lime" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -501,7 +611,7 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
   const LABELS = ["A", "B", "C", "D", "E", "F"];
 
   return (
-    <div className="rounded-xl bg-cream/[0.03] border border-cream/10 p-4 space-y-3">
+    <div className="rounded-xl bg-cream/3 border border-cream/10 p-4 space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
         <span className="grid h-7 w-7 place-items-center rounded-full bg-lime/10 text-lime text-xs font-bold shrink-0">Q{qIdx + 1}</span>
         <select value={q.type} onChange={(e) => setType(e.target.value as Question["type"])}
@@ -524,7 +634,7 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
 
       <div className="space-y-2">
         {q.options.map((opt, oi) => (
-          <div key={opt.label} className={`flex items-center gap-2 rounded-lg px-3 py-2 border transition-colors ${opt.isCorrect ? "border-lime/40 bg-lime/5" : "border-cream/10 bg-cream/[0.02]"}`}>
+          <div key={opt.label} className={`flex items-center gap-2 rounded-lg px-3 py-2 border transition-colors ${opt.isCorrect ? "border-lime/40 bg-lime/5" : "border-cream/10 bg-cream/2"}`}>
             <button onClick={() => toggleCorrect(opt.label)}
               className={`h-5 w-5 shrink-0 rounded-full grid place-items-center text-[10px] font-bold border transition-colors ${opt.isCorrect ? "bg-lime border-lime text-plum-dark" : "border-cream/30 text-cream/50"}`}>
               {opt.isCorrect ? <Check className="h-3 w-3" /> : opt.label}
@@ -797,8 +907,58 @@ function StudentsTab({ classroomId }: { classroomId: string }) {
   const { classrooms, users } = useClassroomStore();
   const cls = classrooms.find((c) => c.id === classroomId)!;
   const [showAdd, setShowAdd] = useState(false);
+  const [mongoStudents, setMongoStudents] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
+  const [isAdding, setIsAdding] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  const studentsOnly = users.filter((u) => u.role === "student");
+  React.useEffect(() => {
+    let active = true;
+    const loadStudents = async () => {
+      try {
+        const students = await getAdminUsers("student");
+        if (!active) return;
+        setMongoStudents(students);
+        setError("");
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Could not load students from MongoDB");
+      }
+    };
+    loadStudents();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const refreshClassroom = async () => {
+    const refreshed = await getClassroomById(classroomId);
+    classroomActions.updateClassroom(classroomId, refreshed);
+  };
+
+  const handleAddStudent = async (studentId: string) => {
+    setError("");
+    setIsAdding(studentId);
+    try {
+      await addStudentsToClassroom(classroomId, [studentId]);
+      await refreshClassroom();
+      setShowAdd(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add student to classroom");
+    } finally {
+      setIsAdding(null);
+    }
+  };
+
+  const handleStatusChange = async (studentId: string, status: "active" | "held" | "removed") => {
+    setError("");
+    try {
+      await updateClassroomStudentStatus(classroomId, studentId, status);
+      await refreshClassroom();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update student status");
+    }
+  };
+
+  const studentsOnly = mongoStudents.length > 0 ? mongoStudents : users.filter((u) => u.role === "student");
   const notEnrolled = studentsOnly.filter((s) => !cls.students.find((cs) => cs.id === s.id));
 
   return (
@@ -810,6 +970,8 @@ function StudentsTab({ classroomId }: { classroomId: string }) {
         </button>
       </div>
 
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
       {showAdd && notEnrolled.length > 0 && (
         <DarkCard>
           <h3 className="font-display font-bold text-cream mb-3">Add Students to Classroom</h3>
@@ -820,13 +982,22 @@ function StudentsTab({ classroomId }: { classroomId: string }) {
                   <div className="text-cream text-sm font-semibold">{s.name}</div>
                   <div className="text-cream/60 text-xs">{s.email}</div>
                 </div>
-                <button onClick={() => {
-                  classroomActions.addStudent(classroomId, { ...s, enrollmentId: `MCA-${new Date().getFullYear()}-${s.id.slice(0,4).toUpperCase()}`, progress: 0, attendance: 0, quizAvg: 0, status: "active", addedAt: new Date().toISOString() });
-                  setShowAdd(false);
-                }} className="rounded-full bg-lime text-plum-dark px-4 py-1.5 text-xs font-bold">Add</button>
+                <button
+                  onClick={() => handleAddStudent(s.id)}
+                  disabled={isAdding === s.id}
+                  className="rounded-full bg-lime text-plum-dark px-4 py-1.5 text-xs font-bold disabled:opacity-60"
+                >
+                  {isAdding === s.id ? "Adding..." : "Add"}
+                </button>
               </div>
             ))}
           </div>
+        </DarkCard>
+      )}
+
+      {showAdd && notEnrolled.length === 0 && (
+        <DarkCard className="text-center py-8">
+          <p className="text-cream/50 text-sm">No available MongoDB students to add.</p>
         </DarkCard>
       )}
 
@@ -875,7 +1046,7 @@ function StudentsTab({ classroomId }: { classroomId: string }) {
                   </span>
                 </td>
                 <td className="pr-4">
-                  <select value={s.status} onChange={(e) => classroomActions.updateStudentStatus(classroomId, s.id, e.target.value as "active" | "held" | "removed")}
+                  <select value={s.status} onChange={(e) => handleStatusChange(s.id, e.target.value as "active" | "held" | "removed")}
                     className="bg-cream/5 border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
                     <option value="active">Active</option>
                     <option value="held">Hold</option>
@@ -897,11 +1068,47 @@ function AdminClassroomDetail() {
   const params = (Route.useParams as any)();
   const id = params.id as string;
   const { classrooms } = useClassroomStore();
+  const [backendClassroom, setBackendClassroom] = useState<Classroom | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("announcements");
 
-  const cls = classrooms.find((c) => c.id === id);
+  const storeClassroom = classrooms.find((c) => c.id === id);
 
-  if (!cls) {
+  React.useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const backend = await getClassroomById(id);
+        if (!active) return;
+        setBackendClassroom(backend);
+        if (storeClassroom) {
+          classroomActions.updateClassroom(backend.id, backend);
+        } else {
+          classroomActions.addClassroom(backend);
+        }
+      } catch (err) {
+        console.error("Could not load classroom by id", err);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const classroom = storeClassroom || backendClassroom;
+
+  if (isLoading) {
+    return (
+      <div className="text-cream text-center py-20">
+        <p className="text-cream/60">Loading classroom...</p>
+      </div>
+    );
+  }
+
+  if (!classroom) {
     return (
       <div className="text-cream text-center py-20">
         <p className="text-cream/60">Classroom not found.</p>
@@ -919,15 +1126,15 @@ function AdminClassroomDetail() {
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-display text-2xl font-bold">{cls.name}</h1>
-            <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${cls.status === "active" ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>{cls.status}</span>
+            <h1 className="font-display text-2xl font-bold">{classroom.name}</h1>
+            <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${classroom.status === "active" ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>{classroom.status}</span>
           </div>
           <div className="flex items-center gap-4 mt-1 flex-wrap">
-            <span className="font-mono text-[11px] text-cream/50">{cls.code}</span>
+            <span className="font-mono text-[11px] text-cream/50">{classroom.code}</span>
             <span className="text-cream/60 text-xs">·</span>
-            <span className="text-cream/60 text-xs">{cls.students.filter((s) => s.status === "active").length} / {cls.maxStudents} students</span>
+            <span className="text-cream/60 text-xs">{classroom.students.filter((s) => s.status === "active").length} / {classroom.maxStudents} students</span>
             <span className="text-cream/60 text-xs">·</span>
-            <span className="text-cream/60 text-xs">{cls.program}</span>
+            <span className="text-cream/60 text-xs">{classroom.program}</span>
           </div>
         </div>
       </div>
@@ -943,11 +1150,11 @@ function AdminClassroomDetail() {
       </div>
 
       {/* Tab content */}
-      {tab === "announcements" && <AnnouncementsTab classroomId={cls.id} />}
-      {tab === "live" && <LiveClassesTab classroomId={cls.id} />}
-      {tab === "recordings" && <RecordingsTab classroomId={cls.id} />}
-      {tab === "tests" && <TestsTab classroomId={cls.id} />}
-      {tab === "students" && <StudentsTab classroomId={cls.id} />}
+      {tab === "announcements" && <AnnouncementsTab classroomId={classroom.id} />}
+      {tab === "live" && <LiveClassesTab classroomId={classroom.id} />}
+      {tab === "recordings" && <RecordingsTab classroomId={classroom.id} />}
+      {tab === "tests" && <TestsTab classroomId={classroom.id} />}
+      {tab === "students" && <StudentsTab classroomId={classroom.id} />}
     </div>
   );
 }

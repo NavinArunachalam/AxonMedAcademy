@@ -7,16 +7,18 @@ const classroomRecordingSchema = new mongoose.Schema({
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
   // Storage provider configuration
-  storageProvider: { type: String, enum: ['mux', 'google_drive'], default: 'mux' },
+  storageProvider: { type: String, enum: ['mux', 'cloudflare'], default: 'mux' },
 
   // Mux video details (used when storageProvider is 'mux')
   muxAssetId: { type: String },
   muxPlaybackId: { type: String },
   muxStatus: { type: String, enum: ['preparing', 'ready', 'errored'], default: 'preparing' },
 
-  // Google Drive video details (used when storageProvider is 'google_drive')
-  googleDriveFileId: { type: String },
-  googleDriveViewLink: { type: String },
+  // Cloudflare video details (used when storageProvider is 'cloudflare')
+  cloudflareKey: { type: String },
+  cloudflareUrl: { type: String },
+  cloudflareKey: { type: String },
+  cloudflareUrl: { type: String },
 
   duration: { type: Number }, // seconds
   thumbnail: { type: String }, // thumbnail url or local default path

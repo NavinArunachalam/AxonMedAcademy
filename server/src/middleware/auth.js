@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 
 const protect = async (req, res, next) => {
@@ -8,13 +9,48 @@ const protect = async (req, res, next) => {
     // Check authorization header
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
-    } 
+    }
     // Check cookies
     else if (req.cookies && req.cookies.accessToken) {
       token = req.cookies.accessToken;
     }
 
+    // Development override: allow frontend local login to identify the user without JWT
+    const devUserEmail = !token && process.env.NODE_ENV !== 'production'
+      ? req.headers['x-dev-user-email']
+      : null;
+    const devUserRole = !token && process.env.NODE_ENV !== 'production'
+      ? req.headers['x-dev-user-role']
+      : null;
+    const devUserName = !token && process.env.NODE_ENV !== 'production'
+      ? req.headers['x-dev-user-name']
+      : null;
+
     if (!token) {
+      if (devUserEmail) {
+        let currentUser = await User.findOne({ email: devUserEmail });
+        if (!currentUser) {
+          const fullName = String(devUserName || devUserEmail).trim();
+          const [firstName, ...lastParts] = fullName.split(' ');
+          const lastName = lastParts.join(' ') || 'Developer';
+          currentUser = await User.create({
+            firstName: firstName || 'Dev',
+            lastName: lastName,
+            email: devUserEmail,
+            role: devUserRole || 'student',
+            password: crypto.randomBytes(12).toString('hex'),
+            isVerified: true,
+            isActive: true
+          });
+        } else if (devUserRole && ['student', 'faculty', 'admin', 'accounts', 'receptionist', 'superadmin'].includes(devUserRole)) {
+          currentUser.role = devUserRole;
+          currentUser.isVerified = true;
+          currentUser.isActive = true;
+          await currentUser.save();
+        }
+        req.user = currentUser;
+        return next();
+      }
       return res.status(401).json({
         success: false,
         message: 'You are not logged in. Please log in to get access.'

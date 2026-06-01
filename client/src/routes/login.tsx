@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Stethoscope, ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { authActions, classroomStore } from "@/lib/classroomStore";
+import { classroomStore, type User } from "@/lib/classroomStore";
+import { loginUser } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -10,22 +11,31 @@ function Login() {
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const success = authActions.login(userId, password);
-    if (!success) {
-      setError("Invalid User ID or Password");
-      return;
-    }
-    
-    // Check role and navigate
-    const state = classroomStore.getState();
-    if (state.currentUser?.role === "admin") {
-      navigate({ to: "/admin/dashboard" });
-    } else {
-      navigate({ to: "/student/dashboard" });
+    setIsSubmitting(true);
+
+    try {
+      const payload = await loginUser(userId, password);
+      const backendUser = payload.user;
+      const role = backendUser.role === "student" ? "student" : "admin";
+      const currentUser: User = {
+        id: backendUser._id,
+        name: `${backendUser.firstName || ""} ${backendUser.lastName || ""}`.trim() || backendUser.email,
+        email: backendUser.email,
+        phone: backendUser.phone,
+        role,
+      };
+
+      classroomStore.setState(() => ({ currentUser }));
+      navigate({ to: role === "admin" ? "/admin/dashboard" : "/student/dashboard" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid User ID or Password");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -84,8 +94,8 @@ function Login() {
               <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" required />
             </div>
 
-            <button type="submit" className="group w-full inline-flex items-center justify-center gap-2 rounded-full bg-plum-dark px-6 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition">
-              Sign in <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            <button type="submit" disabled={isSubmitting} className="group w-full inline-flex items-center justify-center gap-2 rounded-full bg-plum-dark px-6 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition disabled:cursor-not-allowed disabled:opacity-70">
+              {isSubmitting ? "Signing in..." : "Sign in"} <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
 

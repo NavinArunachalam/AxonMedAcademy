@@ -18,7 +18,6 @@ const notificationRoutes = require('./notifications');
 const adminRoutes = require('./admin');
 const instructorRoutes = require('./instructor');
 const publicRoutes = require('./public');
-const mediaRoutes = require('./media');
 
 // Priority features sub-routers
 const classroomRoutes = require('./classrooms');
@@ -44,7 +43,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
 router.use('/instructor', instructorRoutes);
 router.use('/public', publicRoutes);
-router.use('/media', mediaRoutes);
 
 // Priority features mounted routes
 router.use('/classrooms', classroomRoutes);
