@@ -634,8 +634,8 @@ export const classroomActions = {
   },
 
   // Quizzes
-  addQuiz: (classroomId: string, q: Omit<Quiz, "id" | "attempts">) => {
-    const quiz: Quiz = { ...q, id: `quiz-${Date.now()}`, attempts: [] };
+  addQuiz: (classroomId: string, q: Omit<Quiz, "id" | "attempts"> & Partial<Pick<Quiz, "id" | "attempts">>) => {
+    const quiz: Quiz = { ...q, id: q.id ?? `quiz-${Date.now()}`, attempts: q.attempts ?? [] };
     classroomStore.setState((s) => ({
       classrooms: s.classrooms.map((c) =>
         c.id === classroomId ? { ...c, quizzes: [...c.quizzes, quiz] } : c,
