@@ -1,4 +1,4 @@
-const API_BASE = "http://oc-pro-production.up.railway.app/api/v1"?.trim() || "/api/v1";
+const API_BASE = "https://oc-pro-production.up.railway.app/api/v1"?.trim() || "/api/v1";
 const ACCESS_TOKEN_KEY = "htaAccessToken";
 function getStoredAccessToken() {
   if (typeof window === "undefined") return null;
