@@ -2,7 +2,7 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { nitro } from "nitro/vite";
 
 // Fallback to legacy URL if environment variables are not specified
-const rawApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL || "https://https://oc-pro-production.up.railway.app/api/v1";
+const rawApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL || "https://oc-pro-production.up.railway.app/api/v1";
 
 const getProxyTarget = (url: string) => {
 	let cleaned = url.trim().replace(/\/+$/, "");
