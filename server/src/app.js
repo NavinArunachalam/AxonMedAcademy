@@ -12,13 +12,37 @@ const app = express();
 // Security Middlewares
 app.use(helmet());
 
+// Build list of allowed CORS origins from environment
+const rawOrigins = process.env.CLIENT_URL || 'http://localhost:8080';
+const allowedOrigins = rawOrigins
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+// Always allow localhost variants in development
+if (process.env.NODE_ENV !== 'production') {
+  ['http://localhost:5173', 'http://localhost:8080', 'http://localhost:3000'].forEach((o) => {
+    if (!allowedOrigins.includes(o)) allowedOrigins.push(o);
+  });
+}
+
 // CORS configuration matching requirements
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:8080',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn(`[CORS] Blocked request from origin: ${origin}`);
+    return callback(new Error(`CORS: Origin ${origin} not allowed`));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-dev-user-email', 'x-dev-user-role', 'x-dev-user-name'],
+  optionsSuccessStatus: 200,
 }));
+
+// Handle preflight OPTIONS for all routes
+app.options('*', cors());
 
 // HTTP request logger
 app.use(morgan('dev'));
