@@ -65,7 +65,7 @@ function StudentLayout() {
   return (
     <PortalShell
       variant="student"
-      brand="Medicore Academy"
+      brand="Axon Academy"
       nav={NAV}
       user={{
         name: currentUser.name,

@@ -6,8 +6,8 @@ export const Route = createFileRoute("/about")({ component: About });
 
 const VALUES = [
   { icon: Target, t: "Mission", d: "To make world-class paramedical education accessible to every aspirant in India — regardless of background or budget." },
-  { icon: Eye,    t: "Vision",  d: "A future where every hospital bedside is supported by a confident, certified, expertly trained paramedical professional." },
-  { icon: Heart,  t: "Values",  d: "Empathy in care. Rigor in training. Honesty in assessment. Respect for every learner who trusts us with their future." },
+  { icon: Eye, t: "Vision", d: "A future where every hospital bedside is supported by a confident, certified, expertly trained paramedical professional." },
+  { icon: Heart, t: "Values", d: "Empathy in care. Rigor in training. Honesty in assessment. Respect for every learner who trusts us with their future." },
 ];
 
 const MILESTONES = [
@@ -26,13 +26,13 @@ function About() {
         <div className="absolute inset-0 -z-10 bg-grid opacity-60" />
         <div className="absolute -z-10 top-0 right-0 h-[500px] w-[500px] rounded-full bg-lime/25 blur-3xl" />
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— About Medicore</div>
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— About Axon</div>
           <h1 className="mt-3 max-w-4xl font-display text-4xl lg:text-7xl font-bold text-plum-dark tracking-[-0.03em] leading-[1.02]">
             Built by clinicians,<br />
             <span className="text-plum">for the next generation</span> of clinicians.
           </h1>
           <p className="mt-8 max-w-2xl text-lg text-foreground/70 leading-relaxed">
-            Medicore Academy was started in 2018 by a small group of doctors, senior nurses, and hospital
+            Axon Academy was started in 2018 by a small group of doctors, senior nurses, and hospital
             administrators who saw a single truth — India needs more well-trained paramedical
             professionals, and the path to becoming one should be rigorous, transparent, and humane.
           </p>

@@ -28,13 +28,13 @@ function Settings() {
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-cream/60 mt-1", children: "Public info about your academy" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-6 grid sm:grid-cols-2 gap-5", children: [{
           l: "Academy name",
-          v: "Medicore Academy"
+          v: "Axon Academy"
         }, {
           l: "Display URL",
-          v: "medicore.academy"
+          v: "Axon.academy"
         }, {
           l: "Support email",
-          v: "hello@medicore.academy"
+          v: "hello@Axon.academy"
         }, {
           l: "Phone",
           v: "+91 98765 43210"

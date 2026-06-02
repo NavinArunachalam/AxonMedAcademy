@@ -71,7 +71,7 @@ function AdminLayout() {
   if (!currentUser || currentUser.role !== "admin") {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/login" });
   }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(PortalShell, { variant: "admin", brand: "Medicore Academy", nav: NAV, user: {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(PortalShell, { variant: "admin", brand: "Axon Academy", nav: NAV, user: {
     name: currentUser.name,
     role: "Super Admin",
     initials: currentUser.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()

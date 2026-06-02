@@ -14,7 +14,7 @@ export function WhyUs() {
     <section className="py-10 lg:py-16 bg-secondary/40">
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
         <div className="max-w-2xl">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— 02 / Why Medicore</div>
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— 02 / Why Axon</div>
           <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">
             Built for the realities<br />of modern healthcare.
           </h2>

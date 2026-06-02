@@ -24,9 +24,9 @@ function Contact() {
           <div className="lg:col-span-2 space-y-4">
             {[
               { icon: MapPin, t: "Visit us", v: "Plot 21, Medical Campus, Hosur Road, Bengaluru — 560001" },
-              { icon: Phone,  t: "Call us",  v: "+91 98765 43210 · Mon–Sat 9am–8pm" },
-              { icon: Mail,   t: "Email",    v: "hello@medicore.academy" },
-              { icon: Clock,  t: "Office",   v: "Monday – Saturday, 9 AM to 8 PM" },
+              { icon: Phone, t: "Call us", v: "+91 98765 43210 · Mon–Sat 9am–8pm" },
+              { icon: Mail, t: "Email", v: "hello@Axon.academy" },
+              { icon: Clock, t: "Office", v: "Monday – Saturday, 9 AM to 8 PM" },
             ].map(c => (
               <div key={c.t} className="rounded-2xl border border-border bg-card p-5 flex gap-4">
                 <div className="grid h-11 w-11 place-items-center rounded-xl bg-plum-dark text-lime shrink-0">

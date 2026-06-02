@@ -17,7 +17,7 @@ function Settings() {
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
         <aside className="space-y-1">
           {["Organization", "Branding", "Domains", "Payments", "Email", "Integrations", "Roles & Access", "Security"].map((s, i) => (
-            <button key={s} className={`w-full text-left rounded-xl px-4 py-2.5 text-sm font-medium ${i===0 ? "bg-lime text-plum-dark" : "text-cream/70 hover:bg-cream/5"}`}>{s}</button>
+            <button key={s} className={`w-full text-left rounded-xl px-4 py-2.5 text-sm font-medium ${i === 0 ? "bg-lime text-plum-dark" : "text-cream/70 hover:bg-cream/5"}`}>{s}</button>
           ))}
         </aside>
 
@@ -26,9 +26,9 @@ function Settings() {
           <p className="text-xs text-cream/60 mt-1">Public info about your academy</p>
           <div className="mt-6 grid sm:grid-cols-2 gap-5">
             {[
-              { l: "Academy name", v: "Medicore Academy" },
-              { l: "Display URL", v: "medicore.academy" },
-              { l: "Support email", v: "hello@medicore.academy" },
+              { l: "Academy name", v: "Axon Academy" },
+              { l: "Display URL", v: "Axon.academy" },
+              { l: "Support email", v: "hello@Axon.academy" },
               { l: "Phone", v: "+91 98765 43210" },
               { l: "GST", v: "29AABCM1234C1ZK" },
               { l: "Time zone", v: "Asia/Kolkata" },

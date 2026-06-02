@@ -51,7 +51,7 @@ function Login() {
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-lime text-plum-dark">
             <Stethoscope className="h-5 w-5" />
           </span>
-          <span className="font-display text-lg font-bold">Medicore.Academy</span>
+          <span className="font-display text-lg font-bold">Axon.Academy</span>
         </Link>
 
         <div className="relative">
@@ -64,7 +64,7 @@ function Login() {
           </p>
         </div>
 
-        <div className="relative text-xs text-cream/50">© {new Date().getFullYear()} Medicore Academy</div>
+        <div className="relative text-xs text-cream/50">© {new Date().getFullYear()} Axon Academy</div>
       </div>
 
       {/* Right form */}
@@ -74,7 +74,7 @@ function Login() {
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-plum-dark text-lime">
               <Stethoscope className="h-5 w-5" />
             </span>
-            <span className="font-display font-bold text-plum-dark">Medicore.Academy</span>
+            <span className="font-display font-bold text-plum-dark">Axon.Academy</span>
           </Link>
 
           <h2 className="font-display text-3xl font-bold text-plum-dark">Sign in</h2>
@@ -113,7 +113,7 @@ function Login() {
           </div>
 
           <p className="mt-6 text-center text-sm text-foreground/65">
-            New to Medicore? <Link to="/courses" className="font-semibold text-plum-dark">Browse courses →</Link>
+            New to Axon? <Link to="/courses" className="font-semibold text-plum-dark">Browse courses →</Link>
           </p>
         </div>
       </div>

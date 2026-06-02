@@ -88,14 +88,16 @@ function StudentLayout() {
   if (!currentUser || currentUser.role !== "student") {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/login" });
   }
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(PortalShell, { variant: "student", brand: "Medicore Academy", nav: NAV, user: {
-    name: currentUser.name,
-    role: "Student",
-    initials: currentUser.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-  }, children: [
-    loadError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600", children: loadError }),
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(PortalShell, {
+    variant: "student", brand: "Axon Academy", nav: NAV, user: {
+      name: currentUser.name,
+      role: "Student",
+      initials: currentUser.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    }, children: [
+      loadError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600", children: loadError }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(Outlet, {})
-  ] });
+    ]
+  });
 }
 export {
   StudentLayout as component
