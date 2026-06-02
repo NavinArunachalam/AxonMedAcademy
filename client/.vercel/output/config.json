@@ -14,7 +14,7 @@
     },
     {
       "src": "/api/(.*)",
-      "dest": "https://oc-pro-qqsz.vercel.app/api/v1/$1"
+      "dest": "https://zesty-vision-production-0cc0.up.railway.app/api/v1/$1"
     },
     {
       "handle": "filesystem"
