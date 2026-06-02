@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { useClassroomStore } from "@/lib/classroomStore";
+import { useEffect, useState } from "react";
 
 const NAV = [
   { label: "Overview", to: "/admin/dashboard", icon: LayoutDashboard },
@@ -25,6 +26,15 @@ export const Route = createFileRoute("/_admin")({
 
 function AdminLayout() {
   const { currentUser } = useClassroomStore();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return null;
+  }
 
   if (!currentUser || currentUser.role !== "admin") {
     return <Navigate to="/login" />;
