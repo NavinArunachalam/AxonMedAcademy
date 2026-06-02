@@ -1,0 +1,9 @@
+{
+  "version": 3,
+  "routes": [
+    {
+      "src": "/api/(.*)",
+        "dest": "http://localhost:5000/api/v1/$1"
+    }
+  ]
+}
