@@ -9,82 +9,128 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// Security Middlewares
+// Security
 app.use(helmet());
 
-// Build list of allowed CORS origins from environment
-const rawOrigins = process.env.CLIENT_URL || 'http://localhost:8080';
+// ==================== CORS ====================
+
+const rawOrigins = process.env.CLIENT_URL || '';
+
 const allowedOrigins = rawOrigins
   .split(',')
-  .map((o) => o.trim())
+  .map(origin => origin.trim())
   .filter(Boolean);
 
-// Always allow localhost variants in development
+// Development origins
 if (process.env.NODE_ENV !== 'production') {
-  ['http://localhost:5173', 'http://localhost:8080', 'http://localhost:3000'].forEach((o) => {
-    if (!allowedOrigins.includes(o)) allowedOrigins.push(o);
+  [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8080'
+  ].forEach(origin => {
+    if (!allowedOrigins.includes(origin)) {
+      allowedOrigins.push(origin);
+    }
   });
 }
 
-// CORS configuration matching requirements
-app.use(cors({
+console.log('Allowed Origins:', allowedOrigins);
+
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    console.warn(`[CORS] Blocked request from origin: ${origin}`);
-    return callback(new Error(`CORS: Origin ${origin} not allowed`));
+    // Allow Postman, server-to-server, curl
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.error(`CORS BLOCKED: ${origin}`);
+
+    return callback(
+      new Error(`Origin ${origin} is not allowed by CORS`)
+    );
   },
+
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-dev-user-email', 'x-dev-user-role', 'x-dev-user-name'],
-  optionsSuccessStatus: 200,
-}));
 
-// Handle preflight OPTIONS for all routes
-app.options('*', cors());
+  methods: [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
+  ],
 
-// HTTP request logger
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-dev-user-email',
+    'x-dev-user-role',
+    'x-dev-user-name'
+  ],
+
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// IMPORTANT
+app.options(/.*/, cors(corsOptions));
+
+// ==================== END CORS ====================
+
+// Logger
 app.use(morgan('dev'));
 
-// Payload Parsing
+// Body Parser
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({
+  extended: true,
+  limit: '10mb'
+}));
 
-// Cookie Parser
+// Cookies
 app.use(cookieParser());
 
-// Static uploads serving
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Static Files
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'))
+);
 
-// Rate Limiter
+// Rate Limit
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // max 1000 requests per IP per window
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
-    message: 'Too many requests from this IP. Please try again after 15 minutes.'
+    message:
+      'Too many requests from this IP. Please try again later.'
   }
 });
+
 app.use('/api', apiLimiter);
 
-// Health check endpoint
+// Health Check
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'HTA Backend API is fully operational',
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV
+    message: 'API is running',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Real routing binding mapped to full monorepo routes
+// Routes
 const apiRouter = require('./routes');
 app.use('/api/v1', apiRouter);
 
-// Global Error Handler Middleware
+// Error Handler
 app.use(errorHandler);
 
 module.exports = app;
