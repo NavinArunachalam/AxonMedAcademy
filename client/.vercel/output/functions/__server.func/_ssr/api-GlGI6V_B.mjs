@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5000/api/v1"?.trim() || "/api/v1";
+const API_BASE = import.meta.env.VITE_API_URL?.trim() || "/api/v1";
 const ACCESS_TOKEN_KEY = "htaAccessToken";
 function getStoredAccessToken() {
   if (typeof window === "undefined") return null;
