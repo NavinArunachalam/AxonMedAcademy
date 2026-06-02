@@ -1,6 +1,8 @@
 import { classroomStore } from '@/lib/classroomStore';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api/v1';
+// In production on Vercel, this can stay undefined and the app will use the same origin API route.
+// Set VITE_API_URL in Vercel env vars only when the backend is deployed on a separate host.
+const API_BASE = import.meta.env.VITE_API_URL?.trim() || '/api/v1';
 const ACCESS_TOKEN_KEY = 'htaAccessToken';
 
 function getStoredAccessToken() {
