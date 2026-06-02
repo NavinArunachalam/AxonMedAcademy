@@ -7,14 +7,17 @@ export default defineConfig({
 		nitro({
 			preset: "vercel",
 			routeRules: {
+				// Proxy all /api/** requests to Railway backend
+				// e.g. /api/v1/auth/login → Railway /api/v1/auth/login (no double /v1)
 				"/api/**": {
-					proxy: "https://oc-pro-qqsz.vercel.app/api/v1/**",
+					proxy: "https://zesty-vision-production-0cc0.up.railway.app/api/**",
 				},
 			},
 		}),
 	],
 	vite: {
 		server: {
+			// Local dev proxy — only used during `npm run dev`
 			proxy: {
 				'/api': {
 					target: 'http://localhost:5000',
@@ -25,3 +28,4 @@ export default defineConfig({
 		},
 	},
 });
+
