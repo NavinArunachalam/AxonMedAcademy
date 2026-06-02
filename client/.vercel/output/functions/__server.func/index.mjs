@@ -60,7 +60,7 @@ function isPathInScope(pathname, base) {
   return !base || canonical === base || canonical.startsWith(base + "/");
 }
 const findRouteRules = /* @__PURE__ */ (() => {
-  const $0 = [{ name: "proxy", route: "/api/**", handler: proxy, options: { "to": "https://zesty-vision-production-0cc0.up.railway.app/api/**", "_proxyStripBase": "/api" } }], $1 = [{ name: "headers", route: "/assets/**", handler: headers, options: { "cache-control": "public, max-age=31536000, immutable" } }];
+  const $0 = [{ name: "proxy", route: "/api/**", handler: proxy, options: { "to": "https://oc-pro-production.up.railway.app/api/**", "_proxyStripBase": "/api" } }], $1 = [{ name: "headers", route: "/assets/**", handler: headers, options: { "cache-control": "public, max-age=31536000, immutable" } }];
   return (m, p) => {
     let r = [];
     if (p.charCodeAt(p.length - 1) === 47) p = p.slice(0, -1) || "/";
@@ -256,24 +256,28 @@ function isrRouteRewrite(reqUrl, xNowRouteMatches) {
   }
 }
 const nitroApp = useNitroApp();
-const vercel_web = { fetch(req, context) {
-  const isrURL = isrRouteRewrite(req.url, req.headers.get("x-now-route-matches"));
-  if (isrURL) {
-    const { routeRules } = getRouteRules("", isrURL[0]);
-    if (routeRules?.isr) {
-      req = new Request(new URL(isrURL[0] + (isrURL[1] ? `?${isrURL[1]}` : ""), req.url).href, req);
+const vercel_web = {
+  fetch(req, context) {
+    const isrURL = isrRouteRewrite(req.url, req.headers.get("x-now-route-matches"));
+    if (isrURL) {
+      const { routeRules } = getRouteRules("", isrURL[0]);
+      if (routeRules?.isr) {
+        req = new Request(new URL(isrURL[0] + (isrURL[1] ? `?${isrURL[1]}` : ""), req.url).href, req);
+      }
     }
+    req.runtime ??= { name: "vercel" };
+    req.runtime.vercel = { context };
+    let ip;
+    Object.defineProperty(req, "ip", {
+      get() {
+        const h = req.headers.get("x-forwarded-for");
+        return ip ??= h?.split(",").shift()?.trim();
+      }
+    });
+    req.waitUntil = context?.waitUntil;
+    return nitroApp.fetch(req);
   }
-  req.runtime ??= { name: "vercel" };
-  req.runtime.vercel = { context };
-  let ip;
-  Object.defineProperty(req, "ip", { get() {
-    const h = req.headers.get("x-forwarded-for");
-    return ip ??= h?.split(",").shift()?.trim();
-  } });
-  req.waitUntil = context?.waitUntil;
-  return nitroApp.fetch(req);
-} };
+};
 export {
   vercel_web as default
 };
