@@ -252,10 +252,13 @@ router.post('/login', async (req, res, next) => {
     await Session.createSession(user._id, rawSessionToken, SESSION_EXPIRES_MS, req.headers['user-agent'] || '');
 
     // Set cookies
+    // In production: SameSite=none + Secure=true is required for cross-origin
+    // (Vercel frontend → Railway backend are different domains)
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax'
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax'
     };
     res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
@@ -354,10 +357,11 @@ router.post('/refresh-token', async (req, res, next) => {
       await currentUser.save();
     }
 
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax'
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax'
     };
     res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
     res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
@@ -409,9 +413,16 @@ router.post('/logout', protect, async (req, res) => {
     }
   }
 
-  res.clearCookie('accessToken');
-  res.clearCookie('refreshToken');
-  res.clearCookie('session');
+  // Must pass same options used when setting the cookie, otherwise browsers ignore the clear
+  const isProduction = process.env.NODE_ENV === 'production';
+  const clearOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
+  };
+  res.clearCookie('accessToken', clearOptions);
+  res.clearCookie('refreshToken', clearOptions);
+  res.clearCookie('session', clearOptions);
 
   res.json({ success: true, message: 'Logged out successfully' });
 });

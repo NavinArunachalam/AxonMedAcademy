@@ -14,6 +14,9 @@ app.use(helmet());
 
 // ==================== CORS ====================
 
+// CLIENT_URL accepts a comma-separated list of allowed origins.
+// In production on Railway, set this to your Vercel URL(s), e.g.:
+//   CLIENT_URL=https://oc-pro.vercel.app,https://oc-pro-git-main-yourteam.vercel.app
 const rawOrigins = process.env.CLIENT_URL || '';
 
 const allowedOrigins = rawOrigins
@@ -21,7 +24,7 @@ const allowedOrigins = rawOrigins
   .map(origin => origin.trim())
   .filter(Boolean);
 
-// Development origins
+// Development origins — always allowed outside production
 if (process.env.NODE_ENV !== 'production') {
   [
     'http://localhost:3000',
@@ -34,36 +37,33 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-console.log('Allowed Origins:', allowedOrigins);
+console.log('[CORS] Allowed Origins:', allowedOrigins);
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow Postman, server-to-server, curl
+    // Allow Postman, server-to-server, curl (no Origin header)
     if (!origin) {
       return callback(null, true);
     }
 
+    // Exact match against configured origins
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    console.error(`CORS BLOCKED: ${origin}`);
+    // Allow ALL *.vercel.app preview deployments (covers every PR deploy)
+    if (/^https:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+\.vercel\.app$/.test(origin) ||
+        /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
 
-    return callback(
-      new Error(`Origin ${origin} is not allowed by CORS`)
-    );
+    console.error(`[CORS] BLOCKED: ${origin}`);
+    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
   },
 
   credentials: true,
 
-  methods: [
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'OPTIONS'
-  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
   allowedHeaders: [
     'Content-Type',
@@ -78,7 +78,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// IMPORTANT
+// Pre-flight for every route
 app.options(/.*/, cors(corsOptions));
 
 // ==================== END CORS ====================

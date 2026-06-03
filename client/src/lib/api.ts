@@ -67,90 +67,90 @@ function normalizeBackendClassroom(raw: any) {
     createdAt: raw.createdAt || new Date().toISOString(),
     students: Array.isArray(raw.students)
       ? raw.students.map((s: any) => ({
-          id: String(s.student?._id || s.student || `student-${Date.now()}`),
-          name: s.student?.firstName ? `${s.student.firstName} ${s.student.lastName || ''}`.trim() : s.student?.email || 'Student',
-          email: s.student?.email || '',
-          enrollmentId: s.enrollmentId || '',
-          progress: 0,
-          attendance: 0,
-          quizAvg: 0,
-          status: s.status || 'active',
-          addedAt: s.addedAt ? new Date(s.addedAt).toISOString() : new Date().toISOString(),
-        }))
+        id: String(s.student?._id || s.student || `student-${Date.now()}`),
+        name: s.student?.firstName ? `${s.student.firstName} ${s.student.lastName || ''}`.trim() : s.student?.email || 'Student',
+        email: s.student?.email || '',
+        enrollmentId: s.enrollmentId || '',
+        progress: 0,
+        attendance: 0,
+        quizAvg: 0,
+        status: s.status || 'active',
+        addedAt: s.addedAt ? new Date(s.addedAt).toISOString() : new Date().toISOString(),
+      }))
       : [],
     announcements: [],
     meetings: Array.isArray(raw.meetings)
       ? raw.meetings.map((m: any) => ({
-          id: m._id || m.id,
-          title: m.title,
-          description: m.description || '',
-          scheduledAt: m.scheduledAt || new Date().toISOString(),
-          duration: m.duration || 60,
-          status: normalizeMeetingStatus(m.status),
-          attendees: Array.isArray(m.attendees) ? m.attendees.map((a: any) => String(a.student || a)) : [],
-          roomId: m.roomId || '',
-        }))
+        id: m._id || m.id,
+        title: m.title,
+        description: m.description || '',
+        scheduledAt: m.scheduledAt || new Date().toISOString(),
+        duration: m.duration || 60,
+        status: normalizeMeetingStatus(m.status),
+        attendees: Array.isArray(m.attendees) ? m.attendees.map((a: any) => String(a.student || a)) : [],
+        roomId: m.roomId || '',
+      }))
       : [],
     recordings: Array.isArray(raw.recordings)
       ? raw.recordings.map((r: any) => ({
-          id: r._id || r.id,
-          title: r.title,
-          description: r.description || '',
-          duration: r.duration || 0,
-          isPublished: r.isPublished || false,
-          chapters: r.chapters || [],
-          storageProvider: r.storageProvider,
-          cloudflareKey: r.cloudflareKey,
-          cloudflareUrl: r.cloudflareUrl,
-          viewStats: Array.isArray(r.viewStats)
-            ? r.viewStats.map((v: any) => ({
-                studentId: String(v.student?._id || v.student),
-                studentName: v.student ? `${v.student.firstName || ''} ${v.student.lastName || ''}`.trim() || 'Student' : 'Student',
-                watchedPercent: r.duration > 0 ? Math.round((v.totalWatchedSec / r.duration) * 100) : 0,
-              }))
-            : [],
-        }))
+        id: r._id || r.id,
+        title: r.title,
+        description: r.description || '',
+        duration: r.duration || 0,
+        isPublished: r.isPublished || false,
+        chapters: r.chapters || [],
+        storageProvider: r.storageProvider,
+        cloudflareKey: r.cloudflareKey,
+        cloudflareUrl: r.cloudflareUrl,
+        viewStats: Array.isArray(r.viewStats)
+          ? r.viewStats.map((v: any) => ({
+            studentId: String(v.student?._id || v.student),
+            studentName: v.student ? `${v.student.firstName || ''} ${v.student.lastName || ''}`.trim() || 'Student' : 'Student',
+            watchedPercent: r.duration > 0 ? Math.round((v.totalWatchedSec / r.duration) * 100) : 0,
+          }))
+          : [],
+      }))
       : [],
     quizzes: Array.isArray(raw.quizzes)
       ? raw.quizzes.map((q: any) => ({
-          id: q._id || q.id,
-          title: q.title,
-          instructions: q.instructions || '',
-          duration: q.duration,
-          maxAttempts: q.maxAttempts || 1,
-          randomizeQuestions: q.randomizeQuestions,
-          randomizeOptions: q.randomizeOptions,
-          showLeaderboard: q.showLeaderboard,
-          negativeMarking: q.negativeMarking,
-          negativeMarkValue: q.negativeMarkValue,
-          passPercent: q.passPercent,
-          availableFrom: q.availableFrom,
-          availableUntil: q.availableUntil,
-          status: q.status || 'draft',
-          questions: Array.isArray(q.questions) ? q.questions.map((quest: any) => ({
-            id: quest._id || quest.id,
-            type: quest.type || 'mcq',
-            text: quest.text,
-            marks: quest.marks || 1,
-            explanation: quest.explanation || '',
-            order: quest.order || 1,
-            options: Array.isArray(quest.options) ? quest.options.map((o: any) => ({
-              label: o.label,
-              text: o.text,
-              isCorrect: o.isCorrect || false
-            })) : []
-          })) : [],
-          attempts: Array.isArray(q.attempts) ? q.attempts.map((att: any) => ({
-            id: att._id || att.id,
-            studentId: String(att.student?._id || att.student),
-            studentName: att.studentName || 'Student',
-            attemptNo: att.attemptNo || 1,
-            status: att.status || 'submitted',
-            startedAt: att.startedAt,
-            submittedAt: att.submittedAt,
-            score: att.score || { rawMarks: 0, totalMarks: 0, percentage: 0, passed: false }
+        id: q._id || q.id,
+        title: q.title,
+        instructions: q.instructions || '',
+        duration: q.duration,
+        maxAttempts: q.maxAttempts || 1,
+        randomizeQuestions: q.randomizeQuestions,
+        randomizeOptions: q.randomizeOptions,
+        showLeaderboard: q.showLeaderboard,
+        negativeMarking: q.negativeMarking,
+        negativeMarkValue: q.negativeMarkValue,
+        passPercent: q.passPercent,
+        availableFrom: q.availableFrom,
+        availableUntil: q.availableUntil,
+        status: q.status || 'draft',
+        questions: Array.isArray(q.questions) ? q.questions.map((quest: any) => ({
+          id: quest._id || quest.id,
+          type: quest.type || 'mcq',
+          text: quest.text,
+          marks: quest.marks || 1,
+          explanation: quest.explanation || '',
+          order: quest.order || 1,
+          options: Array.isArray(quest.options) ? quest.options.map((o: any) => ({
+            label: o.label,
+            text: o.text,
+            isCorrect: o.isCorrect || false
           })) : []
-        }))
+        })) : [],
+        attempts: Array.isArray(q.attempts) ? q.attempts.map((att: any) => ({
+          id: att._id || att.id,
+          studentId: String(att.student?._id || att.student),
+          studentName: att.studentName || 'Student',
+          attemptNo: att.attemptNo || 1,
+          status: att.status || 'submitted',
+          startedAt: att.startedAt,
+          submittedAt: att.submittedAt,
+          score: att.score || { rawMarks: 0, totalMarks: 0, percentage: 0, passed: false }
+        })) : []
+      }))
       : [],
   };
 }
