@@ -217,6 +217,9 @@ async function fetchJson(path: string, options: RequestInit = {}) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 && path !== '/auth/login') {
+      classroomStore.setState(() => ({ currentUser: null }));
+    }
     throw new Error(payload.message || 'Server error');
   }
   return payload;
@@ -300,6 +303,9 @@ export async function uploadClassroomRecordingToCloudflare(formData: FormData) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401) {
+      classroomStore.setState(() => ({ currentUser: null }));
+    }
     throw new Error(payload.message || 'Upload failed');
   }
   return payload;

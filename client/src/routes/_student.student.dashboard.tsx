@@ -5,7 +5,7 @@ import {
 import { Card, StatTile } from "@/components/portal/PortalShell";
 import { useClassroomStore } from "@/lib/classroomStore";
 import { useQuery } from "@tanstack/react-query";
-import { getMyMeetings, getMyNotifications } from "@/lib/api";
+import { getMyMeetings, getMyNotifications, type PortalNotification } from "@/lib/api";
 
 interface MeetingsResponse {
   success: boolean;
@@ -71,9 +71,9 @@ function Dashboard() {
   }, 0);
   const totalHoursWatched = Math.round(totalWatchedSeconds / 3600);
 
-  const { data: notificationPayload } = useQuery({
+  const { data: notificationPayload } = useQuery<PortalNotification[]>({
     queryKey: ['myNotifications'],
-    queryFn: getMyNotifications,
+    queryFn: () => getMyNotifications(),
     enabled: !!currentUser,
     staleTime: 1000 * 30,
     retry: 1,

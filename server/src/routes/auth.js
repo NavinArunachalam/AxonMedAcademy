@@ -231,12 +231,12 @@ router.post('/login', async (req, res, next) => {
     const accessToken = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_ACCESS_SECRET || 'local_access_secret_for_development_purposes_only_12345',
-      { expiresIn: '15m' }
+      { expiresIn: '365d' }
     );
     const refreshToken = jwt.sign(
       { id: user._id },
       process.env.JWT_REFRESH_SECRET || 'local_refresh_secret_for_development_purposes_only_12345',
-      { expiresIn: '7d' }
+      { expiresIn: '365d' }
     );
 
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 8);
@@ -248,7 +248,7 @@ router.post('/login', async (req, res, next) => {
     // ---------- Persistent session creation ----------
     const crypto = require('crypto');
     const rawSessionToken = crypto.randomBytes(32).toString('hex');
-    const SESSION_EXPIRES_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+    const SESSION_EXPIRES_MS = 365 * 24 * 60 * 60 * 1000; // 365 days
     await Session.createSession(user._id, rawSessionToken, SESSION_EXPIRES_MS, req.headers['user-agent'] || '');
 
     // Set cookies
@@ -257,8 +257,8 @@ router.post('/login', async (req, res, next) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax'
     };
-    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-    res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+    res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
     // Persistent session cookie
     res.cookie('session', rawSessionToken, { ...cookieOptions, maxAge: SESSION_EXPIRES_MS });
     // -----------------------------------------------
@@ -337,13 +337,13 @@ router.post('/refresh-token', async (req, res, next) => {
     const newAccessToken = jwt.sign(
       { id: currentUser._id, role: currentUser.role },
       process.env.JWT_ACCESS_SECRET || 'local_access_secret_for_development_purposes_only_12345',
-      { expiresIn: '15m' }
+      { expiresIn: '365d' }
     );
 
     const newRefreshToken = jwt.sign(
       { id: currentUser._id },
       process.env.JWT_REFRESH_SECRET || 'local_refresh_secret_for_development_purposes_only_12345',
-      { expiresIn: '7d' }
+      { expiresIn: '365d' }
     );
     const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 8);
 
@@ -359,8 +359,8 @@ router.post('/refresh-token', async (req, res, next) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax'
     };
-    res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-    res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+    res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
 
     res.json({ success: true, accessToken: newAccessToken });
   } catch (error) {

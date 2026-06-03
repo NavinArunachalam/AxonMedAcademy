@@ -15,6 +15,10 @@ const protect = async (req, res, next) => {
     else if (req.cookies && req.cookies.accessToken) {
       token = req.cookies.accessToken;
     }
+    // Check query parameters (useful for video streaming where headers cannot be set easily)
+    else if (req.query && req.query.token) {
+      token = req.query.token;
+    }
 
     // Development override: allow frontend local login to identify the user without JWT
     const devUserEmail = !token && process.env.NODE_ENV !== 'production'

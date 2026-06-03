@@ -175,8 +175,9 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem('htaAccessToken') : null;
   const streamUrl = recording.storageProvider === 'cloudflare'
-    ? `/api/v1/recordings/classroom/${recording.id}/stream`
+    ? `/api/v1/recordings/classroom/${recording.id}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
     : recording.cloudflareUrl;
 
   useEffect(() => {
