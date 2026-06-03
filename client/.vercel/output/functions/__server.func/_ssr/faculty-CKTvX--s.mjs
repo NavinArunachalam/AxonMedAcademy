@@ -1,6 +1,6 @@
 import { j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { P as PublicLayout } from "./Layout-CGcQfm0v.mjs";
-import { ae as Star, G as GraduationCap, f as Award } from "../_libs/lucide-react.mjs";
+import { af as Star, G as GraduationCap, f as Award } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__react-router.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";

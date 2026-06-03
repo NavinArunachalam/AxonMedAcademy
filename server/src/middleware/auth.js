@@ -11,13 +11,13 @@ const protect = async (req, res, next) => {
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
-    // Check cookies
-    else if (req.cookies && req.cookies.accessToken) {
-      token = req.cookies.accessToken;
-    }
     // Check query parameters (useful for video streaming where headers cannot be set easily)
     else if (req.query && req.query.token) {
       token = req.query.token;
+    }
+    // Check cookies
+    else if (req.cookies && req.cookies.accessToken) {
+      token = req.cookies.accessToken;
     }
 
     // Development override: allow frontend local login to identify the user without JWT

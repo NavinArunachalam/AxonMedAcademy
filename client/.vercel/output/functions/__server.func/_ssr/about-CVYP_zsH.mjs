@@ -1,6 +1,6 @@
 import { j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { P as PublicLayout } from "./Layout-CGcQfm0v.mjs";
-import { ah as Target, E as Eye, H as Heart, f as Award } from "../_libs/lucide-react.mjs";
+import { ai as Target, E as Eye, H as Heart, f as Award } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__react-router.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";

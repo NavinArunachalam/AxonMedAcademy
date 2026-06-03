@@ -83,23 +83,28 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
             </Link>
           );
         })}
+
+        {/* Divider */}
+        <div className={`my-2 h-px ${isAdmin ? "bg-white/5" : "bg-slate-100"}`} />
+
+        {/* Sign Out button — always visible in nav */}
+        <button
+          onClick={handleLogout}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-red-500 ${isAdmin ? "hover:bg-red-500/10" : "hover:bg-red-50"}`}
+        >
+          <LogOut className="w-[18px] h-[18px] shrink-0" />
+          Sign Out
+        </button>
       </nav>
 
       <div className={`p-4 border-t ${isAdmin ? "border-white/5" : "border-slate-200"} flex items-center gap-3 shrink-0`}>
         <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${initialsBgClass}`}>
           {user.initials}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           <div className="font-semibold text-[13px] truncate">{user.name}</div>
           <div className={`text-[11px] truncate ${isAdmin ? "text-cream/50" : "text-slate-500"}`}>{user.role}</div>
         </div>
-        <button 
-          onClick={handleLogout}
-          className={`p-2 rounded-lg transition-colors hover:bg-red-500/10 text-red-500`}
-          title="Sign out"
-        >
-          <LogOut className="w-4 h-4 shrink-0" />
-        </button>
       </div>
     </>
   );

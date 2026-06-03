@@ -188,10 +188,10 @@ function normalizeBackendQuiz(raw: any) {
 }
 
 async function fetchJson(path: string, options: RequestInit = {}) {
-  // Auth is sent automatically via HttpOnly cookies (credentials: 'include').
-  // No Authorization header needed — Railway reads the accessToken cookie directly.
+  const accessToken = classroomStore.getState().accessToken;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
     ...getDevAuthUserHeaders(),
   };
   const extraHeaders = options.headers as Record<string, string> | undefined;

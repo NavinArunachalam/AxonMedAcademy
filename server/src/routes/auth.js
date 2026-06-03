@@ -254,11 +254,11 @@ router.post('/login', async (req, res, next) => {
     // Set cookies
     // In production: SameSite=none + Secure=true is required for cross-origin
     // (Vercel frontend → Railway backend are different domains)
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isSecure = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax'
+      secure: isSecure,
+      sameSite: isSecure ? 'none' : 'lax'
     };
     res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
@@ -375,11 +375,11 @@ router.post('/refresh-token', async (req, res, next) => {
       await currentUser.save();
     }
 
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isSecure = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax'
+      secure: isSecure,
+      sameSite: isSecure ? 'none' : 'lax'
     };
     res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
     res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
@@ -427,11 +427,11 @@ router.post('/logout', protect, async (req, res) => {
   }
 
   // Must pass same options used when setting the cookie, otherwise browsers ignore the clear
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isSecure = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
   const clearOptions = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax'
+    secure: isSecure,
+    sameSite: isSecure ? 'none' : 'lax'
   };
   res.clearCookie('accessToken', clearOptions);
   res.clearCookie('refreshToken', clearOptions);
