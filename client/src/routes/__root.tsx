@@ -7,6 +7,9 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { getCurrentUser } from "@/lib/api";
+import { classroomStore, type User } from "@/lib/classroomStore";
 
 import appCss from "../styles.css?url";
 
@@ -92,6 +95,45 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    // On every page load, verify the stored token is still valid with the server.
+    // This prevents "not logged in" errors after refresh.
+    getCurrentUser()
+      .then((payload) => {
+        const backendUser = payload.user;
+        const role = backendUser.role === "student" ? "student" : "admin";
+        const currentUser: User = {
+          id: backendUser._id,
+          name: `${backendUser.firstName || ""} ${backendUser.lastName || ""}`.trim() || backendUser.email,
+          email: backendUser.email,
+          phone: backendUser.phone,
+          role,
+        };
+        classroomStore.setState(() => ({ currentUser }));
+      })
+      .catch(() => {
+        // Token invalid or expired — clear stored session
+        classroomStore.setState(() => ({ currentUser: null }));
+      })
+      .finally(() => {
+        setAuthReady(true);
+      });
+  }, []);
+
+  if (!authReady) {
+    // Show a minimal loading screen while we verify auth
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: '#faf9f7' }}>
+          <div style={{ width: 32, height: 32, border: '3px solid #e5e7eb', borderTopColor: '#4c1d95', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />

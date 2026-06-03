@@ -12,6 +12,7 @@ import {
   type Quiz,
   type Question,
 } from "@/lib/classroomStore";
+import { getRecordingStreamUrl } from "@/lib/api";
 
 export const Route = createFileRoute("/_student/student/classroom/$id")({
   component: StudentClassroomDetail,
@@ -175,9 +176,8 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const token = typeof window !== 'undefined' ? window.localStorage.getItem('htaAccessToken') : null;
   const streamUrl = recording.storageProvider === 'cloudflare'
-    ? `/api/v1/recordings/classroom/${recording.id}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
+    ? getRecordingStreamUrl(recording.id)
     : recording.cloudflareUrl;
 
   useEffect(() => {
@@ -246,6 +246,7 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
             <video
               ref={videoRef}
               src={streamUrl}
+              crossOrigin="use-credentials"
               className="w-full h-full object-contain bg-black"
               controls
               poster="/default-video-thumb.jpg"

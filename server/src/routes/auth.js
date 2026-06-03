@@ -403,14 +403,9 @@ router.post('/logout', protect, async (req, res) => {
   const sessionToken = req.cookies.session;
 
   // Remove session from DB if present
-  if (sessionToken && req.user) {
-    const userSessions = await Session.find({ user: req.user._id });
-    for (const s of userSessions) {
-      if (await s.isValid(sessionToken)) {
-        await s.remove();
-        break;
-      }
-    }
+  if (sessionToken) {
+    const tokenHash = Session.hashToken(sessionToken);
+    await Session.deleteOne({ tokenHash });
   }
 
   // Must pass same options used when setting the cookie, otherwise browsers ignore the clear

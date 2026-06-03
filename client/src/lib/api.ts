@@ -1,19 +1,9 @@
 import { classroomStore } from '@/lib/classroomStore';
 
-// In production on Vercel, this can stay undefined and the app will use the same origin API route.
-// Set VITE_API_URL in Vercel env vars only when the backend is deployed on a separate host.
+// Auth is fully cookie-based (HttpOnly cookies set by the Railway server).
+// credentials: 'include' on every fetch sends them automatically to Railway from Vercel.
+// Never store tokens in localStorage — cookies survive page refreshes and are more secure.
 const API_BASE = import.meta.env.VITE_API_URL?.trim() || '/api/v1';
-const ACCESS_TOKEN_KEY = 'htaAccessToken';
-
-function getStoredAccessToken() {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
-function setStoredAccessToken(token: string) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
-}
 
 function getDevAuthUserHeaders(): Record<string, string> {
   if (import.meta.env.PROD) return {};
@@ -198,26 +188,26 @@ function normalizeBackendQuiz(raw: any) {
 }
 
 async function fetchJson(path: string, options: RequestInit = {}) {
+  // Auth is sent automatically via HttpOnly cookies (credentials: 'include').
+  // No Authorization header needed — Railway reads the accessToken cookie directly.
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...getDevAuthUserHeaders(),
   };
-  const accessToken = getStoredAccessToken();
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
   const extraHeaders = options.headers as Record<string, string> | undefined;
   if (extraHeaders) Object.assign(headers, extraHeaders);
 
   const response = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
+    credentials: 'include', // sends HttpOnly cookies cross-origin (Vercel → Railway)
     headers,
     ...options,
   });
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401 && path !== '/auth/login') {
+    // On 401, clear the in-memory user so the router redirects to /login.
+    // Exclude /auth/me — boot-time rehydration handles that path itself.
+    if (response.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
       classroomStore.setState(() => ({ currentUser: null }));
     }
     throw new Error(payload.message || 'Server error');
@@ -226,14 +216,12 @@ async function fetchJson(path: string, options: RequestInit = {}) {
 }
 
 export async function loginUser(identifier: string, password: string) {
-  const payload = await fetchJson('/auth/login', {
+  // Server sets HttpOnly cookies (accessToken, refreshToken, session) in the response.
+  // Nothing to store client-side — cookies are sent automatically on every subsequent request.
+  return fetchJson('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email: normalizeLoginIdentifier(identifier), password }),
   });
-  if (payload.accessToken) {
-    setStoredAccessToken(payload.accessToken);
-  }
-  return payload;
 }
 
 export async function getCurrentUser() {
@@ -286,13 +274,10 @@ export async function deleteQuiz(quizId: string) {
 }
 
 export async function uploadClassroomRecordingToCloudflare(formData: FormData) {
+  // Auth via HttpOnly cookie only — no Authorization header needed.
   const headers: Record<string, string> = {
     ...getDevAuthUserHeaders(),
   };
-  const accessToken = getStoredAccessToken();
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
 
   const response = await fetch(`${API_BASE}/recordings/classroom/upload-cloudflare`, {
     method: 'POST',
@@ -393,3 +378,8 @@ export async function markNotificationRead(notificationId: string) {
     method: 'PUT',
   });
 }
+
+export function getRecordingStreamUrl(recordingId: string): string {
+  return `${API_BASE}/recordings/classroom/${recordingId}/stream`;
+}
+

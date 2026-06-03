@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 
-const CURRENT_USER_KEY = "htaCurrentUser";
-
 // ─── Types ────────────────────────────────────────────────────────────────────
+// Session is fully server-managed: MongoDB Session collection + HttpOnly cookies.
+// currentUser lives only in memory and is rehydrated on boot via GET /auth/me.
 
 export interface User {
   id: string;
@@ -11,26 +11,6 @@ export interface User {
   role: "student" | "admin";
   password?: string;
   phone?: string;
-}
-
-function loadStoredCurrentUser(): User | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(CURRENT_USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistCurrentUser(user: User | null | undefined) {
-  if (typeof window === "undefined" || user === undefined) return;
-  if (user) {
-    window.localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-  } else {
-    window.localStorage.removeItem(CURRENT_USER_KEY);
-    window.localStorage.removeItem("htaAccessToken");
-  }
 }
 
 export interface Course {
@@ -383,7 +363,8 @@ function createStore(initial: StoreState) {
     getState: () => state,
     setState: (updater: (s: StoreState) => Partial<StoreState>) => {
       const patch = updater(state);
-      persistCurrentUser(patch.currentUser);
+      // No localStorage persistence — session lives in MongoDB + HttpOnly cookies.
+      // currentUser is in-memory only; rehydrated on boot via GET /auth/me.
       state = { ...state, ...patch };
       listeners.forEach((l) => l());
     },
@@ -398,7 +379,7 @@ export const classroomStore = createStore({
   classrooms: INITIAL_CLASSROOMS,
   users: INITIAL_USERS,
   courses: INITIAL_COURSES,
-  currentUser: loadStoredCurrentUser(),
+  currentUser: null, // always null at boot; __root.tsx rehydrates via GET /auth/me (cookie)
   threads: INITIAL_THREADS,
   payments: INITIAL_PAYMENTS,
 });

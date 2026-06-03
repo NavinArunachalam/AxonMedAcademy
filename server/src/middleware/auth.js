@@ -35,13 +35,15 @@ const protect = async (req, res, next) => {
     if (!token) {
       const sessionToken = req.cookies.session;
       if (sessionToken) {
-        // Find a valid session that matches the token
-        const potentialSessions = await Session.find({ expiresAt: { $gt: new Date() } }).populate('user');
-        for (const sess of potentialSessions) {
-          if (await sess.isValid(sessionToken)) {
-            req.user = sess.user;
-            return next();
-          }
+        // Find a valid session that matches the token hash directly
+        const tokenHash = Session.hashToken(sessionToken);
+        const sess = await Session.findOne({
+          tokenHash,
+          expiresAt: { $gt: new Date() }
+        }).populate('user');
+        if (sess && sess.user) {
+          req.user = sess.user;
+          return next();
         }
       }
       // If dev override also not present, return unauthenticated
