@@ -1,8 +1,13 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { nitro } from "nitro/vite";
+import { loadEnv } from "vite";
 
-// Fallback to legacy URL if environment variables are not specified
-const rawApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL || "https://oc-pro-production.up.railway.app/api/v1";
+const env = {
+	...process.env,
+	...loadEnv(process.env.NODE_ENV || "development", process.cwd(), ""),
+};
+
+const rawApiUrl = env.VITE_API_URL || env.BACKEND_URL || "http://localhost:5000/api/v1";
 
 const getProxyTarget = (url: string) => {
 	let cleaned = url.trim().replace(/\/+$/, "");
@@ -23,17 +28,19 @@ const getProxyTarget = (url: string) => {
 const proxyTarget = getProxyTarget(rawApiUrl);
 console.log("Setting Nitro proxy target to:", proxyTarget);
 
+const routeRules: Record<string, any> = {};
+if (rawApiUrl && !rawApiUrl.includes("localhost") && !rawApiUrl.includes("127.0.0.1")) {
+	routeRules["/api/**"] = {
+		proxy: proxyTarget,
+	};
+}
+
 export default defineConfig({
 	cloudflare: false,
 	plugins: [
 		nitro({
 			preset: "vercel",
-			routeRules: {
-				// Proxy all /api/** requests to Railway backend
-				"/api/**": {
-					proxy: proxyTarget,
-				},
-			},
+			routeRules,
 		}),
 	],
 	vite: {

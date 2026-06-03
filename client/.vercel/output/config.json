@@ -13,10 +13,6 @@
       "src": "/assets/(.*)"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "https://oc-pro-production.up.railway.app/api/$1"
-    },
-    {
       "handle": "filesystem"
     },
     {

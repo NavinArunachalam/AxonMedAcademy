@@ -1,6 +1,5 @@
 globalThis.__nitro_main__ = import.meta.url;
-import { a as HTTPError, p as proxyRequest, d as defineLazyEventHandler, H as H3Core } from "./_libs/h3.mjs";
-import { a as withoutBase, j as joinURL, w as withQuery } from "./_libs/ufo.mjs";
+import { d as defineLazyEventHandler, a as HTTPError, H as H3Core } from "./_libs/h3.mjs";
 import { N as NodeResponse } from "./_libs/srvx.mjs";
 import "./_libs/rou3.mjs";
 import "node:stream";
@@ -27,49 +26,15 @@ const headers = ((m) => function headersRouteRule(event) {
     event.res.headers.set(key, value);
   }
 });
-const proxy = ((m) => function proxyRouteRule(event) {
-  let target = m.options?.to;
-  if (!target) {
-    return;
-  }
-  if (target.endsWith("/**")) {
-    let targetPath = event.url.pathname + event.url.search;
-    const strpBase = m.options._proxyStripBase;
-    if (strpBase) {
-      if (!isPathInScope(event.url.pathname, strpBase)) {
-        throw new HTTPError({ status: 400 });
-      }
-      targetPath = withoutBase(targetPath, strpBase);
-    } else if (targetPath.startsWith("//")) {
-      targetPath = targetPath.replace(/^\/+/, "/");
-    }
-    target = joinURL(target.slice(0, -3), targetPath);
-  } else if (event.url.search) {
-    target = withQuery(target, Object.fromEntries(event.url.searchParams));
-  }
-  return proxyRequest(event, target, { ...m.options });
-});
-function isPathInScope(pathname, base) {
-  let canonical;
-  try {
-    const pre = pathname.replace(/%2f/gi, "/").replace(/%5c/gi, "\\");
-    canonical = new URL(pre, "http://_").pathname;
-  } catch {
-    return false;
-  }
-  return !base || canonical === base || canonical.startsWith(base + "/");
-}
 const findRouteRules = /* @__PURE__ */ (() => {
-  const $0 = [{ name: "proxy", route: "/api/**", handler: proxy, options: { "to": "https://oc-pro-production.up.railway.app/api/**", "_proxyStripBase": "/api" } }], $1 = [{ name: "headers", route: "/assets/**", handler: headers, options: { "cache-control": "public, max-age=31536000, immutable" } }];
+  const $0 = [{ name: "headers", route: "/assets/**", handler: headers, options: { "cache-control": "public, max-age=31536000, immutable" } }];
   return (m, p) => {
     let r = [];
     if (p.charCodeAt(p.length - 1) === 47) p = p.slice(0, -1) || "/";
     let s = p.split("/"), l = s.length;
     if (l > 1) {
-      if (s[1] === "api") {
+      if (s[1] === "assets") {
         r.unshift({ data: $0, params: { "_": s.slice(2).join("/") } });
-      } else if (s[1] === "assets") {
-        r.unshift({ data: $1, params: { "_": s.slice(2).join("/") } });
       }
     }
     return r;
