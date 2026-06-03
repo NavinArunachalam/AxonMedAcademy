@@ -403,6 +403,25 @@ export function getRecordingStreamUrl(recordingId: string): string {
   return `${API_BASE}/recordings/classroom/${recordingId}/stream`;
 }
 
+export async function publishRecording(recordingId: string) {
+  return fetchJson(`/recordings/${encodeURIComponent(recordingId)}/publish`, {
+    method: 'PUT',
+  });
+}
+
+export async function unpublishRecording(recordingId: string) {
+  return fetchJson(`/recordings/${encodeURIComponent(recordingId)}/publish`, {
+    method: 'PUT',
+    body: JSON.stringify({ isPublished: false }),
+  });
+}
+
+export async function deleteRecording(recordingId: string) {
+  return fetchJson(`/recordings/${encodeURIComponent(recordingId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function logoutUser() {
   return fetchJson('/auth/logout', { method: 'POST' });
 }

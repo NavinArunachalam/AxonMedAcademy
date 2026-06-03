@@ -17,7 +17,7 @@ import {
   type Classroom,
   type Option,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -371,9 +371,8 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 
 // ─── Recordings Tab ───────────────────────────────────────────────────────────
 
-function RecordingsTab({ classroomId }: { classroomId: string }) {
-  const { classrooms } = useClassroomStore();
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
+  const cls = classroom;
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -393,26 +392,15 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
     setUploadError(null);
     try {
       const formData = new FormData();
-      formData.append('classroom', classroomId);
+      formData.append('classroom', classroom.id);
       formData.append('title', form.title);
       formData.append('description', form.description);
       formData.append('duration', String(form.duration));
       formData.append('isPublished', String(form.isPublished));
       formData.append('chapters', JSON.stringify(form.chapters));
       formData.append('video', videoFile);
-      const payload = await uploadClassroomRecordingToCloudflare(formData);
-      const recording = payload.recording;
-      classroomActions.addRecording(classroomId, {
-        title: recording.title,
-        description: recording.description,
-        duration: recording.duration || 0,
-        isPublished: recording.isPublished || false,
-        chapters: recording.chapters || [],
-        storageProvider: recording.storageProvider,
-        cloudflareKey: recording.cloudflareKey,
-        cloudflareUrl: recording.cloudflareUrl,
-        id: recording._id || recording.id,
-      } as any);
+      await uploadClassroomRecordingToCloudflare(formData);
+      await refreshClassroom();
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'Upload failed');
     } finally {
@@ -532,12 +520,32 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button
-                    onClick={() => classroomActions.publishRecording(classroomId, rec.id, !rec.isPublished)}
+                    onClick={async () => {
+                      try {
+                        if (rec.isPublished) {
+                          await unpublishRecording(rec.id);
+                        } else {
+                          await publishRecording(rec.id);
+                        }
+                        await refreshClassroom();
+                      } catch (error) {
+                        console.error('Failed to toggle recording publish status', error);
+                      }
+                    }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
                   >
                     {rec.isPublished ? <><EyeOff className="h-3 w-3" /> Unpublish</> : <><Eye className="h-3 w-3" /> Publish</>}
                   </button>
-                  <button onClick={() => classroomActions.deleteRecording(classroomId, rec.id)} className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await deleteRecording(rec.id);
+                        await refreshClassroom();
+                      } catch (error) {
+                        console.error('Failed to delete recording', error);
+                      }
+                    }}
+                    className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -967,9 +975,9 @@ function TestsTab({ classroomId }: { classroomId: string }) {
 
 // ─── Students Tab ─────────────────────────────────────────────────────────────
 
-function StudentsTab({ classroomId }: { classroomId: string }) {
-  const { classrooms, users } = useClassroomStore();
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
+  const { users } = useClassroomStore();
+  const cls = classroom;
   const [showAdd, setShowAdd] = useState(false);
   const [mongoStudents, setMongoStudents] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
   const [isAdding, setIsAdding] = useState<string | null>(null);
@@ -993,17 +1001,14 @@ function StudentsTab({ classroomId }: { classroomId: string }) {
     };
   }, []);
 
-  const refreshClassroom = async () => {
-    const refreshed = await getClassroomById(classroomId);
-    classroomActions.updateClassroom(classroomId, refreshed);
-  };
+  const refreshClassroomLocal = refreshClassroom;
 
   const handleAddStudent = async (studentId: string) => {
     setError("");
     setIsAdding(studentId);
     try {
-      await addStudentsToClassroom(classroomId, [studentId]);
-      await refreshClassroom();
+      await addStudentsToClassroom(classroom.id, [studentId]);
+      await refreshClassroomLocal();
       setShowAdd(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add student to classroom");
@@ -1015,8 +1020,8 @@ function StudentsTab({ classroomId }: { classroomId: string }) {
   const handleStatusChange = async (studentId: string, status: "active" | "held" | "removed") => {
     setError("");
     try {
-      await updateClassroomStudentStatus(classroomId, studentId, status);
-      await refreshClassroom();
+      await updateClassroomStudentStatus(classroom.id, studentId, status);
+      await refreshClassroomLocal();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update student status");
     }
@@ -1138,18 +1143,23 @@ function AdminClassroomDetail() {
 
   const storeClassroom = classrooms.find((c) => c.id === id);
 
+  const refreshClassroom = async () => {
+    const refreshed = await getClassroomById(id);
+    setBackendClassroom(refreshed);
+    if (storeClassroom) {
+      classroomActions.updateClassroom(id, refreshed);
+    } else {
+      classroomActions.addClassroom(refreshed);
+    }
+    return refreshed;
+  };
+
   React.useEffect(() => {
     let active = true;
     const load = async () => {
       try {
-        const backend = await getClassroomById(id);
+        await refreshClassroom();
         if (!active) return;
-        setBackendClassroom(backend);
-        if (storeClassroom) {
-          classroomActions.updateClassroom(backend.id, backend);
-        } else {
-          classroomActions.addClassroom(backend);
-        }
       } catch (err) {
         console.error("Could not load classroom by id", err);
       } finally {
@@ -1162,7 +1172,7 @@ function AdminClassroomDetail() {
     };
   }, [id]);
 
-  const classroom = storeClassroom || backendClassroom;
+  const classroom = backendClassroom || storeClassroom;
 
   if (isLoading) {
     return (
@@ -1216,9 +1226,9 @@ function AdminClassroomDetail() {
       {/* Tab content */}
       {tab === "announcements" && <AnnouncementsTab classroomId={classroom.id} />}
       {tab === "live" && <LiveClassesTab classroomId={classroom.id} />}
-      {tab === "recordings" && <RecordingsTab classroomId={classroom.id} />}
+      {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "tests" && <TestsTab classroomId={classroom.id} />}
-      {tab === "students" && <StudentsTab classroomId={classroom.id} />}
+      {tab === "students" && <StudentsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
     </div>
   );
 }
