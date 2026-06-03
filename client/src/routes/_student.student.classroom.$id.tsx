@@ -168,7 +168,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 // ─── Recordings Tab ───────────────────────────────────────────────────────────
 
 function SecurePlayer({ recording, onClose }: { recording: { id: string; title: string; duration: number; chapters: { id: string; title: string; startTimeSec: number }[]; storageProvider?: string; cloudflareUrl?: string }; onClose: () => void }) {
-  const { currentUser } = useClassroomStore();
+  const { currentUser, accessToken } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -177,7 +177,7 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const streamUrl = recording.storageProvider === 'cloudflare'
-    ? getRecordingStreamUrl(recording.id)
+    ? `${getRecordingStreamUrl(recording.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
     : recording.cloudflareUrl;
 
   useEffect(() => {

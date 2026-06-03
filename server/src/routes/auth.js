@@ -303,7 +303,25 @@ router.get('/me', protect, async (req, res, next) => {
       isActive: req.user.isActive,
       avatar: req.user.avatar
     };
-    res.json({ success: true, user });
+
+    // Extract current accessToken from cookies, headers, or query parameters
+    let token = req.cookies?.accessToken;
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+    if (!token && req.query?.token) {
+      token = req.query.token;
+    }
+    // Fallback: sign a fresh access token
+    if (!token) {
+      token = jwt.sign(
+        { id: req.user._id, role: req.user.role },
+        process.env.JWT_ACCESS_SECRET || 'local_access_secret_for_development_purposes_only_12345',
+        { expiresIn: '365d' }
+      );
+    }
+
+    res.json({ success: true, user, accessToken: token });
   } catch (error) {
     next(error);
   }

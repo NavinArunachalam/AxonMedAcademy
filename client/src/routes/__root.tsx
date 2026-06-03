@@ -103,6 +103,7 @@ function RootComponent() {
     getCurrentUser()
       .then((payload) => {
         const backendUser = payload.user;
+        const accessToken = payload.accessToken || null;
         const role = backendUser.role === "student" ? "student" : "admin";
         const currentUser: User = {
           id: backendUser._id,
@@ -111,11 +112,11 @@ function RootComponent() {
           phone: backendUser.phone,
           role,
         };
-        classroomStore.setState(() => ({ currentUser }));
+        classroomStore.setState(() => ({ currentUser, accessToken }));
       })
       .catch(() => {
         // Token invalid or expired — clear stored session
-        classroomStore.setState(() => ({ currentUser: null }));
+        classroomStore.setState(() => ({ currentUser: null, accessToken: null }));
       })
       .finally(() => {
         setAuthReady(true);

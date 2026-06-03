@@ -351,6 +351,7 @@ interface StoreState {
   users: User[];
   courses: Course[];
   currentUser: User | null;
+  accessToken: string | null;
   threads: Thread[];
   payments: Payment[];
 }
@@ -380,6 +381,7 @@ export const classroomStore = createStore({
   users: INITIAL_USERS,
   courses: INITIAL_COURSES,
   currentUser: null, // always null at boot; __root.tsx rehydrates via GET /auth/me (cookie)
+  accessToken: null,
   threads: INITIAL_THREADS,
   payments: INITIAL_PAYMENTS,
 });
