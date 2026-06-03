@@ -19,6 +19,14 @@ const slugify = (value) => String(value || '')
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/^-+|-+$/g, '');
 
+// Prevent CastError for all routes expecting a classroom :id
+router.param('id', (req, res, next, id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid classroom ID format' });
+  }
+  next();
+});
+
 const resolveProgramId = async (program) => {
   if (!program) return null;
   if (mongoose.Types.ObjectId.isValid(program)) return program;

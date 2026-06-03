@@ -8,7 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "@/lib/api";
+import { getCurrentUser, getClassrooms } from "@/lib/api";
 import { classroomStore, type User } from "@/lib/classroomStore";
 
 import appCss from "../styles.css?url";
@@ -99,9 +99,12 @@ function RootComponent() {
 
   useEffect(() => {
     // On every page load, verify the stored token is still valid with the server.
-    // This prevents "not logged in" errors after refresh.
-    getCurrentUser()
-      .then((payload) => {
+    // Also fetch live classrooms.
+    Promise.all([
+      getCurrentUser(),
+      getClassrooms().catch(() => []) // if not logged in, this might fail, default to empty
+    ])
+      .then(([payload, classrooms]) => {
         const backendUser = payload.user;
         const accessToken = payload.accessToken || null;
         const role = backendUser.role === "student" ? "student" : "admin";
@@ -112,7 +115,7 @@ function RootComponent() {
           phone: backendUser.phone,
           role,
         };
-        classroomStore.setState(() => ({ currentUser, accessToken }));
+        classroomStore.setState(() => ({ currentUser, accessToken, classrooms }));
       })
       .catch(() => {
         // Token invalid or expired — clear stored session

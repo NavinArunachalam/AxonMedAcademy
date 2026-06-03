@@ -308,6 +308,11 @@ export async function uploadClassroomRecordingToCloudflare(formData: FormData) {
 }
 
 export async function addStudentsToClassroom(classroomId: string, studentIds: string[]) {
+  if (classroomId.startsWith('cls-')) {
+    // Mock success for seed data
+    return { success: true, message: `Successfully added students to mock classroom` };
+  }
+
   const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/students/add`, {
     method: 'POST',
     body: JSON.stringify({ studentIds }),
@@ -316,6 +321,10 @@ export async function addStudentsToClassroom(classroomId: string, studentIds: st
 }
 
 export async function updateClassroomStudentStatus(classroomId: string, studentId: string, status: string) {
+  if (classroomId.startsWith('cls-')) {
+    return { success: true, message: `Successfully updated student status to ${status}` };
+  }
+
   const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/students/${encodeURIComponent(studentId)}/status`, {
     method: 'PUT',
     body: JSON.stringify({ status }),
