@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const mongoose = require('mongoose');
 
 const ClassroomRecording = require('../models/ClassroomRecording');
 const Classroom = require('../models/Classroom');
@@ -10,12 +9,17 @@ const { protect, restrictTo } = require('../middleware/auth');
 const {
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
-  getR2ObjectUrl,
-  fetchFn,
 } = require('../config/cloudflare');
 
 // ✅ Memory storage — file never touches disk
 const upload = multer({ storage: multer.memoryStorage() });
+
+// ─── ObjectId validation helper ───────────────────────────────────────────────
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+// =============================================================================
+// STATIC NAMED ROUTES — must be defined BEFORE any /:id dynamic routes
+// =============================================================================
 
 // GET /classroom/:classroomId → Get all recordings for a classroom
 router.get('/classroom/:classroomId', protect, async (req, res, next) => {
@@ -26,15 +30,15 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
     }
 
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isEnrolled = classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active');
+    const isEnrolled = classroom.students.some(
+      (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
+    );
     if (!isAdmin && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
     }
 
     const filter = { classroom: req.params.classroomId };
-    if (!isAdmin) {
-      filter.isPublished = true;
-    }
+    if (!isAdmin) filter.isPublished = true;
 
     const recordings = await ClassroomRecording.find(filter)
       .populate('uploadedBy', 'firstName lastName')
@@ -46,11 +50,171 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
   }
 });
 
-// GET /:id → Get recording detail + signed Mux playback token
+// GET /classroom/:classroomId/analytics → Admin: all recordings' stats for classroom
+router.get('/classroom/:classroomId/analytics', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const recordings = await ClassroomRecording.find({ classroom: req.params.classroomId })
+      .populate('viewStats.student', 'firstName lastName email');
+    res.json({ success: true, recordings });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /upload-url → Admin: Get Mux direct upload URL or mock
+router.post('/upload-url', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    res.json({
+      success: true,
+      isMock: true,
+      uploadUrl: `${process.env.API_BASE_URL || ''}/api/v1/recordings/classroom/mock-upload`,
+      playbackId: `mock_playback_id_${Date.now()}`,
+      assetId: `mock_asset_id_${Date.now()}`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /mock-upload → Admin: Local mock upload (memory-based, no disk write)
+router.post('/mock-upload', protect, restrictTo('admin', 'superadmin'), upload.single('video'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No video file provided' });
+    }
+    res.json({
+      success: true,
+      playbackId: `mock_playback_${Date.now()}`,
+      assetId: `mock_asset_${Date.now()}`,
+      duration: 120
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /upload-cloudflare → Admin: upload recording DIRECTLY to Cloudflare R2
+router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin'), upload.single('video'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No video file provided' });
+    }
+
+    const { classroom, title, description, duration, isPublished } = req.body;
+
+    if (!classroom || !title) {
+      return res.status(400).json({ success: false, message: 'Classroom and title are required' });
+    }
+
+    // Validate classroom is a real ObjectId
+    if (!isValidId(classroom)) {
+      return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
+    }
+
+    let chapters = [];
+    if (req.body.chapters) {
+      try {
+        chapters = typeof req.body.chapters === 'string' ? JSON.parse(req.body.chapters) : req.body.chapters;
+      } catch {
+        chapters = [];
+      }
+    }
+    const published = isPublished === 'true' || isPublished === true;
+
+    // Upload buffer directly to R2 — no temp file
+    const objectKey = `classroom-recordings/${classroom}/${Date.now()}-${req.file.originalname}`;
+    const uploadResult = await uploadFileToCloudflareR2(
+      req.file.buffer,
+      objectKey,
+      req.file.mimetype
+    );
+
+    const recording = await ClassroomRecording.create({
+      classroom,
+      title,
+      description,
+      uploadedBy: req.user._id,
+      storageProvider: 'cloudflare',
+      cloudflareKey: objectKey,
+      cloudflareUrl: uploadResult.url,
+      isPublished: published,
+      chapters,
+      muxStatus: 'ready',
+      duration: duration ? parseInt(duration, 10) : 0,
+      thumbnail: '/default-video-thumb.jpg',
+      security: {
+        signedUrlRequired: false,
+        urlExpiryHours: 0,
+        watermark: true,
+        downloadBlocked: true,
+        screenRecordDetect: false,
+        devToolsBlocked: false
+      }
+    });
+
+    await Classroom.findByIdAndUpdate(classroom, {
+      $inc: { 'stats.totalRecordings': 1 }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Recording uploaded to Cloudflare R2 successfully',
+      recording
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST / → Admin: save recording metadata after Mux upload
+router.post('/', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { classroom, title, description, muxAssetId, muxPlaybackId, duration, security } = req.body;
+
+    if (!classroom || !title || !muxPlaybackId) {
+      return res.status(400).json({ success: false, message: 'Classroom, title, and playbackId are required' });
+    }
+
+    const recording = await ClassroomRecording.create({
+      classroom,
+      title,
+      description,
+      uploadedBy: req.user._id,
+      muxAssetId: muxAssetId || 'mock_asset_id',
+      muxPlaybackId,
+      muxStatus: 'ready',
+      duration: duration || 0,
+      thumbnail: muxPlaybackId.startsWith('/uploads/')
+        ? '/default-video-thumb.jpg'
+        : `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`,
+      security: security || {
+        signedUrlRequired: true,
+        urlExpiryHours: 6,
+        watermark: true,
+        downloadBlocked: true,
+        screenRecordDetect: true,
+        devToolsBlocked: true
+      }
+    });
+
+    await Classroom.findByIdAndUpdate(classroom, {
+      $inc: { 'stats.totalRecordings': 1 }
+    });
+
+    res.status(201).json({ success: true, message: 'Recording saved successfully', recording });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// =============================================================================
+// DYNAMIC /:id ROUTES — must be defined AFTER all static named routes
+// =============================================================================
+
+// GET /:id → Get recording detail + signed playback token
 router.get('/:id', protect, async (req, res, next) => {
   try {
-    const mongoose = require('mongoose');
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
     const recording = await ClassroomRecording.findById(req.params.id)
@@ -63,18 +227,19 @@ router.get('/:id', protect, async (req, res, next) => {
 
     const classroom = await Classroom.findById(recording.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
+    const isEnrolled = classroom
+      ? classroom.students.some(
+          (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
+        )
+      : false;
 
     if (!isAdmin && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    const token = `signed_token_for_${recording.muxPlaybackId}`;
-
     res.json({
       success: true,
       recording,
-      playbackToken: token,
       playbackUrl: recording.storageProvider === 'cloudflare'
         ? `/api/v1/recordings/classroom/${recording._id}/stream`
         : undefined
@@ -84,22 +249,25 @@ router.get('/:id', protect, async (req, res, next) => {
   }
 });
 
-// GET /:id/stream → Stream classroom recordings from Cloudflare R2
+// GET /:id/stream → Stream classroom recording from Cloudflare R2
 router.get('/:id/stream', protect, async (req, res, next) => {
   try {
-    const mongoose = require('mongoose');
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
-    const recording = await ClassroomRecording.findById(req.params.id)
-      .populate('classroom');
+    const recording = await ClassroomRecording.findById(req.params.id).populate('classroom');
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
     const classroom = await Classroom.findById(recording.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
+    const isEnrolled = classroom
+      ? classroom.students.some(
+          (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
+        )
+      : false;
+
     if (!isAdmin && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
@@ -108,7 +276,6 @@ router.get('/:id/stream', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Stream not available for this recording' });
     }
 
-    // ✅ All recordings are now in R2 — no local fallback branch needed
     try {
       const { getS3Client } = require('../config/cloudflare');
       const { GetObjectCommand } = require('@aws-sdk/client-s3');
@@ -145,12 +312,32 @@ router.get('/:id/progress/my', protect, async (req, res, next) => {
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
-
-    const userStats = recording.viewStats.find(v => v.student.toString() === req.user._id.toString());
+    const userStats = recording.viewStats.find(
+      (v) => v.student.toString() === req.user._id.toString()
+    );
     res.json({
       success: true,
       progress: userStats || { totalWatchedSec: 0, lastPosition: 0, rewatchCount: 0 }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/analytics → Admin: per-student analytics for a recording
+router.get('/:id/analytics', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
+    }
+    const recording = await ClassroomRecording.findById(req.params.id)
+      .populate('viewStats.student', 'firstName lastName email avatar');
+
+    if (!recording) {
+      return res.status(404).json({ success: false, message: 'Recording not found' });
+    }
+
+    res.json({ success: true, viewStats: recording.viewStats });
   } catch (error) {
     next(error);
   }
@@ -165,7 +352,9 @@ router.post('/:id/progress', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
-    let userStatsIndex = recording.viewStats.findIndex(v => v.student.toString() === req.user._id.toString());
+    let userStatsIndex = recording.viewStats.findIndex(
+      (v) => v.student.toString() === req.user._id.toString()
+    );
 
     if (userStatsIndex === -1) {
       recording.viewStats.push({
@@ -202,167 +391,30 @@ router.post('/:id/progress', protect, async (req, res, next) => {
   }
 });
 
-// Admin-only endpoints
-router.use(protect);
-router.use(restrictTo('admin', 'superadmin'));
-
-// POST /upload-url → Get Mux direct upload URL or mock
-router.post('/upload-url', async (req, res, next) => {
+// POST /:id/chapters → Admin: save chapters
+router.post('/:id/chapters', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
-    const isMockMux = !process.env.MUX_TOKEN_ID || process.env.MUX_TOKEN_ID.startsWith('mock_');
-
-    if (isMockMux) {
-      return res.json({
-        success: true,
-        isMock: true,
-        uploadUrl: `http://localhost:${process.env.PORT || 5000}/api/v1/recordings/classroom/mock-upload`,
-        playbackId: `mock_playback_id_${Date.now()}`,
-        assetId: `mock_asset_id_${Date.now()}`
-      });
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
-
-    res.json({
-      success: true,
-      isMock: true,
-      uploadUrl: `http://localhost:${process.env.PORT || 5000}/api/v1/recordings/classroom/mock-upload`,
-      playbackId: `mock_playback_id_${Date.now()}`,
-      assetId: `mock_asset_id_${Date.now()}`
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST /mock-upload → Local mock upload (memory-based, no disk write)
-router.post('/mock-upload', upload.single('video'), async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No video file provided' });
-    }
-    // ✅ Buffer is in memory; nothing written to disk
-    res.json({
-      success: true,
-      playbackId: `mock_playback_${Date.now()}`,
-      assetId: `mock_asset_${Date.now()}`,
-      duration: 120
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST /upload-cloudflare → Admin: upload recording DIRECTLY to Cloudflare R2 (no local disk)
-router.post('/upload-cloudflare', upload.single('video'), async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No video file provided' });
-    }
-
-    const { classroom, title, description, duration, isPublished } = req.body;
-    let chapters = [];
-    if (req.body.chapters) {
-      try {
-        chapters = typeof req.body.chapters === 'string' ? JSON.parse(req.body.chapters) : req.body.chapters;
-      } catch {
-        chapters = [];
-      }
-    }
-    const published = isPublished === 'true' || isPublished === true;
-
-    if (!classroom || !title) {
-      return res.status(400).json({ success: false, message: 'Classroom and title are required' });
-    }
-
-    // ✅ Upload buffer directly to R2 — no temp file, no fallback
-    const objectKey = `classroom-recordings/${classroom}/${Date.now()}-${req.file.originalname}`;
-
-    // Your uploadFileToCloudflareR2 must accept (buffer, key, mimeType)
-    // If it currently expects a file path, update it as shown below in the note
-    const uploadResult = await uploadFileToCloudflareR2(
-      req.file.buffer,   // ← Buffer from memory storage
-      objectKey,
-      req.file.mimetype
+    const { chapters } = req.body;
+    const recording = await ClassroomRecording.findByIdAndUpdate(
+      req.params.id,
+      { $set: { chapters } },
+      { new: true }
     );
-
-    const recording = await ClassroomRecording.create({
-      classroom,
-      title,
-      description,
-      uploadedBy: req.user._id,
-      storageProvider: 'cloudflare',
-      cloudflareKey: objectKey,
-      cloudflareUrl: uploadResult.url,
-      isPublished: published,
-      chapters,
-      muxStatus: 'ready',
-      duration: duration ? parseInt(duration, 10) : 0,
-      thumbnail: '/default-video-thumb.jpg',
-      security: {
-        signedUrlRequired: false,
-        urlExpiryHours: 0,
-        watermark: true,
-        downloadBlocked: true,
-        screenRecordDetect: false,
-        devToolsBlocked: false
-      }
-    });
-
-    await Classroom.findByIdAndUpdate(classroom, {
-      $inc: { 'stats.totalRecordings': 1 }
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Recording uploaded directly to Cloudflare R2 successfully',
-      recording
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST / → Admin: save recording metadata after upload
-router.post('/', async (req, res, next) => {
-  try {
-    const { classroom, title, description, muxAssetId, muxPlaybackId, duration, security } = req.body;
-
-    if (!classroom || !title || !muxPlaybackId) {
-      return res.status(400).json({ success: false, message: 'Classroom, title, and playbackId are required' });
-    }
-
-    const recording = await ClassroomRecording.create({
-      classroom,
-      title,
-      description,
-      uploadedBy: req.user._id,
-      muxAssetId: muxAssetId || 'mock_asset_id',
-      muxPlaybackId,
-      muxStatus: 'ready',
-      duration: duration || 0,
-      thumbnail: muxPlaybackId.startsWith('/uploads/') ? '/default-video-thumb.jpg' : `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`,
-      security: security || {
-        signedUrlRequired: true,
-        urlExpiryHours: 6,
-        watermark: true,
-        downloadBlocked: true,
-        screenRecordDetect: true,
-        devToolsBlocked: true
-      }
-    });
-
-    await Classroom.findByIdAndUpdate(classroom, {
-      $inc: { 'stats.totalRecordings': 1 }
-    });
-
-    res.status(201).json({ success: true, message: 'Recording saved successfully', recording });
+    res.json({ success: true, message: 'Chapters updated successfully', recording });
   } catch (error) {
     next(error);
   }
 });
 
 // PUT /:id → Admin: update title, description, chapters
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
+    }
     const recording = await ClassroomRecording.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
@@ -377,33 +429,12 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /:id → Admin: delete recording
-router.delete('/:id', async (req, res, next) => {
+// PUT /:id/publish → Admin: publish recording + notify students
+router.put('/:id/publish', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
-    const recording = await ClassroomRecording.findById(req.params.id);
-    if (!recording) {
-      return res.status(404).json({ success: false, message: 'Recording not found' });
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
-
-    await Classroom.findByIdAndUpdate(recording.classroom, {
-      $inc: { 'stats.totalRecordings': -1 }
-    });
-
-    // ✅ Only R2 deletion — no local file path handling
-    if (recording.storageProvider === 'cloudflare' && recording.cloudflareKey) {
-      await deleteFileFromCloudflareR2(recording.cloudflareKey);
-    }
-
-    await recording.deleteOne();
-    res.json({ success: true, message: 'Recording deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// PUT /:id/publish → Admin: publish + notify students
-router.put('/:id/publish', async (req, res, next) => {
-  try {
     const recording = await ClassroomRecording.findById(req.params.id);
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
@@ -431,44 +462,27 @@ router.put('/:id/publish', async (req, res, next) => {
   }
 });
 
-// POST /:id/chapters → Admin: save chapters
-router.post('/:id/chapters', async (req, res, next) => {
+// DELETE /:id → Admin: delete recording
+router.delete('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
-    const { chapters } = req.body;
-    const recording = await ClassroomRecording.findByIdAndUpdate(
-      req.params.id,
-      { $set: { chapters } },
-      { new: true }
-    );
-    res.json({ success: true, message: 'Chapters updated successfully', recording });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// GET /:id/analytics → Admin: per-student analytics for a recording
-router.get('/:id/analytics', async (req, res, next) => {
-  try {
-    const recording = await ClassroomRecording.findById(req.params.id)
-      .populate('viewStats.student', 'firstName lastName email avatar');
-
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
+    }
+    const recording = await ClassroomRecording.findById(req.params.id);
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
-    res.json({ success: true, viewStats: recording.viewStats });
-  } catch (error) {
-    next(error);
-  }
-});
+    await Classroom.findByIdAndUpdate(recording.classroom, {
+      $inc: { 'stats.totalRecordings': -1 }
+    });
 
-// GET /classroom/:classroomId/analytics → Admin: all recordings' stats for classroom
-router.get('/classroom/:classroomId/analytics', async (req, res, next) => {
-  try {
-    const recordings = await ClassroomRecording.find({ classroom: req.params.classroomId })
-      .populate('viewStats.student', 'firstName lastName email');
+    if (recording.storageProvider === 'cloudflare' && recording.cloudflareKey) {
+      await deleteFileFromCloudflareR2(recording.cloudflareKey);
+    }
 
-    res.json({ success: true, recordings });
+    await recording.deleteOne();
+    res.json({ success: true, message: 'Recording deleted successfully' });
   } catch (error) {
     next(error);
   }
