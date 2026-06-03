@@ -1,6 +1,8 @@
 import * as React from "react";
-import { useLocation, Link } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
+import { useLocation, Link, useNavigate } from "@tanstack/react-router";
+import { Menu, X, LogOut } from "lucide-react";
+import { classroomStore } from "@/lib/classroomStore";
+import { logoutUser } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,18 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
   const currentPath = location.pathname;
   const isAdmin = variant === "admin";
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      classroomStore.setState(() => ({ currentUser: null, accessToken: null }));
+      navigate({ to: "/login" });
+    }
+  };
 
   // Tailwind classes based on variant
   const shellClass = isAdmin ? "dark bg-[#0B0719] text-cream" : "bg-[#F5F3FF] text-slate-900";
@@ -75,10 +89,17 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
         <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${initialsBgClass}`}>
           {user.initials}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="font-semibold text-[13px] truncate">{user.name}</div>
           <div className={`text-[11px] truncate ${isAdmin ? "text-cream/50" : "text-slate-500"}`}>{user.role}</div>
         </div>
+        <button 
+          onClick={handleLogout}
+          className={`p-2 rounded-lg transition-colors hover:bg-red-500/10 text-red-500`}
+          title="Sign out"
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+        </button>
       </div>
     </>
   );

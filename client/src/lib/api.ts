@@ -383,3 +383,7 @@ export function getRecordingStreamUrl(recordingId: string): string {
   return `${API_BASE}/recordings/classroom/${recordingId}/stream`;
 }
 
+export async function logoutUser() {
+  return fetchJson('/auth/logout', { method: 'POST' });
+}
+
