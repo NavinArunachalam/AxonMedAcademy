@@ -49,6 +49,10 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
 // GET /:id → Get recording detail + signed Mux playback token
 router.get('/:id', protect, async (req, res, next) => {
   try {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
+    }
     const recording = await ClassroomRecording.findById(req.params.id)
       .populate('classroom')
       .populate('uploadedBy', 'firstName lastName');
@@ -83,6 +87,10 @@ router.get('/:id', protect, async (req, res, next) => {
 // GET /:id/stream → Stream classroom recordings from Cloudflare R2
 router.get('/:id/stream', protect, async (req, res, next) => {
   try {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
+    }
     const recording = await ClassroomRecording.findById(req.params.id)
       .populate('classroom');
     if (!recording) {

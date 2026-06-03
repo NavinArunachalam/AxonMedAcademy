@@ -260,13 +260,13 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
             </div>
             <div className="flex items-center gap-2 text-sm text-cream/70">
               <input
-                  id="notify-students"
-                  type="checkbox"
-                  checked={notifyStudents}
-                  onChange={(e) => setNotifyStudents(e.target.checked)}
-                  className="h-4 w-4 rounded border-cream/20 bg-cream/5 text-lime focus:ring-lime"
-                />
-                <label htmlFor="notify-students" className="select-none">Send join-link notification to active students</label>
+                id="notify-students"
+                type="checkbox"
+                checked={notifyStudents}
+                onChange={(e) => setNotifyStudents(e.target.checked)}
+                className="h-4 w-4 rounded border-cream/20 bg-cream/5 text-lime focus:ring-lime"
+              />
+              <label htmlFor="notify-students" className="select-none">Send join-link notification to active students</label>
             </div>
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-3 pt-1">
