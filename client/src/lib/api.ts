@@ -2,8 +2,19 @@ import { classroomStore } from '@/lib/classroomStore';
 
 // Auth is fully cookie-based (HttpOnly cookies set by the Railway server).
 // credentials: 'include' on every fetch sends them automatically to Railway from Vercel.
-// Never store tokens in localStorage — cookies survive page refreshes and are more secure.
-const API_BASE = import.meta.env.VITE_API_URL?.trim() || '/api/v1';
+const getApiBase = () => {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api/v1';
+    }
+    return 'https://oc-pro-production.up.railway.app/api/v1';
+  }
+  // SSR fallback
+  const runtimeApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL;
+  return runtimeApiUrl?.trim() || 'https://oc-pro-production.up.railway.app/api/v1';
+};
+
+const API_BASE = getApiBase();
 
 function getDevAuthUserHeaders(): Record<string, string> {
   if (import.meta.env.PROD) return {};
