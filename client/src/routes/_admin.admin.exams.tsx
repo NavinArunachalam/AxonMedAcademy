@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ClipboardList, Users, CheckCircle2, AlertCircle, ArrowLeft, BarChart2, BookOpen } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 import { useClassroomStore, getExamType, getGrade, classroomActions } from "@/lib/classroomStore";
+import { publishQuiz, closeQuiz } from "@/lib/api";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/_admin/admin/exams")({
@@ -13,6 +14,7 @@ function AdminExams() {
   const [viewQuizId, setViewQuizId] = useState<string | null>(null);
   const [batchFilter, setBatchFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [isUpdatingQuiz, setIsUpdatingQuiz] = useState<string | null>(null);
 
   const allQuizzes = useMemo(() => {
     return classrooms.flatMap(c =>
@@ -74,12 +76,45 @@ function AdminExams() {
             <p className="text-cream/60 text-sm mt-0.5">{q.course} · {q.classroomName} · <span className="text-lime">{q.examType}</span> · {q.questions.length} questions</p>
           </div>
           {q.status === "closed" && (
-            <button onClick={() => { classroomActions.updateQuizStatus(q.classroomId, q.id, "published"); setViewQuizId(null); }}
-              className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold">Re-open Exam</button>
+            <button 
+              onClick={async () => { 
+                setIsUpdatingQuiz(q.id);
+                try {
+                  await publishQuiz(q.id);
+                  classroomActions.updateQuizStatus(q.classroomId, q.id, "published");
+                  setViewQuizId(null);
+                } catch (error) {
+                  const errorMsg = error instanceof Error ? error.message : 'Failed to re-open exam';
+                  console.error('[Quiz Reopen Error]', errorMsg, error);
+                  alert(`Error: ${errorMsg}`);
+                } finally {
+                  setIsUpdatingQuiz(null);
+                }
+              }}
+              disabled={isUpdatingQuiz === q.id}
+              className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold disabled:opacity-50">
+              {isUpdatingQuiz === q.id ? 'Reopening...' : 'Re-open Exam'}
+            </button>
           )}
           {q.status === "published" && (
-            <button onClick={() => { classroomActions.updateQuizStatus(q.classroomId, q.id, "closed"); }}
-              className="rounded-full bg-cream/10 text-cream px-4 py-2 text-xs font-semibold">Close Exam</button>
+            <button 
+              onClick={async () => { 
+                setIsUpdatingQuiz(q.id);
+                try {
+                  await closeQuiz(q.id);
+                  classroomActions.updateQuizStatus(q.classroomId, q.id, "closed");
+                } catch (error) {
+                  const errorMsg = error instanceof Error ? error.message : 'Failed to close exam';
+                  console.error('[Quiz Close Error]', errorMsg, error);
+                  alert(`Error: ${errorMsg}`);
+                } finally {
+                  setIsUpdatingQuiz(null);
+                }
+              }}
+              disabled={isUpdatingQuiz === q.id}
+              className="rounded-full bg-cream/10 text-cream px-4 py-2 text-xs font-semibold disabled:opacity-50">
+              {isUpdatingQuiz === q.id ? 'Closing...' : 'Close Exam'}
+            </button>
           )}
         </div>
 

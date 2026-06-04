@@ -7,7 +7,14 @@ const getApiBase = () => {
     import.meta.env.BACKEND_URL ||
     (typeof process !== 'undefined' ? process.env.VITE_API_URL || process.env.BACKEND_URL : '');
 
-  return (runtimeApiUrl?.trim() || '/api/v1').replace(/\/+$/, '');
+  const apiBase = (runtimeApiUrl?.trim() || '/api/v1').replace(/\/+$/, '');
+  
+  // Log API base in development and when no explicit URL is provided
+  if (import.meta.env.DEV || !runtimeApiUrl) {
+    console.log('[API] Using API base:', apiBase);
+  }
+  
+  return apiBase;
 };
 
 const API_BASE = getApiBase();
@@ -218,7 +225,10 @@ async function fetchJson(path: string, options: RequestInit = {}) {
   const extraHeaders = options.headers as Record<string, string> | undefined;
   if (extraHeaders) Object.assign(headers, extraHeaders);
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const fullUrl = `${API_BASE}${path}`;
+  console.log('[API Request]', options.method || 'GET', fullUrl);
+
+  const response = await fetch(fullUrl, {
     credentials: 'include', // sends HttpOnly cookies cross-origin (Vercel → Railway)
     headers,
     ...options,
@@ -231,8 +241,11 @@ async function fetchJson(path: string, options: RequestInit = {}) {
     if (response.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
       classroomStore.setState(() => ({ currentUser: null }));
     }
-    throw new Error(payload.message || 'Server error');
+    const errorMsg = payload.message || `Server error (${response.status})`;
+    console.error('[API Error]', fullUrl, response.status, errorMsg);
+    throw new Error(errorMsg);
   }
+  console.log('[API Success]', fullUrl, response.status);
   return payload;
 }
 

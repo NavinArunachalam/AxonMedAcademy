@@ -622,7 +622,9 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                         }
                         await refreshClassroom();
                       } catch (error) {
-                        console.error("Publish/Unpublish Error:", error);
+                        const errorMessage = error instanceof Error ? error.message : 'Failed to publish/unpublish recording';
+                        console.error("[Recording Publish Error]", errorMessage, error);
+                        alert(`Error: ${errorMessage}`);
                       }
                     }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
@@ -635,7 +637,9 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                         await deleteRecording(rec.id);
                         await refreshClassroom();
                       } catch (error) {
-                        console.error('Failed to delete recording', error);
+                        const errorMessage = error instanceof Error ? error.message : 'Failed to delete recording';
+                        console.error('[Recording Delete Error]', errorMessage, error);
+                        alert(`Error deleting recording: ${errorMessage}`);
                       }
                     }}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
@@ -808,7 +812,9 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       await publishQuiz(quizId);
       await refreshClassroom();
     } catch (error) {
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to publish quiz';
+      console.error('[Quiz Publish Error]', errorMessage, error);
+      alert(`Error publishing quiz: ${errorMessage}`);
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -820,7 +826,9 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       await closeQuiz(quizId);
       await refreshClassroom();
     } catch (error) {
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to close quiz';
+      console.error('[Quiz Close Error]', errorMessage, error);
+      alert(`Error closing quiz: ${errorMessage}`);
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -832,7 +840,9 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       await apiDeleteQuiz(quizId);
       await refreshClassroom();
     } catch (error) {
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete quiz';
+      console.error('[Quiz Delete Error]', errorMessage, error);
+      alert(`Error deleting quiz: ${errorMessage}`);
     } finally {
       setQuizOperationQuizId(null);
     }
