@@ -587,6 +587,41 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       )}
       <div className="space-y-3">
         {cls.recordings.map((rec) => {
+          const handlePublishClick = async (recordingId: string, isPublished: boolean) => {
+            console.log('handlePublishClick called with:', recordingId, isPublished);
+            try {
+              if (isPublished) {
+                console.log('Calling unpublishRecording');
+                await unpublishRecording(recordingId);
+              } else {
+                console.log('Calling publishRecording');
+                await publishRecording(recordingId);
+              }
+              console.log('API call completed, refreshing classroom');
+              await refreshClassroom();
+              console.log('Refresh complete');
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Failed to publish/unpublish recording';
+              console.error("[Recording Publish Error]", errorMessage, error);
+              alert(`Error: ${errorMessage}`);
+            }
+          };
+
+          const handleDeleteClick = async (recordingId: string) => {
+            console.log('handleDeleteClick called with:', recordingId);
+            try {
+              console.log('Calling deleteRecording');
+              await deleteRecording(recordingId);
+              console.log('Delete API call completed, refreshing classroom');
+              await refreshClassroom();
+              console.log('Refresh complete');
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Failed to delete recording';
+              console.error('[Recording Delete Error]', errorMessage, error);
+              alert(`Error deleting recording: ${errorMessage}`);
+            }
+          };
+
           const avgWatch = rec.viewStats.length
             ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
             : 0;
@@ -613,35 +648,13 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button
-                    onClick={async () => {
-                      try {
-                        if (rec.isPublished) {
-                          await unpublishRecording(rec.id);
-                        } else {
-                          await publishRecording(rec.id);
-                        }
-                        await refreshClassroom();
-                      } catch (error) {
-                        const errorMessage = error instanceof Error ? error.message : 'Failed to publish/unpublish recording';
-                        console.error("[Recording Publish Error]", errorMessage, error);
-                        alert(`Error: ${errorMessage}`);
-                      }
-                    }}
+                    onClick={() => handlePublishClick(rec.id, rec.isPublished)}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
                   >
                     {rec.isPublished ? <><EyeOff className="h-3 w-3" /> Unpublish</> : <><Eye className="h-3 w-3" /> Publish</>}
                   </button>
                   <button
-                    onClick={async () => {
-                      try {
-                        await deleteRecording(rec.id);
-                        await refreshClassroom();
-                      } catch (error) {
-                        const errorMessage = error instanceof Error ? error.message : 'Failed to delete recording';
-                        console.error('[Recording Delete Error]', errorMessage, error);
-                        alert(`Error deleting recording: ${errorMessage}`);
-                      }
-                    }}
+                    onClick={() => handleDeleteClick(rec.id)}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
