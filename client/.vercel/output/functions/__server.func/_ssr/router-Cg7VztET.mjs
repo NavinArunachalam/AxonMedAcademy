@@ -526,7 +526,7 @@ const getApiBase = () => {
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
       return "http://localhost:5000/api/v1";
     }
-    return "https://oc-pro-production.up.railway.app/api/v1";
+    return "https://oc-pro.onrender.com.app/api/v1";
   }
   const runtimeApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL;
   return runtimeApiUrl?.trim() || "https://oc-pro-production.up.railway.app/api/v1";
@@ -814,41 +814,51 @@ async function logoutUser() {
 }
 const appCss = "/assets/styles-CSazFf6y.css";
 function NotFoundComponent() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex min-h-screen items-center justify-center bg-background px-4", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-md text-center", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
+    className: "flex min-h-screen items-center justify-center bg-background px-4", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
+      className: "max-w-md text-center", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-7xl font-display font-bold text-plum-dark", children: "404" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "mt-4 text-xl font-semibold", children: "Page not found" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm text-muted-foreground", children: "The page you're looking for doesn't exist or has been moved." }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
-      Link,
-      {
-        to: "/",
-        className: "mt-6 inline-flex items-center rounded-full bg-plum-dark px-5 py-2.5 text-sm font-semibold text-cream hover:bg-plum",
-        children: "Back home"
-      }
-    )
-  ] }) });
+        Link,
+        {
+          to: "/",
+          className: "mt-6 inline-flex items-center rounded-full bg-plum-dark px-5 py-2.5 text-sm font-semibold text-cream hover:bg-plum",
+          children: "Back home"
+        }
+      )
+      ]
+    })
+  });
 }
 function ErrorComponent({ error, reset }) {
   console.error(error);
   const router2 = useRouter();
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex min-h-screen items-center justify-center bg-background px-4", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-md text-center", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
+    className: "flex min-h-screen items-center justify-center bg-background px-4", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
+      className: "max-w-md text-center", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-xl font-semibold", children: "This page didn't load" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm text-muted-foreground", children: "Something went wrong. Try again or head back home." }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 flex justify-center gap-2", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
+        className: "mt-6 flex justify-center gap-2", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          onClick: () => {
-            router2.invalidate();
-            reset();
-          },
-          className: "rounded-full bg-plum-dark px-5 py-2.5 text-sm font-semibold text-cream",
-          children: "Try again"
-        }
-      ),
+          "button",
+          {
+            onClick: () => {
+              router2.invalidate();
+              reset();
+            },
+            className: "rounded-full bg-plum-dark px-5 py-2.5 text-sm font-semibold text-cream",
+            children: "Try again"
+          }
+        ),
       /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: "/", className: "rounded-full border border-border px-5 py-2.5 text-sm font-semibold", children: "Go home" })
-    ] })
-  ] }) });
+        ]
+      })
+      ]
+    })
+  });
 }
 const Route$x = createRootRouteWithContext()({
   head: () => ({
@@ -877,13 +887,17 @@ const Route$x = createRootRouteWithContext()({
   errorComponent: ErrorComponent
 });
 function RootShell({ children }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("html", { lang: "en", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("html", {
+    lang: "en", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("head", { children: /* @__PURE__ */ jsxRuntimeExports.jsx(HeadContent, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("body", { children: [
-      children,
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("body", {
+      children: [
+        children,
       /* @__PURE__ */ jsxRuntimeExports.jsx(Scripts, {})
-    ] })
-  ] });
+      ]
+    })
+    ]
+  });
 }
 function RootComponent() {
   const { queryClient } = Route$x.useRouteContext();
@@ -908,10 +922,14 @@ function RootComponent() {
     });
   }, []);
   if (!authReady) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx(QueryClientProvider, { client: queryClient, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "#faf9f7" }, children: [
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(QueryClientProvider, {
+      client: queryClient, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
+        style: { display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "#faf9f7" }, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 32, height: 32, border: "3px solid #e5e7eb", borderTopColor: "#4c1d95", borderRadius: "50%", animation: "spin 0.7s linear infinite" } }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("style", { children: `@keyframes spin { to { transform: rotate(360deg); } }` })
-    ] }) });
+        ]
+      })
+    });
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsx(QueryClientProvider, { client: queryClient, children: /* @__PURE__ */ jsxRuntimeExports.jsx(Outlet, {}) });
 }
