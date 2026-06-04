@@ -526,10 +526,10 @@ const getApiBase = () => {
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
       return "http://localhost:5000/api/v1";
     }
-    return "https://oc-pro.onrender.com.app/api/v1";
+    return "https://oc-pro.onrender.com/api/v1";
   }
   const runtimeApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL;
-  return runtimeApiUrl?.trim() || "https://oc-pro.onrender.com.app/api/v1";
+  return runtimeApiUrl?.trim() || "https://oc-pro.onrender.com/api/v1";
 };
 const API_BASE = getApiBase();
 function getDevAuthUserHeaders() {
