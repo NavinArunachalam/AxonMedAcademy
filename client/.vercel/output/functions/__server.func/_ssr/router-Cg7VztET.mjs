@@ -529,7 +529,7 @@ const getApiBase = () => {
     return "https://oc-pro.onrender.com.app/api/v1";
   }
   const runtimeApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL;
-  return runtimeApiUrl?.trim() || "https://oc-pro-production.up.railway.app/api/v1";
+  return runtimeApiUrl?.trim() || "https://oc-pro.onrender.com.app/api/v1";
 };
 const API_BASE = getApiBase();
 function getDevAuthUserHeaders() {
