@@ -510,6 +510,18 @@ export async function deleteMeeting(meetingId: string) {
   });
 }
 
+export async function startMeeting(meetingId: string) {
+  return fetchJson(`/meetings/${encodeURIComponent(meetingId)}/start`, {
+    method: 'POST',
+  });
+}
+
+export async function endMeeting(meetingId: string) {
+  return fetchJson(`/meetings/${encodeURIComponent(meetingId)}/end`, {
+    method: 'POST',
+  });
+}
+
 export async function getClassroomMeetings(classroomIdentifier: string) {
   return fetchJson(`/meetings/classroom/${encodeURIComponent(classroomIdentifier)}`);
 }
