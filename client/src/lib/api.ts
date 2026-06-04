@@ -560,22 +560,31 @@ export function getRecordingStreamUrl(recordingId: string): string {
 }
 
 export async function publishRecording(recordingId: string) {
-  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}/publish`, {
+  console.log('[API] publishRecording called with ID:', recordingId);
+  const result = await fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}/publish`, {
     method: 'PUT',
   });
+  console.log('[API] publishRecording response:', result);
+  return result;
 }
 
 export async function unpublishRecording(recordingId: string) {
-  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
+  console.log('[API] unpublishRecording called with ID:', recordingId);
+  const result = await fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
     method: 'PUT',
     body: JSON.stringify({ isPublished: false }),
   });
+  console.log('[API] unpublishRecording response:', result);
+  return result;
 }
 
 export async function deleteRecording(recordingId: string) {
-  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
+  console.log('[API] deleteRecording called with ID:', recordingId);
+  const result = await fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
     method: 'DELETE',
   });
+  console.log('[API] deleteRecording response:', result);
+  return result;
 }
 
 export async function logoutUser() {
