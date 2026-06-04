@@ -250,7 +250,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
               <div>
                 <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Duration</label>
                 <select value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
-                  classN ame="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
                   <option value={30}>30 minutes</option>
                   <option value={60}>1 hour</option>
                   <option value={90}>1.5 hours</option>
@@ -374,7 +374,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
   const cls = classroom;
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
+  const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: true, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -586,7 +586,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                   >
                     {rec.isPublished ? <><EyeOff className="h-3 w-3" /> Unpublish</> : <><Eye className="h-3 w-3" /> Publish</>}
                   </button>
-                  <button 
+                  <button
                     onClick={async () => {
                       try {
                         await deleteRecording(rec.id);

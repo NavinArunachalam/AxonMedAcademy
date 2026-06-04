@@ -228,7 +228,7 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
         <span className="text-white font-semibold text-sm truncate">{recording.title}</span>
         <div className="flex items-center gap-3">
           {/* Watermark hint */}
-          <span className="text-white/30 text-xs font-mono">{CURRENT_STUDENT.name} · {CURRENT_STUDENT.id.slice(-8)}</span>
+          {/* <span className="text-white/30 text-xs font-mono">{CURRENT_STUDENT.name} · {CURRENT_STUDENT.id.slice(-8)}</span> */}
           <button onClick={onClose} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
         </div>
       </div>
@@ -238,17 +238,18 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
         {/* Video area */}
         <div className="flex-1 bg-linear-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative">
           {/* Watermark */}
-          <div className="absolute top-4 right-4 text-white/20 text-xs font-mono pointer-events-none select-none">
+          {/* <div className="absolute top-4 right-4 text-white/20 text-xs font-mono pointer-events-none select-none">
             {CURRENT_STUDENT.name} · SECURE
-          </div>
+          </div> */}
 
           {streamUrl ? (
             <video
               ref={videoRef}
               src={streamUrl}
               crossOrigin="use-credentials"
-              className="w-full h-full object-contain bg-black"
+              className="w-full h-[95vh] object-contain bg-black"
               controls
+              controlsList="nodownload"
               poster="/default-video-thumb.jpg"
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
@@ -301,7 +302,7 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
       </div>
 
       {/* Progress bar */}
-      <div className="bg-black px-5 py-3">
+      {/* <div className="bg-black px-5 py-3">
         <div className="flex items-center gap-3">
           <span className="text-white/60 text-xs font-mono">{fmt(position)}</span>
           <div
@@ -319,7 +320,7 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
         <div className="text-center mt-1 text-white/30 text-[10px]">
           🔒 This video is protected. Downloading, recording, or sharing is prohibited.
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
