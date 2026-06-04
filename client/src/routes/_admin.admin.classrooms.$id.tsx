@@ -8,6 +8,7 @@ import {
 import { DarkCard } from "@/components/portal/PortalShell";
 import {
   useClassroomStore,
+  classroomActions,
   formatDuration,
   uid,
   type Meeting,
@@ -16,7 +17,7 @@ import {
   type Classroom,
   type Option,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, createClassroomAnnouncement, deleteClassroomAnnouncement, startMeeting as apiStartMeeting, endMeeting as apiEndMeeting } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -71,39 +72,15 @@ type TabKey = (typeof TABS)[number]["key"];
 
 // ─── Announcements Tab ────────────────────────────────────────────────────────
 
-function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
-  const cls = classroom;
+function AnnouncementsTab({ classroomId }: { classroomId: string }) {
+  const { classrooms } = useClassroomStore();
+  const cls = classrooms.find((c) => c.id === classroomId)!;
   const [text, setText] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<string | null>(null);
-  const [error, setError] = useState("");
 
-  const handlePost = async () => {
+  const handlePost = () => {
     if (!text.trim()) return;
-    setSaving(true);
-    setError("");
-    try {
-      await createClassroomAnnouncement(classroom.id, text.trim());
-      setText("");
-      await refreshClassroom();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not post announcement");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteAnnouncement = async (announcementId: string) => {
-    setDeletingAnnouncementId(announcementId);
-    setError("");
-    try {
-      await deleteClassroomAnnouncement(classroom.id, announcementId);
-      await refreshClassroom();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete announcement");
-    } finally {
-      setDeletingAnnouncementId(null);
-    }
+    classroomActions.addAnnouncement(classroomId, text.trim());
+    setText("");
   };
 
   return (
@@ -123,13 +100,12 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
         <div className="flex justify-end mt-3">
           <button
             onClick={handlePost}
-            disabled={!text.trim() || saving}
+            disabled={!text.trim()}
             className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2 text-sm font-bold disabled:opacity-40"
           >
-            <Send className="h-3.5 w-3.5" /> {saving ? "Posting..." : "Post to All Students"}
+            <Send className="h-3.5 w-3.5" /> Post to All Students
           </button>
         </div>
-        {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
       </DarkCard>
 
       {/* Feed */}
@@ -156,9 +132,8 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
                 </div>
               </div>
               <button
-                onClick={() => handleDeleteAnnouncement(ann.id)}
-                disabled={deletingAnnouncementId === ann.id}
-                className="text-cream/30 hover:text-red-400 transition-colors shrink-0 disabled:opacity-40"
+                onClick={() => classroomActions.deleteAnnouncement(classroomId, ann.id)}
+                className="text-cream/30 hover:text-red-400 transition-colors shrink-0"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -172,10 +147,10 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
 
 // ─── Live Classes Tab ─────────────────────────────────────────────────────────
 
-function LiveClassesTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
-  const cls = classroom;
+function LiveClassesTab({ classroomId }: { classroomId: string }) {
+  const { classrooms } = useClassroomStore();
+  const cls = classrooms.find((c) => c.id === classroomId)!;
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
-  const [meetingOperationId, setMeetingOperationId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", scheduledAt: "", duration: 60 });
   const [notifyStudents, setNotifyStudents] = useState(true);
@@ -194,7 +169,7 @@ function LiveClassesTab({ classroom, refreshClassroom }: { classroom: Classroom;
     setDeletingMeetingId(meetingId);
     try {
       await deleteMeeting(meetingId);
-      await refreshClassroom();
+      classroomActions.deleteMeeting(classroomId, meetingId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete meeting");
     } finally {
@@ -207,7 +182,7 @@ function LiveClassesTab({ classroom, refreshClassroom }: { classroom: Classroom;
     setError("");
     setSaving(true);
     createMeeting({
-      classroom: cls.id,
+      classroom: cls.code || classroomId,
       title: form.title,
       description: form.description,
       scheduledAt: new Date(form.scheduledAt).toISOString(),
@@ -215,8 +190,18 @@ function LiveClassesTab({ classroom, refreshClassroom }: { classroom: Classroom;
       sendPortalNotification: notifyStudents,
       sendWhatsApp: false,
     })
-      .then(async () => {
-        await refreshClassroom();
+      .then((res) => {
+        const meeting = res.meeting;
+        classroomActions.addMeeting(classroomId, {
+          id: meeting._id || meeting.id,
+          title: meeting.title,
+          description: meeting.description,
+          scheduledAt: meeting.scheduledAt,
+          duration: meeting.duration,
+          status: meeting.status,
+          roomId: meeting.roomId,
+          attendees: [],
+        });
         setForm({ title: "", description: "", scheduledAt: "", duration: 60 });
         setShowForm(false);
       })
@@ -224,32 +209,6 @@ function LiveClassesTab({ classroom, refreshClassroom }: { classroom: Classroom;
         setError(err.message || "Could not schedule meeting");
       })
       .finally(() => setSaving(false));
-  };
-
-  const handleStartMeeting = async (meetingId: string) => {
-    setError("");
-    setMeetingOperationId(meetingId);
-    try {
-      await apiStartMeeting(meetingId);
-      await refreshClassroom();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start meeting");
-    } finally {
-      setMeetingOperationId(null);
-    }
-  };
-
-  const handleEndMeeting = async (meetingId: string) => {
-    setError("");
-    setMeetingOperationId(meetingId);
-    try {
-      await apiEndMeeting(meetingId);
-      await refreshClassroom();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not end meeting");
-    } finally {
-      setMeetingOperationId(null);
-    }
   };
 
   const upcoming = cls.meetings.filter((m) => m.status !== "ended" && m.status !== "cancelled");
@@ -342,10 +301,9 @@ function LiveClassesTab({ classroom, refreshClassroom }: { classroom: Classroom;
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {m.status === "scheduled" && (
-                    <button onClick={() => handleStartMeeting(m.id)}
-                      disabled={meetingOperationId === m.id}
-                      className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold flex items-center gap-1 disabled:opacity-50">
-                      <Play className="h-3 w-3" /> {meetingOperationId === m.id ? "Starting..." : "Start"}
+                    <button onClick={() => classroomActions.startMeeting(classroomId, m.id)}
+                      className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold flex items-center gap-1">
+                      <Play className="h-3 w-3" /> Start
                     </button>
                   )}
                   {m.status === "live" && (
@@ -354,14 +312,13 @@ function LiveClassesTab({ classroom, refreshClassroom }: { classroom: Classroom;
                         className="rounded-full bg-red-500/20 text-red-300 px-4 py-2 text-xs font-bold flex items-center gap-1">
                         <Radio className="h-3 w-3" /> Rejoin
                       </button>
-                      <button onClick={() => handleEndMeeting(m.id)}
-                        disabled={meetingOperationId === m.id}
-                        className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 text-xs disabled:opacity-50">
-                        {meetingOperationId === m.id ? "Ending..." : "End"}
+                      <button onClick={() => classroomActions.endMeeting(classroomId, m.id)}
+                        className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 text-xs">
+                        End
                       </button>
                     </>
                   )}
-                  <button onClick={() => handleDeleteMeeting(m.id)}
+                  <button onClick={() => classroomActions.deleteMeeting(classroomId, m.id)}
                     disabled={deletingMeetingId === m.id}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 text-xs disabled:opacity-50">
                     <Trash2 className="h-3.5 w-3.5" />
@@ -587,41 +544,6 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       )}
       <div className="space-y-3">
         {cls.recordings.map((rec) => {
-          const handlePublishClick = async (recordingId: string, isPublished: boolean) => {
-            console.log('handlePublishClick called with:', recordingId, isPublished);
-            try {
-              if (isPublished) {
-                console.log('Calling unpublishRecording');
-                await unpublishRecording(recordingId);
-              } else {
-                console.log('Calling publishRecording');
-                await publishRecording(recordingId);
-              }
-              console.log('API call completed, refreshing classroom');
-              await refreshClassroom();
-              console.log('Refresh complete');
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Failed to publish/unpublish recording';
-              console.error("[Recording Publish Error]", errorMessage, error);
-              alert(`Error: ${errorMessage}`);
-            }
-          };
-
-          const handleDeleteClick = async (recordingId: string) => {
-            console.log('handleDeleteClick called with:', recordingId);
-            try {
-              console.log('Calling deleteRecording');
-              await deleteRecording(recordingId);
-              console.log('Delete API call completed, refreshing classroom');
-              await refreshClassroom();
-              console.log('Refresh complete');
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Failed to delete recording';
-              console.error('[Recording Delete Error]', errorMessage, error);
-              alert(`Error deleting recording: ${errorMessage}`);
-            }
-          };
-
           const avgWatch = rec.viewStats.length
             ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
             : 0;
@@ -647,14 +569,41 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => handlePublishClick(rec.id, rec.isPublished)}
+                <button
+  onClick={async () => {
+    console.log("PUBLISH BUTTON CLICKED");
+    console.log("Recording:", rec);
+    console.log("Recording ID:", rec.id);
+    console.log("Published:", rec.isPublished);
+
+    try {
+      if (rec.isPublished) {
+        console.log("Calling unpublishRecording...");
+        await unpublishRecording(rec.id);
+      } else {
+        console.log("Calling publishRecording...");
+        await publishRecording(rec.id);
+      }
+
+      console.log("Refresh classroom...");
+      await refreshClassroom();
+    } catch (error) {
+      console.error("Publish/Unpublish Error:", error);
+    }
+  }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
                   >
                     {rec.isPublished ? <><EyeOff className="h-3 w-3" /> Unpublish</> : <><Eye className="h-3 w-3" /> Publish</>}
                   </button>
                   <button
-                    onClick={() => handleDeleteClick(rec.id)}
+                    onClick={async () => {
+                      try {
+                        await deleteRecording(rec.id);
+                        await refreshClassroom();
+                      } catch (error) {
+                        console.error('Failed to delete recording', error);
+                      }
+                    }}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -780,8 +729,9 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
   );
 }
 
-function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
-  const cls = classroom;
+function TestsTab({ classroomId }: { classroomId: string }) {
+  const { classrooms } = useClassroomStore();
+  const cls = classrooms.find((c) => c.id === classroomId)!;
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [quizOperationQuizId, setQuizOperationQuizId] = useState<string | null>(null);
@@ -807,8 +757,8 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     setSaveError(null);
     setIsSavingQuiz(true);
     try {
-      await createQuiz(classroom.id, { ...quiz, status });
-      await refreshClassroom();
+      const createdQuiz = await createQuiz(classroomId, { ...quiz, status });
+      classroomActions.addQuiz(classroomId, createdQuiz);
       setShowBuilder(false);
       setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
     } catch (error) {
@@ -823,11 +773,9 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     setQuizOperationQuizId(quizId);
     try {
       await publishQuiz(quizId);
-      await refreshClassroom();
+      classroomActions.updateQuizStatus(classroomId, quizId, "published");
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to publish quiz';
-      console.error('[Quiz Publish Error]', errorMessage, error);
-      alert(`Error publishing quiz: ${errorMessage}`);
+      console.error(error);
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -837,11 +785,9 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     setQuizOperationQuizId(quizId);
     try {
       await closeQuiz(quizId);
-      await refreshClassroom();
+      classroomActions.updateQuizStatus(classroomId, quizId, "closed");
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to close quiz';
-      console.error('[Quiz Close Error]', errorMessage, error);
-      alert(`Error closing quiz: ${errorMessage}`);
+      console.error(error);
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -851,11 +797,9 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     setQuizOperationQuizId(quizId);
     try {
       await apiDeleteQuiz(quizId);
-      await refreshClassroom();
+      classroomActions.deleteQuiz(classroomId, quizId);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete quiz';
-      console.error('[Quiz Delete Error]', errorMessage, error);
-      alert(`Error deleting quiz: ${errorMessage}`);
+      console.error(error);
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -1251,29 +1195,32 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
 function AdminClassroomDetail() {
   const params = (Route.useParams as any)();
   const id = params.id as string;
+  const { classrooms } = useClassroomStore();
   const [backendClassroom, setBackendClassroom] = useState<Classroom | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
   const [tab, setTab] = useState<TabKey>("announcements");
+
+  const storeClassroom = classrooms.find((c) => c.id === id);
 
   const refreshClassroom = async () => {
     const refreshed = await getClassroomById(id);
     setBackendClassroom(refreshed);
-    setLoadError("");
+    if (storeClassroom) {
+      classroomActions.updateClassroom(id, refreshed);
+    } else {
+      classroomActions.addClassroom(refreshed);
+    }
     return refreshed;
   };
 
   React.useEffect(() => {
     let active = true;
     const load = async () => {
-      setIsLoading(true);
-      setLoadError("");
       try {
         await refreshClassroom();
         if (!active) return;
       } catch (err) {
         console.error("Could not load classroom by id", err);
-        if (active) setLoadError(err instanceof Error ? err.message : "Could not load classroom");
       } finally {
         if (active) setIsLoading(false);
       }
@@ -1284,7 +1231,7 @@ function AdminClassroomDetail() {
     };
   }, [id]);
 
-  const classroom = backendClassroom;
+  const classroom = backendClassroom || storeClassroom;
 
   if (isLoading) {
     return (
@@ -1297,18 +1244,7 @@ function AdminClassroomDetail() {
   if (!classroom) {
     return (
       <div className="text-cream text-center py-20">
-        <p className="text-cream/60">{loadError || "Classroom not found."}</p>
-        {loadError && (
-          <button
-            onClick={() => {
-              setIsLoading(true);
-              refreshClassroom().finally(() => setIsLoading(false));
-            }}
-            className="mt-4 rounded-full bg-lime text-plum-dark px-5 py-2 text-sm font-bold"
-          >
-            Try Again
-          </button>
-        )}
+        <p className="text-cream/60">Classroom not found.</p>
         <Link to="/admin/classrooms" className="mt-4 text-lime block">← Back to Classrooms</Link>
       </div>
     );
@@ -1347,10 +1283,10 @@ function AdminClassroomDetail() {
       </div>
 
       {/* Tab content */}
-      {tab === "announcements" && <AnnouncementsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "live" && <LiveClassesTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+      {tab === "announcements" && <AnnouncementsTab classroomId={classroom.id} />}
+      {tab === "live" && <LiveClassesTab classroomId={classroom.id} />}
       {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "tests" && <TestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+      {tab === "tests" && <TestsTab classroomId={classroom.id} />}
       {tab === "students" && <StudentsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
     </div>
   );

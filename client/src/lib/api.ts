@@ -7,14 +7,7 @@ const getApiBase = () => {
     import.meta.env.BACKEND_URL ||
     (typeof process !== 'undefined' ? process.env.VITE_API_URL || process.env.BACKEND_URL : '');
 
-  const apiBase = (runtimeApiUrl?.trim() || '/api/v1').replace(/\/+$/, '');
-  
-  // Log API base in development and when no explicit URL is provided
-  if (import.meta.env.DEV || !runtimeApiUrl) {
-    console.log('[API] Using API base:', apiBase);
-  }
-  
-  return apiBase;
+  return (runtimeApiUrl?.trim() || '/api/v1').replace(/\/+$/, '');
 };
 
 const API_BASE = getApiBase();
@@ -225,10 +218,7 @@ async function fetchJson(path: string, options: RequestInit = {}) {
   const extraHeaders = options.headers as Record<string, string> | undefined;
   if (extraHeaders) Object.assign(headers, extraHeaders);
 
-  const fullUrl = `${API_BASE}${path}`;
-  console.log('[API Request]', options.method || 'GET', fullUrl);
-
-  const response = await fetch(fullUrl, {
+  const response = await fetch(`${API_BASE}${path}`, {
     credentials: 'include', // sends HttpOnly cookies cross-origin (Vercel → Railway)
     headers,
     ...options,
@@ -241,11 +231,8 @@ async function fetchJson(path: string, options: RequestInit = {}) {
     if (response.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
       classroomStore.setState(() => ({ currentUser: null }));
     }
-    const errorMsg = payload.message || `Server error (${response.status})`;
-    console.error('[API Error]', fullUrl, response.status, errorMsg);
-    throw new Error(errorMsg);
+    throw new Error(payload.message || 'Server error');
   }
-  console.log('[API Success]', fullUrl, response.status);
   return payload;
 }
 
@@ -523,18 +510,6 @@ export async function deleteMeeting(meetingId: string) {
   });
 }
 
-export async function startMeeting(meetingId: string) {
-  return fetchJson(`/meetings/${encodeURIComponent(meetingId)}/start`, {
-    method: 'POST',
-  });
-}
-
-export async function endMeeting(meetingId: string) {
-  return fetchJson(`/meetings/${encodeURIComponent(meetingId)}/end`, {
-    method: 'POST',
-  });
-}
-
 export async function getClassroomMeetings(classroomIdentifier: string) {
   return fetchJson(`/meetings/classroom/${encodeURIComponent(classroomIdentifier)}`);
 }
@@ -560,31 +535,22 @@ export function getRecordingStreamUrl(recordingId: string): string {
 }
 
 export async function publishRecording(recordingId: string) {
-  console.log('[API] publishRecording called with ID:', recordingId);
-  const result = await fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}/publish`, {
+  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}/publish`, {
     method: 'PUT',
   });
-  console.log('[API] publishRecording response:', result);
-  return result;
 }
 
 export async function unpublishRecording(recordingId: string) {
-  console.log('[API] unpublishRecording called with ID:', recordingId);
-  const result = await fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
+  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
     method: 'PUT',
     body: JSON.stringify({ isPublished: false }),
   });
-  console.log('[API] unpublishRecording response:', result);
-  return result;
 }
 
 export async function deleteRecording(recordingId: string) {
-  console.log('[API] deleteRecording called with ID:', recordingId);
-  const result = await fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
+  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
     method: 'DELETE',
   });
-  console.log('[API] deleteRecording response:', result);
-  return result;
 }
 
 export async function logoutUser() {
