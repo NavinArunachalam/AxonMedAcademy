@@ -378,9 +378,14 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
   const [uploadPhase, setUploadPhase] = useState<'idle' | 'preparing' | 'uploading' | 'saving'>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
+
+  const formatMB = (bytes: number) => {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -392,6 +397,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
 
     setUploading(true);
     setUploadProgress(0);
+    setUploadBytes({ loaded: 0, total: 0 });
     setUploadPhase('preparing');
     setUploadError(null);
 
@@ -405,10 +411,11 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
         duration: form.duration,
         isPublished: form.isPublished,
         chapters: form.chapters,
-        onProgress: (pct) => {
+        onProgress: ({ loaded, total, percentage }) => {
           setUploadPhase('uploading');
-          setUploadProgress(pct);
-          if (pct === 100) setUploadPhase('saving');
+          setUploadProgress(percentage);
+          setUploadBytes({ loaded, total });
+          if (percentage === 100) setUploadPhase('saving');
         },
       });
       setUploadPhase('idle');
@@ -422,6 +429,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     } finally {
       setUploading(false);
       setUploadProgress(0);
+      setUploadBytes({ loaded: 0, total: 0 });
     }
   };
 
@@ -499,7 +507,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-cream/60">
                     {uploadPhase === 'preparing' && '⏳ Preparing upload…'}
-                    {uploadPhase === 'uploading' && `⬆ Uploading to cloud… ${uploadProgress}%`}
+                    {uploadPhase === 'uploading' && `⬆ Uploading to cloud… ${formatMB(uploadBytes.loaded)} / ${formatMB(uploadBytes.total)} (${uploadProgress}%)`}
                     {uploadPhase === 'saving' && '💾 Saving recording…'}
                   </span>
                   <span className="font-mono text-lime">{uploadProgress}%</span>
@@ -518,7 +526,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               <button type="button" onClick={() => setShowForm(false)} disabled={uploading} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-40">Cancel</button>
               <button type="submit" disabled={uploading} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-60">
                 {uploading ? (
-                  uploadPhase === 'saving' ? 'Saving…' : `Uploading ${uploadProgress}%`
+                  uploadPhase === 'saving' ? 'Saving…' : `Uploading ${formatMB(uploadBytes.loaded)} / ${formatMB(uploadBytes.total)} (${uploadProgress}%)`
                 ) : 'Save Recording'}
               </button>
             </div>

@@ -316,7 +316,7 @@ export async function uploadClassroomRecordingToCloudflare({
   duration?: number;
   isPublished?: boolean;
   chapters?: unknown[];
-  onProgress?: (pct: number) => void;
+  onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void;
 }) {
   const authHeaders = getDevAuthUserHeaders();
   const accessToken = classroomStore.getState().accessToken;
@@ -359,14 +359,22 @@ export async function uploadClassroomRecordingToCloudflare({
     if (onProgress) {
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
-          onProgress(Math.round((e.loaded / e.total) * 100));
+          onProgress({
+            loaded: e.loaded,
+            total: e.total,
+            percentage: Math.round((e.loaded / e.total) * 100),
+          });
         }
       });
     }
 
     xhr.addEventListener('load', () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress?.(100);
+        onProgress?.({
+          loaded: file.size,
+          total: file.size,
+          percentage: 100,
+        });
         resolve();
       } else {
         reject(new Error(`R2 upload failed: HTTP ${xhr.status}`));
@@ -502,20 +510,20 @@ export function getRecordingStreamUrl(recordingId: string): string {
 }
 
 export async function publishRecording(recordingId: string) {
-  return fetchJson(`/recordings/${encodeURIComponent(recordingId)}/publish`, {
+  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}/publish`, {
     method: 'PUT',
   });
 }
 
 export async function unpublishRecording(recordingId: string) {
-  return fetchJson(`/recordings/${encodeURIComponent(recordingId)}/publish`, {
+  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
     method: 'PUT',
     body: JSON.stringify({ isPublished: false }),
   });
 }
 
 export async function deleteRecording(recordingId: string) {
-  return fetchJson(`/recordings/${encodeURIComponent(recordingId)}`, {
+  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
     method: 'DELETE',
   });
 }
