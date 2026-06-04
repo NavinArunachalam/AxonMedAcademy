@@ -37,6 +37,7 @@ function getS3Client() {
       secretAccessKey: CLOUDFLARE_R2_SECRET_ACCESS_KEY,
     },
     region: 'auto',
+    forcePathStyle: true,
   });
 
   return s3Client;
