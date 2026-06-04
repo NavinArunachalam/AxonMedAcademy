@@ -17,7 +17,7 @@ import {
   type Classroom,
   type Option,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, createClassroomAnnouncement, deleteClassroomAnnouncement } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -72,15 +72,39 @@ type TabKey = (typeof TABS)[number]["key"];
 
 // ─── Announcements Tab ────────────────────────────────────────────────────────
 
-function AnnouncementsTab({ classroomId }: { classroomId: string }) {
-  const { classrooms } = useClassroomStore();
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
+  const cls = classroom;
   const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!text.trim()) return;
-    classroomActions.addAnnouncement(classroomId, text.trim());
-    setText("");
+    setSaving(true);
+    setError("");
+    try {
+      await createClassroomAnnouncement(classroom.id, text.trim());
+      setText("");
+      await refreshClassroom();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not post announcement");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId: string) => {
+    setDeletingAnnouncementId(announcementId);
+    setError("");
+    try {
+      await deleteClassroomAnnouncement(classroom.id, announcementId);
+      await refreshClassroom();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete announcement");
+    } finally {
+      setDeletingAnnouncementId(null);
+    }
   };
 
   return (
@@ -100,12 +124,13 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
         <div className="flex justify-end mt-3">
           <button
             onClick={handlePost}
-            disabled={!text.trim()}
+            disabled={!text.trim() || saving}
             className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2 text-sm font-bold disabled:opacity-40"
           >
-            <Send className="h-3.5 w-3.5" /> Post to All Students
+            <Send className="h-3.5 w-3.5" /> {saving ? "Posting..." : "Post to All Students"}
           </button>
         </div>
+        {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
       </DarkCard>
 
       {/* Feed */}
@@ -132,8 +157,9 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
                 </div>
               </div>
               <button
-                onClick={() => classroomActions.deleteAnnouncement(classroomId, ann.id)}
-                className="text-cream/30 hover:text-red-400 transition-colors shrink-0"
+                onClick={() => handleDeleteAnnouncement(ann.id)}
+                disabled={deletingAnnouncementId === ann.id}
+                className="text-cream/30 hover:text-red-400 transition-colors shrink-0 disabled:opacity-40"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -318,7 +344,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                       </button>
                     </>
                   )}
-                  <button onClick={() => classroomActions.deleteMeeting(classroomId, m.id)}
+                  <button onClick={() => handleDeleteMeeting(m.id)}
                     disabled={deletingMeetingId === m.id}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 text-xs disabled:opacity-50">
                     <Trash2 className="h-3.5 w-3.5" />
@@ -569,19 +595,28 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (rec.isPublished) {
-                          await unpublishRecording(rec.id);
-                        } else {
-                          await publishRecording(rec.id);
-                        }
-                        await refreshClassroom();
-                      } catch (error) {
-                        console.error('Failed to toggle recording publish status', error);
-                      }
-                    }}
+                <button
+  onClick={async () => {
+    console.log("PUBLISH BUTTON CLICKED");
+    console.log("Recording:", rec);
+    console.log("Recording ID:", rec.id);
+    console.log("Published:", rec.isPublished);
+
+    try {
+      if (rec.isPublished) {
+        console.log("Calling unpublishRecording...");
+        await unpublishRecording(rec.id);
+      } else {
+        console.log("Calling publishRecording...");
+        await publishRecording(rec.id);
+      }
+
+      console.log("Refresh classroom...");
+      await refreshClassroom();
+    } catch (error) {
+      console.error("Publish/Unpublish Error:", error);
+    }
+  }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
                   >
                     {rec.isPublished ? <><EyeOff className="h-3 w-3" /> Unpublish</> : <><Eye className="h-3 w-3" /> Publish</>}
@@ -1274,7 +1309,7 @@ function AdminClassroomDetail() {
       </div>
 
       {/* Tab content */}
-      {tab === "announcements" && <AnnouncementsTab classroomId={classroom.id} />}
+      {tab === "announcements" && <AnnouncementsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "live" && <LiveClassesTab classroomId={classroom.id} />}
       {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "tests" && <TestsTab classroomId={classroom.id} />}

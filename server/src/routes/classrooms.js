@@ -103,6 +103,11 @@ const attachClassroomDetails = async (classrooms) => {
     .sort({ createdAt: -1 })
     .lean();
 
+  const announcements = await ClassroomAnnouncement.find({ classroom: { $in: classroomIds } })
+    .populate('author', 'firstName lastName role avatar')
+    .sort({ createdAt: -1 })
+    .lean();
+
   // Fetch quizzes
   const quizzes = await Quiz.find({ classroom: { $in: classroomIds } })
     .sort({ createdAt: -1 })
@@ -118,6 +123,13 @@ const attachClassroomDetails = async (classrooms) => {
     const key = rec.classroom.toString();
     if (!acc[key]) acc[key] = [];
     acc[key].push(rec);
+    return acc;
+  }, {});
+
+  const announcementsByClassroom = announcements.reduce((acc, announcement) => {
+    const key = announcement.classroom.toString();
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(announcement);
     return acc;
   }, {});
 
@@ -144,6 +156,10 @@ const attachClassroomDetails = async (classrooms) => {
     recordings: (recordingsByClassroom[classroom._id.toString()] || []).map(r => ({
       ...r,
       id: r._id.toString()
+    })),
+    announcements: (announcementsByClassroom[classroom._id.toString()] || []).map(announcement => ({
+      ...announcement,
+      id: announcement._id.toString()
     })),
     quizzes: (quizzesByClassroom[classroom._id.toString()] || []).map(q => ({
       ...q,

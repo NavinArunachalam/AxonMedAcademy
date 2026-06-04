@@ -1,17 +1,13 @@
 import { classroomStore } from '@/lib/classroomStore';
 
-// Auth is fully cookie-based (HttpOnly cookies set by the Railway server).
-// credentials: 'include' on every fetch sends them automatically to Railway from Vercel.
+// Auth is cookie-based, with Authorization header fallback from the in-memory store.
 const getApiBase = () => {
-  if (typeof window !== 'undefined') {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5000/api/v1';
-    }
-    return 'https://oc-pro-production.up.railway.app/api/v1';
-  }
-  // SSR fallback
-  const runtimeApiUrl = process.env.VITE_API_URL || process.env.BACKEND_URL;
-  return runtimeApiUrl?.trim() || 'https://oc-pro-production.up.railway.app/api/v1';
+  const runtimeApiUrl =
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.BACKEND_URL ||
+    (typeof process !== 'undefined' ? process.env.VITE_API_URL || process.env.BACKEND_URL : '');
+
+  return (runtimeApiUrl?.trim() || '/api/v1').replace(/\/+$/, '');
 };
 
 const API_BASE = getApiBase();
@@ -79,7 +75,9 @@ function normalizeBackendClassroom(raw: any) {
         addedAt: s.addedAt ? new Date(s.addedAt).toISOString() : new Date().toISOString(),
       }))
       : [],
-    announcements: [],
+    announcements: Array.isArray(raw.announcements)
+      ? raw.announcements.map(normalizeBackendAnnouncement)
+      : [],
     meetings: Array.isArray(raw.meetings)
       ? raw.meetings.map((m: any) => ({
         id: m._id || m.id,
@@ -153,6 +151,18 @@ function normalizeBackendClassroom(raw: any) {
         })) : []
       }))
       : [],
+  };
+}
+
+function normalizeBackendAnnouncement(raw: any) {
+  const author = raw.author;
+  return {
+    id: raw._id || raw.id,
+    content: raw.content || '',
+    createdAt: raw.createdAt || new Date().toISOString(),
+    author: author?.firstName
+      ? `${author.firstName} ${author.lastName || ''}`.trim()
+      : author?.email || author?.role || 'Admin',
   };
 }
 
@@ -262,6 +272,21 @@ export async function getClassrooms() {
 export async function getClassroomById(id: string) {
   const payload = await fetchJson(`/classrooms/${encodeURIComponent(id)}`);
   return normalizeBackendClassroom(payload.classroom);
+}
+
+export async function createClassroomAnnouncement(classroomId: string, content: string) {
+  const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/announcements`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+  return normalizeBackendAnnouncement(payload.announcement);
+}
+
+export async function deleteClassroomAnnouncement(classroomId: string, announcementId: string) {
+  return fetchJson(
+    `/classrooms/${encodeURIComponent(classroomId)}/announcements/${encodeURIComponent(announcementId)}`,
+    { method: 'DELETE' }
+  );
 }
 
 export async function createQuiz(classroomId: string, quiz: any) {

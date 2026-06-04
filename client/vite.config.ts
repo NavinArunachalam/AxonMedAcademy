@@ -7,7 +7,7 @@ const env = {
 	...loadEnv(process.env.NODE_ENV || "development", process.cwd(), ""),
 };
 
-const rawApiUrl = env.VITE_API_URL || env.BACKEND_URL || "http://localhost:5000/api/v1";
+const rawApiUrl = env.VITE_API_URL || env.BACKEND_URL || "";
 
 const getProxyTarget = (url: string) => {
 	let cleaned = url.trim().replace(/\/+$/, "");
@@ -25,11 +25,13 @@ const getProxyTarget = (url: string) => {
 	return cleaned + "/**";
 };
 
-const proxyTarget = getProxyTarget(rawApiUrl);
-console.log("Setting Nitro proxy target to:", proxyTarget);
+const proxyTarget = rawApiUrl ? getProxyTarget(rawApiUrl) : "";
+if (proxyTarget) {
+	console.log("Setting Nitro proxy target to:", proxyTarget);
+}
 
 const routeRules: Record<string, any> = {};
-if (rawApiUrl && !rawApiUrl.includes("localhost") && !rawApiUrl.includes("127.0.0.1")) {
+if (proxyTarget && !rawApiUrl.includes("localhost") && !rawApiUrl.includes("127.0.0.1")) {
 	routeRules["/api/**"] = {
 		proxy: proxyTarget,
 	};
@@ -46,13 +48,15 @@ export default defineConfig({
 	vite: {
 		server: {
 			// Local dev proxy — only used during `npm run dev`
-			proxy: {
-				'/api': {
-					target: 'http://localhost:5000',
-					changeOrigin: true,
-					secure: false,
-				},
-			},
+			proxy: rawApiUrl
+				? {
+					'/api': {
+						target: rawApiUrl.replace(/\/api\/v1\/?$/, '').replace(/\/api\/?$/, ''),
+						changeOrigin: true,
+						secure: false,
+					},
+				}
+				: undefined,
 		},
 	},
 });
