@@ -250,7 +250,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
               <div>
                 <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Duration</label>
                 <select value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
-                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+                  classN ame="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
                   <option value={30}>30 minutes</option>
                   <option value={60}>1 hour</option>
                   <option value={90}>1.5 hours</option>
@@ -377,6 +377,8 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'preparing' | 'uploading' | 'saving'>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
 
@@ -389,26 +391,38 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     }
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadPhase('preparing');
     setUploadError(null);
+
     try {
-      const formData = new FormData();
-      formData.append('classroom', classroom.id);
-      formData.append('title', form.title);
-      formData.append('description', form.description);
-      formData.append('duration', String(form.duration));
-      formData.append('isPublished', String(form.isPublished));
-      formData.append('chapters', JSON.stringify(form.chapters));
-      formData.append('video', videoFile);
-      await uploadClassroomRecordingToCloudflare(formData);
+      // Video goes directly to R2 — Railway never sees the file bytes
+      await uploadClassroomRecordingToCloudflare({
+        file: videoFile,
+        classroom: classroom.id,
+        title: form.title,
+        description: form.description,
+        duration: form.duration,
+        isPublished: form.isPublished,
+        chapters: form.chapters,
+        onProgress: (pct) => {
+          setUploadPhase('uploading');
+          setUploadProgress(pct);
+          if (pct === 100) setUploadPhase('saving');
+        },
+      });
+      setUploadPhase('idle');
+      setForm({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] });
+      setVideoFile(null);
+      setShowForm(false);
       await refreshClassroom();
     } catch (error) {
+      setUploadPhase('idle');
       setUploadError(error instanceof Error ? error.message : 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
-    setForm({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] });
-    setVideoFile(null);
-    setShowForm(false);
   };
 
   const addChapter = () => {
@@ -438,6 +452,11 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Video File *</label>
               <input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
                 className="w-full text-cream text-sm file:bg-cream/10 file:border-cream/10 file:rounded-xl file:px-3 file:py-2 file:text-cream" />
+              {videoFile && (
+                <p className="text-xs text-cream/50 mt-1">
+                  {videoFile.name} &mdash; {(videoFile.size / 1024 / 1024).toFixed(1)} MB
+                </p>
+              )}
             </div>
             <div>
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
@@ -474,10 +493,33 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               <span className="text-cream/80 text-sm">Publish immediately (notify students)</span>
             </label>
 
+            {/* Progress bar — shown while uploading */}
+            {uploading && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-cream/60">
+                    {uploadPhase === 'preparing' && '⏳ Preparing upload…'}
+                    {uploadPhase === 'uploading' && `⬆ Uploading to cloud… ${uploadProgress}%`}
+                    {uploadPhase === 'saving' && '💾 Saving recording…'}
+                  </span>
+                  <span className="font-mono text-lime">{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-cream/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-lime rounded-full transition-all duration-300"
+                    style={{ width: `${uploadPhase === 'saving' ? 100 : uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-cream/40">Upload goes directly to cloud storage — no timeout risk</p>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
+              <button type="button" onClick={() => setShowForm(false)} disabled={uploading} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-40">Cancel</button>
               <button type="submit" disabled={uploading} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-60">
-                {uploading ? 'Uploading…' : 'Save Recording'}
+                {uploading ? (
+                  uploadPhase === 'saving' ? 'Saving…' : `Uploading ${uploadProgress}%`
+                ) : 'Save Recording'}
               </button>
             </div>
             {uploadError && <p className="text-sm text-red-400 mt-1">{uploadError}</p>}

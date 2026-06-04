@@ -284,27 +284,125 @@ export async function deleteQuiz(quizId: string) {
   return fetchJson(`/quizzes/${encodeURIComponent(quizId)}`, { method: 'DELETE' });
 }
 
-export async function uploadClassroomRecordingToCloudflare(formData: FormData) {
-  // Auth via HttpOnly cookie only — no Authorization header needed.
-  const headers: Record<string, string> = {
-    ...getDevAuthUserHeaders(),
+/**
+ * Upload a classroom recording using the presigned-URL flow:
+ *   1. Ask Railway for a presigned R2 PUT URL  (tiny JSON request)
+ *   2. PUT the video bytes directly to R2      (never touches Railway → no timeout)
+ *   3. POST only the metadata to Railway        (tiny JSON request)
+ *
+ * @param options.file          - The File / Blob to upload
+ * @param options.classroom     - Classroom ObjectId
+ * @param options.title         - Recording title
+ * @param options.description   - Optional description
+ * @param options.duration      - Duration in seconds
+ * @param options.isPublished   - Whether to publish immediately
+ * @param options.chapters      - Optional chapters array
+ * @param options.onProgress    - Progress callback (0–100)
+ */
+export async function uploadClassroomRecordingToCloudflare({
+  file,
+  classroom,
+  title,
+  description = '',
+  duration = 0,
+  isPublished = false,
+  chapters = [],
+  onProgress,
+}: {
+  file: File;
+  classroom: string;
+  title: string;
+  description?: string;
+  duration?: number;
+  isPublished?: boolean;
+  chapters?: unknown[];
+  onProgress?: (pct: number) => void;
+}) {
+  const authHeaders = getDevAuthUserHeaders();
+  const accessToken = classroomStore.getState().accessToken;
+  const baseHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    ...authHeaders,
   };
 
-  const response = await fetch(`${API_BASE}/recordings/classroom/upload-cloudflare`, {
+  // ── Step 1: get presigned upload URL from Railway (instant) ─────────────
+  const presignRes = await fetch(`${API_BASE}/recordings/classroom/presigned-url`, {
     method: 'POST',
     credentials: 'include',
-    headers,
-    body: formData,
+    headers: baseHeaders,
+    body: JSON.stringify({
+      classroom,
+      filename: file.name,
+      contentType: file.type || 'video/mp4',
+    }),
   });
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    if (response.status === 401) {
-      classroomStore.setState(() => ({ currentUser: null }));
-    }
-    throw new Error(payload.message || 'Upload failed');
+  const presignData = await presignRes.json().catch(() => ({}));
+  if (!presignRes.ok) {
+    if (presignRes.status === 401) classroomStore.setState(() => ({ currentUser: null }));
+    throw new Error(presignData.message || 'Failed to get upload URL');
   }
-  return payload;
+
+  const { uploadUrl, objectKey, publicUrl } = presignData as {
+    uploadUrl: string;
+    objectKey: string;
+    publicUrl: string;
+  };
+
+  // ── Step 2: PUT directly to R2 with progress tracking (never hits Railway) ──
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      });
+    }
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        resolve();
+      } else {
+        reject(new Error(`R2 upload failed: HTTP ${xhr.status}`));
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')));
+
+    xhr.send(file);
+  });
+
+  // ── Step 3: save metadata in Railway DB (tiny JSON, instant) ─────────────
+  const saveRes = await fetch(`${API_BASE}/recordings/classroom/save-recording`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: baseHeaders,
+    body: JSON.stringify({
+      classroom,
+      title,
+      description,
+      duration,
+      isPublished,
+      objectKey,
+      publicUrl,
+      chapters,
+    }),
+  });
+
+  const saveData = await saveRes.json().catch(() => ({}));
+  if (!saveRes.ok) {
+    if (saveRes.status === 401) classroomStore.setState(() => ({ currentUser: null }));
+    throw new Error(saveData.message || 'Failed to save recording metadata');
+  }
+
+  return saveData;
 }
 
 export async function addStudentsToClassroom(classroomId: string, studentIds: string[]) {

@@ -9,6 +9,7 @@ const { protect, restrictTo } = require('../middleware/auth');
 const {
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
+  generatePresignedUploadUrl,
 } = require('../config/cloudflare');
 
 // ✅ Memory storage — file never touches disk
@@ -70,6 +71,97 @@ router.post('/upload-url', protect, restrictTo('admin', 'superadmin'), async (re
       uploadUrl: `${process.env.API_BASE_URL || ''}/api/v1/recordings/classroom/mock-upload`,
       playbackId: `mock_playback_id_${Date.now()}`,
       assetId: `mock_asset_id_${Date.now()}`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /presigned-url → Admin: Generate a presigned R2 PUT URL for direct browser upload
+// The video is uploaded directly from the browser to Cloudflare R2 — Railway is NOT involved
+// in transferring the bytes, so there are no timeouts even for 3 GB files.
+router.post('/presigned-url', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { classroom, filename, contentType } = req.body;
+
+    if (!classroom || !filename) {
+      return res.status(400).json({ success: false, message: 'classroom and filename are required' });
+    }
+    if (!isValidId(classroom)) {
+      return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
+    }
+
+    // Sanitise filename — strip path separators that could break R2 keys
+    const safeName = filename.replace(/[/\\]/g, '_');
+    const objectKey = `classroom-recordings/${classroom}/${Date.now()}-${safeName}`;
+
+    const { uploadUrl, publicUrl } = await generatePresignedUploadUrl(
+      objectKey,
+      contentType || 'video/mp4',
+      3600 // 1-hour window — enough for very large uploads
+    );
+
+    res.json({ success: true, uploadUrl, objectKey, publicUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /save-recording → Admin: Save metadata AFTER the browser PUT to R2 completes
+router.post('/save-recording', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { classroom, title, description, duration, isPublished, objectKey, publicUrl, chapters } = req.body;
+
+    if (!classroom || !title || !objectKey) {
+      return res.status(400).json({ success: false, message: 'classroom, title, and objectKey are required' });
+    }
+    if (!isValidId(classroom)) {
+      return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
+    }
+
+    let parsedChapters = [];
+    if (chapters) {
+      try {
+        parsedChapters = typeof chapters === 'string' ? JSON.parse(chapters) : chapters;
+      } catch {
+        parsedChapters = [];
+      }
+    }
+
+    const { getR2ObjectUrl } = require('../config/cloudflare');
+    const resolvedUrl = publicUrl || getR2ObjectUrl(objectKey);
+
+    const recording = await ClassroomRecording.create({
+      classroom,
+      title,
+      description,
+      uploadedBy: req.user._id,
+      storageProvider: 'cloudflare',
+      cloudflareKey: objectKey,
+      cloudflareUrl: resolvedUrl,
+      isPublished: isPublished === true || isPublished === 'true',
+      chapters: parsedChapters,
+      muxStatus: 'ready',
+      duration: duration ? parseInt(duration, 10) : 0,
+      thumbnail: '/default-video-thumb.jpg',
+      security: {
+        signedUrlRequired: false,
+        urlExpiryHours: 0,
+        watermark: true,
+        downloadBlocked: true,
+        screenRecordDetect: false,
+        devToolsBlocked: false,
+      },
+    });
+
+    await Classroom.findByIdAndUpdate(classroom, {
+      $inc: { 'stats.totalRecordings': 1 },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Recording saved successfully',
+      recording,
     });
   } catch (error) {
     next(error);

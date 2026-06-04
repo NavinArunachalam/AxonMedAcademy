@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 dotenv.config();
 
@@ -88,10 +89,39 @@ async function deleteFileFromCloudflareR2(objectKey) {
   return true;
 }
 
+/**
+ * Generate a presigned PUT URL so the browser can upload directly to R2.
+ * The file never passes through Railway — eliminates timeout issues entirely.
+ *
+ * @param {string} objectKey  - R2 object key (path inside the bucket)
+ * @param {string} contentType - MIME type of the file being uploaded
+ * @param {number} expiresIn   - Seconds until the URL expires (default 3600 = 1h)
+ * @returns {{ uploadUrl: string, objectKey: string, publicUrl: string }}
+ */
+async function generatePresignedUploadUrl(objectKey, contentType, expiresIn = 3600) {
+  const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+  const client = getS3Client();
+
+  const command = new PutObjectCommand({
+    Bucket: CLOUDFLARE_R2_BUCKET,
+    Key: objectKey,
+    ContentType: contentType || 'application/octet-stream',
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn });
+
+  return {
+    uploadUrl,
+    objectKey,
+    publicUrl: getR2ObjectUrl(objectKey),
+  };
+}
+
 module.exports = {
   getR2ObjectUrl,
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
+  generatePresignedUploadUrl,
   getS3Client,
   fetchFn: typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null,
 };
