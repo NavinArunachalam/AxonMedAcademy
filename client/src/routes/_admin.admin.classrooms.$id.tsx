@@ -381,6 +381,8 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
   const [uploadPhase, setUploadPhase] = useState<'idle' | 'preparing' | 'uploading' | 'saving'>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Multipart tracking — null when using single-PUT path
+  const [uploadPartInfo, setUploadPartInfo] = useState<{ part: number; totalParts: number } | null>(null);
   const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
 
   const formatMB = (bytes: number) => {
@@ -411,10 +413,13 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
         duration: form.duration,
         isPublished: form.isPublished,
         chapters: form.chapters,
-        onProgress: ({ loaded, total, percentage }) => {
+        onProgress: ({ loaded, total, percentage, part, totalParts }) => {
           setUploadPhase('uploading');
           setUploadProgress(percentage);
           setUploadBytes({ loaded, total });
+          if (part != null && totalParts != null) {
+            setUploadPartInfo({ part, totalParts });
+          }
           if (percentage === 100) setUploadPhase('saving');
         },
       });
@@ -430,6 +435,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       setUploading(false);
       setUploadProgress(0);
       setUploadBytes({ loaded: 0, total: 0 });
+      setUploadPartInfo(null);
     }
   };
 
@@ -460,11 +466,26 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Video File *</label>
               <input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
                 className="w-full text-cream text-sm file:bg-cream/10 file:border-cream/10 file:rounded-xl file:px-3 file:py-2 file:text-cream" />
-              {videoFile && (
-                <p className="text-xs text-cream/50 mt-1">
-                  {videoFile.name} &mdash; {(videoFile.size / 1024 / 1024).toFixed(1)} MB
-                </p>
-              )}
+              {videoFile && (() => {
+                const mb = videoFile.size / (1024 * 1024);
+                const CHUNK_MB = 50;
+                const isMultipart = mb >= CHUNK_MB;
+                const parts = isMultipart ? Math.ceil(mb / CHUNK_MB) : null;
+                return (
+                  <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-cream/50">
+                      {videoFile.name} &mdash; {mb.toFixed(1)} MB
+                    </span>
+                    <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${
+                      isMultipart ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/60'
+                    }`}>
+                      {isMultipart
+                        ? `⚡ Multipart · ${parts} × 50 MB chunks`
+                        : '↑ Single upload'}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
@@ -501,24 +522,87 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               <span className="text-cream/80 text-sm">Publish immediately (notify students)</span>
             </label>
 
-            {/* Progress bar — shown while uploading */}
+            {/* ── Upload Progress ─────────────────────────────────────────── */}
             {uploading && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-cream/60">
-                    {uploadPhase === 'preparing' && '⏳ Preparing upload…'}
-                    {uploadPhase === 'uploading' && `⬆ Uploading to cloud… ${formatMB(uploadBytes.loaded)} / ${formatMB(uploadBytes.total)} (${uploadProgress}%)`}
-                    {uploadPhase === 'saving' && '💾 Saving recording…'}
+              <div className="rounded-xl bg-cream/5 border border-cream/10 p-4 space-y-3">
+
+                {/* Phase label + percentage */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-cream/80">
+                    {uploadPhase === 'preparing' && (
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-3 w-3 rounded-full border-2 border-lime border-t-transparent animate-spin" />
+                        {uploadPartInfo
+                          ? `Initiating multipart upload…`
+                          : 'Preparing upload…'}
+                      </span>
+                    )}
+                    {uploadPhase === 'uploading' && uploadPartInfo && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-full bg-lime animate-pulse" />
+                        Part 
+                        <span className="text-lime font-bold">{uploadPartInfo.part}</span>
+                         of 
+                        <span className="text-lime font-bold">{uploadPartInfo.totalParts}</span>
+                         uploading…
+                      </span>
+                    )}
+                    {uploadPhase === 'uploading' && !uploadPartInfo && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-full bg-lime animate-pulse" />
+                        Uploading to cloud…
+                      </span>
+                    )}
+                    {uploadPhase === 'saving' && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-full bg-lime" />
+                        Saving metadata…
+                      </span>
+                    )}
                   </span>
-                  <span className="font-mono text-lime">{uploadProgress}%</span>
+                  <span className="font-mono text-lime text-sm font-bold">{uploadProgress}%</span>
                 </div>
-                <div className="w-full h-2 bg-cream/10 rounded-full overflow-hidden">
+
+                {/* Progress bar with part segments */}
+                <div className="relative w-full h-3 bg-cream/10 rounded-full overflow-hidden">
+                  {/* filled bar */}
                   <div
-                    className="h-full bg-lime rounded-full transition-all duration-300"
+                    className="absolute inset-y-0 left-0 bg-lime rounded-full transition-all duration-200"
                     style={{ width: `${uploadPhase === 'saving' ? 100 : uploadProgress}%` }}
                   />
+                  {/* part segment ticks — shown only for multipart */}
+                  {uploadPartInfo && uploadPartInfo.totalParts > 1 && (
+                    Array.from({ length: uploadPartInfo.totalParts - 1 }, (_, i) => {
+                      const pct = ((i + 1) / uploadPartInfo.totalParts) * 100;
+                      return (
+                        <div
+                          key={i}
+                          className="absolute inset-y-0 w-px bg-cream/20"
+                          style={{ left: `${pct}%` }}
+                        />
+                      );
+                    })
+                  )}
                 </div>
-                <p className="text-[11px] text-cream/40">Upload goes directly to cloud storage — no timeout risk</p>
+
+                {/* Byte counter + strategy badge */}
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-cream/50 font-mono">
+                    {uploadPhase === 'uploading'
+                      ? `${formatMB(uploadBytes.loaded)} / ${formatMB(uploadBytes.total)}`
+                      : uploadPhase === 'saving'
+                      ? `${formatMB(uploadBytes.total)} — assembling on R2…`
+                      : 'Connecting…'}
+                  </span>
+                  <span className={`uppercase tracking-widest font-bold px-2 py-0.5 rounded ${
+                    uploadPartInfo ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/50'
+                  }`}>
+                    {uploadPartInfo
+                      ? `⚡ Multipart · ${uploadPartInfo.totalParts} chunks`
+                      : '↑ Direct upload'}
+                  </span>
+                </div>
+
               </div>
             )}
 
@@ -526,7 +610,13 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               <button type="button" onClick={() => setShowForm(false)} disabled={uploading} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-40">Cancel</button>
               <button type="submit" disabled={uploading} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-60">
                 {uploading ? (
-                  uploadPhase === 'saving' ? 'Saving…' : `Uploading ${formatMB(uploadBytes.loaded)} / ${formatMB(uploadBytes.total)} (${uploadProgress}%)`
+                  uploadPhase === 'saving'
+                    ? 'Saving…'
+                    : uploadPartInfo
+                    ? `Part ${uploadPartInfo.part}/${uploadPartInfo.totalParts} — ${uploadProgress}%`
+                    : uploadProgress > 0
+                    ? `Uploading… ${uploadProgress}%`
+                    : 'Preparing…'
                 ) : 'Save Recording'}
               </button>
             </div>

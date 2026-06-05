@@ -310,10 +310,10 @@ export async function deleteQuiz(quizId: string) {
 }
 
 // ─── Chunk size for multipart uploads ────────────────────────────────────────
-// 100 MB per part. Files ≥ 100 MB use the multipart path; smaller files use a
+// 50 MB per part. Files ≥ 50 MB use the multipart path; smaller files use a
 // single presigned PUT (simpler, no overhead). R2 minimum part size is 5 MB
-// (last part exempt), so 100 MB chunks satisfy that rule for any real video.
-const MULTIPART_CHUNK_SIZE = 50 * 1024 * 1024; // 100 MB in bytes
+// (last part exempt), so 50 MB chunks satisfy that rule for any real video.
+const MULTIPART_CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB in bytes
 
 /**
  * Upload one part of a multipart upload directly to R2 and return its ETag.
@@ -396,7 +396,7 @@ async function uploadPartToR2(
  * @param options.duration      - Duration in seconds
  * @param options.isPublished   - Whether to publish immediately
  * @param options.chapters      - Optional chapters array
- * @param options.onProgress    - Progress callback ({ loaded, total, percentage })
+ * @param options.onProgress    - Progress callback ({ loaded, total, percentage, part?, totalParts? })
  */
 export async function uploadClassroomRecordingToCloudflare({
   file,
@@ -415,7 +415,13 @@ export async function uploadClassroomRecordingToCloudflare({
   duration?: number;
   isPublished?: boolean;
   chapters?: unknown[];
-  onProgress?: (progress: { loaded: number; total: number; percentage: number }) => void;
+  onProgress?: (progress: {
+    loaded: number;
+    total: number;
+    percentage: number;
+    part?: number;       // current chunk number (multipart only)
+    totalParts?: number; // total chunks (multipart only)
+  }) => void;
 }) {
   const authHeaders = getDevAuthUserHeaders();
   const accessToken = classroomStore.getState().accessToken;
@@ -426,18 +432,27 @@ export async function uploadClassroomRecordingToCloudflare({
   };
 
   // Helper: fire onProgress safely
-  const reportProgress = (loaded: number, total: number) => {
+  const reportProgress = (
+    loaded: number,
+    total: number,
+    part?: number,
+    totalParts?: number,
+  ) => {
     onProgress?.({
       loaded,
       total,
       percentage: total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0,
+      ...(part != null ? { part, totalParts } : {}),
     });
   };
 
+  const fileMB = (file.size / (1024 * 1024)).toFixed(1);
+
   // ============================================================
-  // PATH A — Single presigned PUT for small files (< 100 MB)
+  // PATH A — Single presigned PUT for small files (< 50 MB)
   // ============================================================
   if (file.size < MULTIPART_CHUNK_SIZE) {
+    console.log(`[Upload] PATH A — single PUT | ${file.name} | ${fileMB} MB (below 50 MB threshold)`);
     // ── Step 1: get presigned upload URL from Railway ────────────────────
     const presignRes = await fetch(`${API_BASE}/recordings/classroom/presigned-url`, {
       method: 'POST',
@@ -501,9 +516,10 @@ export async function uploadClassroomRecordingToCloudflare({
   }
 
   // ============================================================
-  // PATH B — S3 Multipart Upload for large files (≥ 100 MB)
+  // PATH B — S3 Multipart Upload for large files (≥ 50 MB)
   // ============================================================
   const totalParts = Math.ceil(file.size / MULTIPART_CHUNK_SIZE);
+  console.log(`[Upload] PATH B — multipart | ${file.name} | ${fileMB} MB | ${totalParts} parts × 50 MB`);
 
   // ── Step 1: Initiate multipart — Railway creates the upload on R2 ────
   const initiateRes = await fetch(`${API_BASE}/recordings/classroom/multipart/initiate`, {
@@ -540,6 +556,7 @@ export async function uploadClassroomRecordingToCloudflare({
       const start = i * MULTIPART_CHUNK_SIZE;
       const end = Math.min(start + MULTIPART_CHUNK_SIZE, file.size);
       const chunk = file.slice(start, end);
+      console.log(`[Upload] Starting part ${partNumber}/${totalParts} — ${(chunk.size / 1024 / 1024).toFixed(1)} MB`);
 
       // 2a. Get a presigned URL for this specific part from Railway (instant)
       const partUrlRes = await fetch(`${API_BASE}/recordings/classroom/multipart/presign-part`, {
@@ -560,16 +577,17 @@ export async function uploadClassroomRecordingToCloudflare({
       const etag = await uploadPartToR2(presignedUrl, chunk, partNumber, (loaded) => {
         partBytesLoaded[i] = loaded;
         const totalLoaded = partBytesLoaded.reduce((acc, b) => acc + b, 0);
-        reportProgress(totalLoaded, file.size);
+        reportProgress(totalLoaded, file.size, partNumber, totalParts);
       });
 
       // Mark this part's bytes as fully loaded in the tracker
       partBytesLoaded[i] = chunk.size;
       completedParts.push({ PartNumber: partNumber, ETag: etag });
+      console.log(`[Upload] Part ${partNumber}/${totalParts} done ✓  ETag: ${etag}`);
 
       // Intermediate progress update after part completes
       const totalLoaded = partBytesLoaded.reduce((acc, b) => acc + b, 0);
-      reportProgress(totalLoaded, file.size);
+      reportProgress(totalLoaded, file.size, partNumber, totalParts);
     }
   } catch (uploadError) {
     // Clean up incomplete multipart upload on R2 (best-effort, fire-and-forget)
