@@ -13,6 +13,10 @@
       "src": "/assets/(.*)"
     },
     {
+      "src": "/api/(.*)",
+      "dest": "https://oc-pro.onrender.com/api/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {
