@@ -10,6 +10,10 @@ const {
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
   generatePresignedUploadUrl,
+  createMultipartUpload,
+  generatePresignedPartUrl,
+  completeMultipartUpload,
+  abortMultipartUpload,
 } = require('../config/cloudflare');
 
 // ✅ Memory storage — file never touches disk
@@ -102,6 +106,98 @@ router.post('/presigned-url', protect, restrictTo('admin', 'superadmin'), async 
     );
 
     res.json({ success: true, uploadUrl, objectKey, publicUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// =============================================================================
+// MULTIPART UPLOAD ROUTES (100 MB chunks — supports 1 GB–3 GB+ videos)
+// Browser uploads each chunk directly to R2 via a per-part presigned URL.
+// Railway only orchestrates (tiny JSON) — never touches the video bytes.
+// =============================================================================
+
+// POST /multipart/initiate → Admin: start a multipart upload, get uploadId + objectKey
+router.post('/multipart/initiate', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { classroom, filename, contentType } = req.body;
+
+    if (!classroom || !filename) {
+      return res.status(400).json({ success: false, message: 'classroom and filename are required' });
+    }
+    if (!isValidId(classroom)) {
+      return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
+    }
+
+    const safeName = filename.replace(/[/\\]/g, '_');
+    const objectKey = `classroom-recordings/${classroom}/${Date.now()}-${safeName}`;
+
+    const uploadId = await createMultipartUpload(objectKey, contentType || 'video/mp4');
+
+    const { getR2ObjectUrl } = require('../config/cloudflare');
+    const publicUrl = getR2ObjectUrl(objectKey);
+
+    res.json({ success: true, uploadId, objectKey, publicUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /multipart/presign-part → Admin: get a presigned URL for one chunk (partNumber)
+router.post('/multipart/presign-part', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { objectKey, uploadId, partNumber } = req.body;
+
+    if (!objectKey || !uploadId || partNumber == null) {
+      return res.status(400).json({ success: false, message: 'objectKey, uploadId and partNumber are required' });
+    }
+
+    const num = parseInt(partNumber, 10);
+    if (isNaN(num) || num < 1 || num > 10000) {
+      return res.status(400).json({ success: false, message: 'partNumber must be 1–10 000' });
+    }
+
+    // 2-hour window per part (100 MB on a slow connection can take >1 h)
+    const presignedUrl = await generatePresignedPartUrl(objectKey, uploadId, num, 7200);
+
+    res.json({ success: true, presignedUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /multipart/complete → Admin: tell R2 to assemble all uploaded parts
+router.post('/multipart/complete', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { objectKey, uploadId, parts } = req.body;
+
+    if (!objectKey || !uploadId || !Array.isArray(parts) || parts.length === 0) {
+      return res.status(400).json({ success: false, message: 'objectKey, uploadId, and parts[] are required' });
+    }
+
+    // Ensure parts are sorted by PartNumber (R2 requirement)
+    const sortedParts = [...parts].sort((a, b) => a.PartNumber - b.PartNumber);
+
+    const publicUrl = await completeMultipartUpload(objectKey, uploadId, sortedParts);
+
+    res.json({ success: true, publicUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /multipart/abort → Admin: cancel upload and free partial storage on R2
+router.post('/multipart/abort', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { objectKey, uploadId } = req.body;
+
+    if (!objectKey || !uploadId) {
+      return res.status(400).json({ success: false, message: 'objectKey and uploadId are required' });
+    }
+
+    await abortMultipartUpload(objectKey, uploadId);
+
+    res.json({ success: true, message: 'Multipart upload aborted and storage freed' });
   } catch (error) {
     next(error);
   }

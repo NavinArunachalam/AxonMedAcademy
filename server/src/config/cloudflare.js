@@ -1,7 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+} = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 dotenv.config();
@@ -118,11 +126,106 @@ async function generatePresignedUploadUrl(objectKey, contentType, expiresIn = 36
   };
 }
 
+// ─── Multipart upload helpers (for files > 100 MB) ───────────────────────────
+
+/**
+ * Initiate a multipart upload and return the UploadId.
+ * @param {string} objectKey  - R2 object key
+ * @param {string} contentType - MIME type of the file
+ * @returns {Promise<string>} uploadId
+ */
+async function createMultipartUpload(objectKey, contentType) {
+  const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+  const client = getS3Client();
+
+  const result = await client.send(new CreateMultipartUploadCommand({
+    Bucket: CLOUDFLARE_R2_BUCKET,
+    Key: objectKey,
+    ContentType: contentType || 'video/mp4',
+  }));
+
+  return result.UploadId;
+}
+
+/**
+ * Generate a presigned PUT URL for a single part of a multipart upload.
+ * Each URL is valid for 2 hours — enough for a 100 MB chunk on a slow connection.
+ *
+ * @param {string} objectKey  - R2 object key
+ * @param {string} uploadId   - UploadId returned by createMultipartUpload
+ * @param {number} partNumber - 1-based part index (1–10 000)
+ * @param {number} expiresIn  - Seconds until the URL expires (default 7200 = 2h)
+ * @returns {Promise<string>} presigned PUT URL
+ */
+async function generatePresignedPartUrl(objectKey, uploadId, partNumber, expiresIn = 7200) {
+  const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+  const client = getS3Client();
+
+  const command = new UploadPartCommand({
+    Bucket: CLOUDFLARE_R2_BUCKET,
+    Key: objectKey,
+    UploadId: uploadId,
+    PartNumber: partNumber,
+  });
+
+  return getSignedUrl(client, command, { expiresIn });
+}
+
+/**
+ * Tell R2 to assemble all uploaded parts into the final object.
+ *
+ * @param {string} objectKey - R2 object key
+ * @param {string} uploadId  - UploadId from createMultipartUpload
+ * @param {{ PartNumber: number; ETag: string }[]} parts - Sorted list of completed parts
+ * @returns {Promise<string>} Public URL of the assembled object
+ */
+async function completeMultipartUpload(objectKey, uploadId, parts) {
+  const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+  const client = getS3Client();
+
+  await client.send(new CompleteMultipartUploadCommand({
+    Bucket: CLOUDFLARE_R2_BUCKET,
+    Key: objectKey,
+    UploadId: uploadId,
+    MultipartUpload: { Parts: parts },
+  }));
+
+  return getR2ObjectUrl(objectKey);
+}
+
+/**
+ * Abort an in-progress multipart upload to free incomplete part storage.
+ * Called automatically by the server if the browser reports a failure.
+ *
+ * @param {string} objectKey - R2 object key
+ * @param {string} uploadId  - UploadId to abort
+ */
+async function abortMultipartUpload(objectKey, uploadId) {
+  const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+  const client = getS3Client();
+
+  try {
+    await client.send(new AbortMultipartUploadCommand({
+      Bucket: CLOUDFLARE_R2_BUCKET,
+      Key: objectKey,
+      UploadId: uploadId,
+    }));
+  } catch (err) {
+    // Log but don't throw — abort is best-effort cleanup
+    console.error('[R2] Failed to abort multipart upload:', err.message);
+  }
+}
+
 module.exports = {
   getR2ObjectUrl,
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
   generatePresignedUploadUrl,
+  // Multipart helpers
+  createMultipartUpload,
+  generatePresignedPartUrl,
+  completeMultipartUpload,
+  abortMultipartUpload,
   getS3Client,
   fetchFn: typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null,
 };
