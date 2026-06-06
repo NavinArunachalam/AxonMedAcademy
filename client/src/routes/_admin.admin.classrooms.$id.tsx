@@ -1374,6 +1374,7 @@ function AdminClassroomDetail() {
   const { classrooms } = useClassroomStore();
   const [backendClassroom, setBackendClassroom] = useState<Classroom | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("announcements");
 
   const storeClassroom = classrooms.find((c) => c.id === id);
@@ -1393,10 +1394,13 @@ function AdminClassroomDetail() {
     let active = true;
     const load = async () => {
       try {
+        setLoadError(null);
         await refreshClassroom();
         if (!active) return;
       } catch (err) {
-        console.error("Could not load classroom by id", err);
+        if (active) {
+          setLoadError(err instanceof Error ? err.message : "Could not load classroom by id");
+        }
       } finally {
         if (active) setIsLoading(false);
       }
@@ -1407,12 +1411,21 @@ function AdminClassroomDetail() {
     };
   }, [id]);
 
-  const classroom = backendClassroom || storeClassroom;
+  const classroom = backendClassroom;
 
   if (isLoading) {
     return (
       <div className="text-cream text-center py-20">
         <p className="text-cream/60">Loading classroom...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="text-cream text-center py-20">
+        <p className="text-red-400">Error loading classroom: {loadError}</p>
+        <Link to="/admin/classrooms" className="mt-4 text-lime block">← Back to Classrooms</Link>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { j as jsxRuntimeExports, r as reactExports } from "../_libs/react.mjs";
 import { L as Link } from "../_libs/tanstack__react-router.mjs";
-import { ag as Stethoscope, T as Menu, ar as X, K as Instagram, M as Linkedin, as as Youtube, R as MapPin, _ as Phone, Q as Mail } from "../_libs/lucide-react.mjs";
+import { ag as Stethoscope, S as Menu, aq as X, J as Instagram, K as Linkedin, ar as Youtube, Q as MapPin, Z as Phone, P as Mail } from "../_libs/lucide-react.mjs";
 const NAV = [
   { label: "Courses", to: "/courses" },
   { label: "About", to: "/about" },

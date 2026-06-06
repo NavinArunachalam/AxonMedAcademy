@@ -1,6 +1,6 @@
 import { r as reactExports, j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { P as PublicLayout } from "./Layout-CGcQfm0v.mjs";
-import { a8 as Search, ad as SlidersHorizontal, ar as X, af as Star, v as Clock, ap as Users } from "../_libs/lucide-react.mjs";
+import { a8 as Search, ad as SlidersHorizontal, aq as X, af as Star, v as Clock, ao as Users } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__react-router.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";

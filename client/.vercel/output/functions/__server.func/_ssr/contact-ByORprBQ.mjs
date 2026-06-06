@@ -1,6 +1,6 @@
 import { r as reactExports, j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { P as PublicLayout } from "./Layout-CGcQfm0v.mjs";
-import { R as MapPin, _ as Phone, Q as Mail, v as Clock, a9 as Send } from "../_libs/lucide-react.mjs";
+import { Q as MapPin, Z as Phone, P as Mail, v as Clock, a9 as Send } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__react-router.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";

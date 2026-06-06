@@ -52,6 +52,8 @@ function CreateClassroomModal({
   const [programs, setPrograms] = useState<ProgramCourse[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
   const [programsError, setProgramsError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -82,17 +84,20 @@ function CreateClassroomModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || isSubmitting) return;
 
+    setCreateError(null);
+    setIsSubmitting(true);
     try {
       const created = await apiCreateClassroom(form);
       classroomActions.addClassroom(created);
       onCreated?.(created);
+      onClose();
     } catch (error) {
-      classroomActions.createClassroom(form);
+      setCreateError(error instanceof Error ? error.message : "Failed to create classroom");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    onClose();
   };
 
   return (
@@ -106,6 +111,11 @@ function CreateClassroomModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {createError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
+              {createError}
+            </div>
+          )}
           <div>
             <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
               Classroom Name *
@@ -202,9 +212,10 @@ function CreateClassroomModal({
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold"
+              disabled={isSubmitting}
+              className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-50"
             >
-              Create Classroom
+              {isSubmitting ? "Creating..." : "Create Classroom"}
             </button>
           </div>
         </form>
@@ -307,7 +318,7 @@ function AdminClassrooms() {
     };
   }, []);
 
-  const sourceClassrooms = backendClassrooms ?? classrooms;
+  const sourceClassrooms = backendClassrooms || [];
   const filtered = sourceClassrooms.filter((c) => {
     const matchSearch =
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -338,7 +349,7 @@ function AdminClassrooms() {
       )}
 
       {loadingBackend && <p className="text-sm text-cream/60">Loading classrooms from MongoDB…</p>}
-      {backendError && <p className="text-sm text-red-400">Using fallback mock data: {backendError}</p>}
+      {backendError && <p className="text-sm text-red-400">Error loading classrooms: {backendError}</p>}
 
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>

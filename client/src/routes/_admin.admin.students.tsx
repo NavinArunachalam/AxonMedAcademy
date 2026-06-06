@@ -199,6 +199,15 @@ function AdminStudents() {
       active = false;
     };
   }, []);
+  const getStudentOverallStatus = (courses: Array<{ status: string }>) => {
+    const statuses = courses.map(c => c.status);
+    if (statuses.includes("at risk")) return "at risk";
+    if (statuses.includes("active")) return "active";
+    if (statuses.includes("held")) return "held";
+    if (statuses.includes("placed")) return "placed";
+    if (statuses.includes("removed")) return "removed";
+    return "active";
+  };
 
   const enrollments = useMemo(() => {
     const classroomEnrollments = classrooms.flatMap(c =>
@@ -213,7 +222,61 @@ function AdminStudents() {
       }))
     );
 
-    const enrolledIds = new Set(classroomEnrollments.map((student) => student.id));
+    const studentMap: Record<string, {
+      id: string;
+      name: string;
+      email: string;
+      enrollmentId: string;
+      addedAt: string;
+      status: string;
+      courses: Array<{
+        course: string;
+        batch: string;
+        classroomId: string;
+        classroomName: string;
+        progress: number;
+        attendance: number;
+        quizAvg: number;
+        status: string;
+        totalPubRecs: number;
+        watchedRecs: number;
+        enrollmentId: string;
+      }>;
+    }> = {};
+
+    classroomEnrollments.forEach(item => {
+      if (!studentMap[item.id]) {
+        studentMap[item.id] = {
+          id: item.id,
+          name: item.name,
+          email: item.email,
+          enrollmentId: item.enrollmentId,
+          addedAt: item.addedAt,
+          status: "active",
+          courses: []
+        };
+      }
+      studentMap[item.id].courses.push({
+        course: item.course,
+        batch: item.batch,
+        classroomId: item.classroomId,
+        classroomName: item.classroomName,
+        progress: item.progress,
+        attendance: item.attendance,
+        quizAvg: item.quizAvg,
+        status: item.status,
+        totalPubRecs: item.totalPubRecs,
+        watchedRecs: item.watchedRecs,
+        enrollmentId: item.enrollmentId,
+      });
+    });
+
+    const enrolledStudents = Object.values(studentMap).map(s => ({
+      ...s,
+      status: getStudentOverallStatus(s.courses),
+    }));
+
+    const enrolledIds = new Set(enrolledStudents.map((student) => student.id));
     const unenrolledStudents = mongoStudents
       .filter((student) => !enrolledIds.has(student.id))
       .map((student) => ({
@@ -221,28 +284,33 @@ function AdminStudents() {
         name: student.name,
         email: student.email,
         enrollmentId: "Not enrolled",
-        progress: 0,
-        attendance: 0,
-        quizAvg: 0,
-        status: student.isActive === false ? "removed" : "active",
         addedAt: "",
-        course: "Not enrolled",
-        batch: "N/A",
-        classroomId: "none",
-        classroomName: "Not enrolled",
-        totalPubRecs: 0,
-        watchedRecs: 0,
+        status: student.isActive === false ? "removed" : "active",
+        courses: [{
+          course: "Not enrolled",
+          batch: "N/A",
+          classroomId: "none",
+          classroomName: "Not enrolled",
+          progress: 0,
+          attendance: 0,
+          quizAvg: 0,
+          status: student.isActive === false ? "removed" : "active",
+          totalPubRecs: 0,
+          watchedRecs: 0,
+          enrollmentId: "Not enrolled",
+        }]
       }));
 
-    return [...classroomEnrollments, ...unenrolledStudents];
+    return [...enrolledStudents, ...unenrolledStudents];
   }, [classrooms, mongoStudents]);
 
   const filtered = enrollments.filter(e => {
-    if (courseFilter !== "All" && e.course !== courseFilter) return false;
+    if (courseFilter !== "All" && !e.courses.some(c => c.course === courseFilter)) return false;
     if (statusFilter !== "All" && e.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (!e.name.toLowerCase().includes(q) && !e.email.toLowerCase().includes(q) && !e.enrollmentId.toLowerCase().includes(q)) return false;
+      const matchEnrollmentId = e.enrollmentId.toLowerCase().includes(q) || e.courses.some(c => c.enrollmentId?.toLowerCase().includes(q));
+      if (!e.name.toLowerCase().includes(q) && !e.email.toLowerCase().includes(q) && !matchEnrollmentId) return false;
     }
     return true;
   });
@@ -251,7 +319,7 @@ function AdminStudents() {
   const active = enrollments.filter(e => e.status === "active").length;
   const placed = enrollments.filter(e => e.status === "placed").length;
   const atRisk = enrollments.filter(e => e.status === "at risk").length;
-  const programOptions = Array.from(new Set(enrollments.map((e) => e.course).filter(Boolean)));
+  const programOptions = Array.from(new Set(enrollments.flatMap((e) => e.courses.map(c => c.course)).filter(Boolean)));
 
   const handleAddStudent = (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,8 +337,19 @@ function AdminStudents() {
   };
 
   const handleExport = () => {
-    const csv = ["Name,Email,Course,Batch,Progress,Attendance,Quiz Avg,Status,Watch Progress",
-      ...filtered.map(e => `${e.name},${e.email},${e.course},${e.batch},${e.progress}%,${e.attendance}%,${e.quizAvg}%,${e.status},${e.watchedRecs}/${e.totalPubRecs}`)
+    const csv = ["Name,Email,Courses,Batches,Progress,Attendance,Quiz Avg,Status,Watch Progress",
+      ...filtered.map(e => {
+        const name = `"${e.name.replace(/"/g, '""')}"`;
+        const email = `"${e.email.replace(/"/g, '""')}"`;
+        const coursesStr = `"${e.courses.map(c => c.course).join("; ").replace(/"/g, '""')}"`;
+        const batchesStr = `"${e.courses.map(c => c.batch).join("; ").replace(/"/g, '""')}"`;
+        const progressStr = `"${e.courses.map(c => `${c.progress}%`).join("; ")}"`;
+        const attendanceStr = `"${e.courses.map(c => `${c.attendance}%`).join("; ")}"`;
+        const quizAvgStr = `"${e.courses.map(c => `${c.quizAvg}%`).join("; ")}"`;
+        const statusStr = `"${e.status}"`;
+        const watchProgressStr = `"${e.courses.map(c => `${c.watchedRecs}/${c.totalPubRecs}`).join("; ")}"`;
+        return `${name},${email},${coursesStr},${batchesStr},${progressStr},${attendanceStr},${quizAvgStr},${statusStr},${watchProgressStr}`;
+      })
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -373,52 +452,86 @@ function AdminStudents() {
             <tbody>
               {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-cream/50">No students found.</td></tr>}
               {filtered.map(s => (
-                <React.Fragment key={s.id + s.classroomId}>
-                  <tr className={`border-t border-cream/10 hover:bg-cream/5 cursor-pointer ${expandedId === s.id + s.classroomId ? "bg-cream/5" : ""}`}
-                    onClick={() => setExpandedId(prev => prev === s.id + s.classroomId ? null : s.id + s.classroomId)}>
+                <React.Fragment key={s.id}>
+                  <tr className={`border-t border-cream/10 hover:bg-cream/5 cursor-pointer ${expandedId === s.id ? "bg-cream/5" : ""}`}
+                    onClick={() => setExpandedId(prev => prev === s.id ? null : s.id)}>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="grid h-9 w-9 place-items-center rounded-full bg-lime text-plum-dark text-xs font-bold">{s.name.split(" ").map(w => w[0]).join("").slice(0, 2)}</div>
                         <div>
                           <div className="font-semibold">{s.name}</div>
-                          <div className="text-[11px] text-cream/60 font-mono">{s.enrollmentId}</div>
+                          <div className="text-[11px] text-cream/60 font-mono">
+                            {Array.from(new Set(s.courses.map(c => c.enrollmentId).filter(Boolean))).join(" / ") || "Not enrolled"}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td>
-                      <div className="text-cream/80 text-xs">{s.course}</div>
-                      <div className="text-cream/50 text-[11px]">{s.batch}</div>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-2 w-28">
-                        <div className="flex-1 h-1.5 bg-cream/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-lime" style={{ width: `${s.progress}%` }} />
-                        </div>
-                        <span className="text-[11px] font-mono">{s.progress}%</span>
+                      <div className="flex flex-col justify-center gap-1.5 py-1">
+                        {s.courses.map((c, idx) => (
+                          <div key={c.classroomId || idx} className="h-10 flex flex-col justify-center">
+                            <div className="text-cream/80 text-xs font-medium truncate max-w-[200px]">{c.course}</div>
+                            <div className="text-cream/50 text-[10px] truncate max-w-[200px]">{c.batch}</div>
+                          </div>
+                        ))}
                       </div>
                     </td>
                     <td>
-                      <span className="flex items-center gap-1.5 text-xs">
-                        <Video className="h-3 w-3 text-lime" />
-                        <span className="font-mono">{s.watchedRecs}/{s.totalPubRecs}</span>
-                      </span>
+                      <div className="flex flex-col justify-center gap-1.5 py-1">
+                        {s.courses.map((c, idx) => (
+                          <div key={c.classroomId || idx} className="h-10 flex items-center">
+                            <div className="flex items-center gap-2 w-28">
+                              <div className="flex-1 h-1.5 bg-cream/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-lime" style={{ width: `${c.progress}%` }} />
+                              </div>
+                              <span className="text-[11px] font-mono">{c.progress}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </td>
-                    <td className="font-mono text-xs">{s.quizAvg}%</td>
                     <td>
-                      <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded capitalize ${statusStyle[s.status] || "bg-cream/10 text-cream/60"}`}>{s.status}</span>
+                      <div className="flex flex-col justify-center gap-1.5 py-1">
+                        {s.courses.map((c, idx) => (
+                          <div key={c.classroomId || idx} className="h-10 flex items-center">
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <Video className="h-3 w-3 text-lime" />
+                              <span className="font-mono">{c.watchedRecs}/{c.totalPubRecs}</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex flex-col justify-center gap-1.5 py-1">
+                        {s.courses.map((c, idx) => (
+                          <div key={c.classroomId || idx} className="h-10 flex items-center font-mono text-xs">
+                            {c.quizAvg}%
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex flex-col justify-center gap-1.5 py-1">
+                        {s.courses.map((c, idx) => (
+                          <div key={c.classroomId || idx} className="h-10 flex items-center">
+                            <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded capitalize ${statusStyle[c.status] || "bg-cream/10 text-cream/60"}`}>{c.status}</span>
+                          </div>
+                        ))}
+                      </div>
                     </td>
                     <td className="pr-4">
                       <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                         <button onClick={() => setMsgStudent({ id: s.id, name: s.name })} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-cream/10" title="Send message">
                           <Mail className="h-4 w-4" />
                         </button>
-                        <button className="grid h-8 w-8 place-items-center rounded-lg hover:bg-cream/10">
-                          {expandedId === s.id + s.classroomId ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        <button className="grid h-8 w-8 place-items-center rounded-lg hover:bg-cream/10" onClick={() => setExpandedId(prev => prev === s.id ? null : s.id)}>
+                          {expandedId === s.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </button>
                       </div>
                     </td>
                   </tr>
-                  {expandedId === s.id + s.classroomId && (
+                  {expandedId === s.id && (
                     <tr className="border-t border-cream/10">
                       <td colSpan={7} className="px-4 pb-4">
                         <StudentDetail studentId={s.id} />

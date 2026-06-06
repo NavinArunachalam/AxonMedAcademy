@@ -202,24 +202,6 @@ const Download = createLucideIcon("Download", [
   ["polyline", { points: "7 10 12 15 17 10", key: "2ggqvy" }],
   ["line", { x1: "12", x2: "12", y1: "15", y2: "3", key: "1vk2je" }]
 ]);
-const EyeOff = createLucideIcon("EyeOff", [
-  [
-    "path",
-    {
-      d: "M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49",
-      key: "ct8e1f"
-    }
-  ],
-  ["path", { d: "M14.084 14.158a3 3 0 0 1-4.242-4.242", key: "151rxh" }],
-  [
-    "path",
-    {
-      d: "M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143",
-      key: "13bj9a"
-    }
-  ],
-  ["path", { d: "m2 2 20 20", key: "1ooewy" }]
-]);
 const Eye = createLucideIcon("Eye", [
   [
     "path",
@@ -431,6 +413,12 @@ const Radio = createLucideIcon("Radio", [
   ["path", { d: "M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5", key: "1j5fej" }],
   ["path", { d: "M19.1 4.9C23 8.8 23 15.1 19.1 19", key: "10b0cb" }]
 ]);
+const RefreshCw = createLucideIcon("RefreshCw", [
+  ["path", { d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8", key: "v9h5vc" }],
+  ["path", { d: "M21 3v5h-5", key: "1q7to0" }],
+  ["path", { d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16", key: "3uifl3" }],
+  ["path", { d: "M8 16H3v5", key: "1cv678" }]
+]);
 const Save = createLucideIcon("Save", [
   [
     "path",
@@ -599,11 +587,6 @@ const Trophy = createLucideIcon("Trophy", [
   ["path", { d: "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", key: "1np0yb" }],
   ["path", { d: "M18 2H6v7a6 6 0 0 0 12 0V2Z", key: "u46fv3" }]
 ]);
-const Upload = createLucideIcon("Upload", [
-  ["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", key: "ih7n3h" }],
-  ["polyline", { points: "17 8 12 3 7 8", key: "t8dd8p" }],
-  ["line", { x1: "12", x2: "12", y1: "3", y2: "15", key: "widbto" }]
-]);
 const User = createLucideIcon("User", [
   ["path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", key: "975kel" }],
   ["circle", { cx: "12", cy: "7", r: "4", key: "17ys0d" }]
@@ -639,7 +622,7 @@ const Youtube = createLucideIcon("Youtube", [
   ["path", { d: "m10 15 5-3-5-3z", key: "1jp15x" }]
 ]);
 export {
-  Pill as $,
+  Play as $,
   Activity as A,
   Bell as B,
   Calendar as C,
@@ -648,30 +631,30 @@ export {
   FileText as F,
   GraduationCap as G,
   Heart as H,
-  HeartPulse as I,
-  IndianRupee as J,
-  Instagram as K,
+  IndianRupee as I,
+  Instagram as J,
+  Linkedin as K,
   LayoutDashboard as L,
-  Linkedin as M,
-  LoaderCircle as N,
-  Lock as O,
-  LogOut as P,
-  Mail as Q,
-  MapPin as R,
-  Megaphone as S,
-  Menu as T,
-  MessageCircle as U,
-  MessageSquare as V,
-  Microscope as W,
-  Minus as X,
-  Pen as Y,
-  PenLine as Z,
-  Phone as _,
+  LoaderCircle as M,
+  Lock as N,
+  LogOut as O,
+  Mail as P,
+  MapPin as Q,
+  Megaphone as R,
+  Menu as S,
+  MessageCircle as T,
+  MessageSquare as U,
+  Microscope as V,
+  Minus as W,
+  Pen as X,
+  PenLine as Y,
+  Phone as Z,
+  Pill as _,
   Archive as a,
-  Play as a0,
-  Plus as a1,
-  Quote as a2,
-  Radio as a3,
+  Plus as a0,
+  Quote as a1,
+  Radio as a2,
+  RefreshCw as a3,
   Save as a4,
   ScanLine as a5,
   School as a6,
@@ -691,12 +674,11 @@ export {
   TrendingUp as ak,
   TriangleAlert as al,
   Trophy as am,
-  Upload as an,
-  User as ao,
-  Users as ap,
-  Video as aq,
-  X as ar,
-  Youtube as as,
+  User as an,
+  Users as ao,
+  Video as ap,
+  X as aq,
+  Youtube as ar,
   ArrowDownRight as b,
   ArrowLeft as c,
   ArrowRight as d,
@@ -719,7 +701,7 @@ export {
   ClipboardList as u,
   Clock as v,
   CreditCard as w,
-  EyeOff as x,
-  Flame as y,
-  FlaskConical as z
+  Flame as x,
+  FlaskConical as y,
+  HeartPulse as z
 };
