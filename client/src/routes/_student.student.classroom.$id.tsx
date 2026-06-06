@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Megaphone, Video, BookOpen, ClipboardList,
   Play, Check, X, Clock, Calendar, ChevronRight,
@@ -12,7 +12,14 @@ import {
   type Quiz,
   type Question,
 } from "@/lib/classroomStore";
-import { getRecordingStreamUrl } from "@/lib/api";
+import {
+  getClassroomById,
+  getQuizAttemptResult,
+  getRecordingStreamUrl,
+  saveQuizAnswer,
+  startQuizAttempt,
+  submitQuizAttempt,
+} from "@/lib/api";
 
 export const Route = createFileRoute("/_student/student/classroom/$id")({
   component: StudentClassroomDetail,
@@ -388,15 +395,71 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
 
 type QuizPhase = "list" | "intro" | "taking" | "result";
 
+type QuizResultReview = {
+  score: { rawMarks: number; totalMarks: number; percentage: number; passed: boolean };
+  answers: Array<{
+    questionId: string;
+    selectedOptions: string[];
+    isCorrect: boolean;
+    marksAwarded: number;
+    questionText: string;
+    explanation: string;
+    correctOptions: string[];
+  }>;
+};
+
 function TestsTab({ classroomId }: { classroomId: string }) {
   const { classrooms, currentUser } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const cls = classrooms.find((c) => c.id === classroomId)!;
   const [phase, setPhase] = useState<QuizPhase>("list");
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
+  const [examQuestions, setExamQuestions] = useState<Question[]>([]);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
-  const [result, setResult] = useState<QuizAttempt | null>(null);
+  const [result, setResult] = useState<QuizResultReview | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const answersRef = useRef(answers);
+  const submitQuizRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  const submitQuiz = useCallback(async () => {
+    if (!activeQuiz || !attemptId || isSubmitting) return;
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const currentAnswers = answersRef.current;
+      await Promise.all(
+        examQuestions.map((q) =>
+          saveQuizAnswer(activeQuiz.id, {
+            attemptId,
+            questionId: q.id,
+            selectedOptions: currentAnswers[q.id] || [],
+          }),
+        ),
+      );
+      await submitQuizAttempt(activeQuiz.id, attemptId);
+      const review = await getQuizAttemptResult(activeQuiz.id, attemptId);
+      setResult(review);
+      const refreshed = await getClassroomById(classroomId);
+      classroomActions.updateClassroom(classroomId, refreshed);
+      setPhase("result");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit quiz");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [activeQuiz, attemptId, classroomId, examQuestions, isSubmitting]);
+
+  useEffect(() => {
+    submitQuizRef.current = () => { void submitQuiz(); };
+  }, [submitQuiz]);
 
   // Timer effect
   useEffect(() => {
@@ -404,7 +467,11 @@ function TestsTab({ classroomId }: { classroomId: string }) {
     setTimeLeft(activeQuiz.duration * 60);
     const t = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev === null || prev <= 1) { clearInterval(t); submitQuiz(); return 0; }
+        if (prev === null || prev <= 1) {
+          clearInterval(t);
+          submitQuizRef.current();
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
@@ -413,9 +480,29 @@ function TestsTab({ classroomId }: { classroomId: string }) {
 
   const startQuiz = (quiz: Quiz) => {
     setActiveQuiz(quiz);
+    setExamQuestions([]);
+    setAttemptId(null);
     setAnswers({});
     setResult(null);
+    setError("");
     setPhase("intro");
+  };
+
+  const beginTaking = async () => {
+    if (!activeQuiz || isStarting) return;
+    setError("");
+    setIsStarting(true);
+    try {
+      const started = await startQuizAttempt(activeQuiz.id);
+      setAttemptId(started.attemptId);
+      setExamQuestions(started.questions);
+      setAnswers({});
+      setPhase("taking");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start quiz");
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   const selectAnswer = (qId: string, label: string, isMulti: boolean) => {
@@ -428,57 +515,17 @@ function TestsTab({ classroomId }: { classroomId: string }) {
     });
   };
 
-  const submitQuiz = () => {
-    if (!activeQuiz) return;
-    let rawMarks = 0;
-    const scoredAnswers = activeQuiz.questions.map((q) => {
-      const selected = answers[q.id] || [];
-      const correctLabels = q.options.filter((o) => o.isCorrect).map((o) => o.label);
-      let isCorrect = false;
-      let marksAwarded = 0;
-
-      if (q.type === "mcq" || q.type === "true_false") {
-        isCorrect = selected.length === 1 && correctLabels.includes(selected[0]);
-        if (isCorrect) marksAwarded = q.marks;
-        else if (activeQuiz.negativeMarking && selected.length > 0) marksAwarded = -activeQuiz.negativeMarkValue;
-      } else {
-        const allCorrect = correctLabels.every((l) => selected.includes(l));
-        const noWrong = selected.every((l) => correctLabels.includes(l));
-        isCorrect = allCorrect && noWrong;
-        if (isCorrect) marksAwarded = q.marks;
-      }
-      rawMarks += marksAwarded;
-      return { questionId: q.id, selectedOptions: selected, isCorrect, marksAwarded };
-    });
-
-    const totalMarks = activeQuiz.questions.reduce((s, q) => s + q.marks, 0);
-    const safe = Math.max(0, rawMarks);
-    const pct = totalMarks > 0 ? Math.round((safe / totalMarks) * 100 * 10) / 10 : 0;
-    const passed = pct >= activeQuiz.passPercent;
-    const prevAttempts = activeQuiz.attempts.filter((a) => a.studentId === CURRENT_STUDENT.id);
-
-    const att = {
-      studentId: CURRENT_STUDENT.id,
-      studentName: CURRENT_STUDENT.name,
-      attemptNo: prevAttempts.length + 1,
-      status: "submitted" as const,
-      startedAt: new Date().toISOString(),
-      submittedAt: new Date().toISOString(),
-      answers: scoredAnswers,
-      score: { rawMarks: safe, totalMarks, percentage: pct, passed },
-    };
-
-    const saved = classroomActions.submitQuizAttempt(classroomId, activeQuiz.id, att);
-    setResult(saved as any);
-    setPhase("result");
-  };
-
   const publishedQuizzes = cls.quizzes.filter((q) => q.status === "published");
 
   // List view
   if (phase === "list") {
     return (
       <div className="space-y-3">
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
         {publishedQuizzes.length === 0 && (
           <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center">
             <ClipboardList className="h-8 w-8 text-slate-300 mx-auto mb-2" />
@@ -557,9 +604,16 @@ function TestsTab({ classroomId }: { classroomId: string }) {
               ⚠️ Negative marking: −{activeQuiz.negativeMarkValue} marks per wrong answer.
             </div>
           )}
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 mb-4 text-sm text-red-600">
+              {error}
+            </div>
+          )}
           <div className="flex gap-3">
             <button onClick={() => setPhase("list")} className="flex-1 rounded-full border border-slate-200 text-slate-600 py-3 text-sm font-semibold">Cancel</button>
-            <button onClick={() => setPhase("taking")} className="flex-1 rounded-full bg-plum-dark text-cream py-3 text-sm font-bold">Start Quiz →</button>
+            <button onClick={beginTaking} disabled={isStarting} className="flex-1 rounded-full bg-plum-dark text-cream py-3 text-sm font-bold disabled:opacity-50">
+              {isStarting ? "Starting…" : "Start Quiz →"}
+            </button>
           </div>
         </div>
       </div>
@@ -568,17 +622,21 @@ function TestsTab({ classroomId }: { classroomId: string }) {
 
   // Taking quiz view
   if (phase === "taking" && activeQuiz) {
-    const total = activeQuiz.questions.reduce((s, q) => s + q.marks, 0);
     const answered = Object.keys(answers).length;
 
     return (
       <div className="space-y-4">
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
         {/* Header */}
         <div className="sticky top-0 z-10 bg-[#F5F3FF] py-2">
           <div className="rounded-2xl border border-slate-200 bg-white px-5 py-3 flex items-center justify-between">
             <span className="text-plum-dark font-semibold text-sm">{activeQuiz.title}</span>
             <div className="flex items-center gap-4">
-              <span className="text-slate-500 text-xs">{answered}/{activeQuiz.questions.length} answered</span>
+              <span className="text-slate-500 text-xs">{answered}/{examQuestions.length} answered</span>
               {timeLeft !== null && (
                 <span className={`font-mono text-sm font-bold ${timeLeft < 120 ? "text-red-500" : "text-plum-dark"}`}>
                   <Clock className="h-3.5 w-3.5 inline mr-1" />
@@ -590,7 +648,7 @@ function TestsTab({ classroomId }: { classroomId: string }) {
         </div>
 
         {/* Questions */}
-        {activeQuiz.questions.map((q, i) => (
+        {examQuestions.map((q, i) => (
           <div key={q.id} className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex items-start gap-3 mb-4">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-plum-dark text-cream text-xs font-bold">{i + 1}</span>
@@ -627,15 +685,16 @@ function TestsTab({ classroomId }: { classroomId: string }) {
         {/* Submit */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 flex items-center justify-between">
           <div className="text-slate-500 text-sm">
-            {answered < activeQuiz.questions.length
-              ? `${activeQuiz.questions.length - answered} question${activeQuiz.questions.length - answered !== 1 ? "s" : ""} unanswered`
+            {answered < examQuestions.length
+              ? `${examQuestions.length - answered} question${examQuestions.length - answered !== 1 ? "s" : ""} unanswered`
               : "All questions answered ✓"}
           </div>
           <button
-            onClick={submitQuiz}
-            className="rounded-full bg-plum-dark text-cream px-8 py-3 text-sm font-bold hover:bg-plum transition-colors"
+            onClick={() => void submitQuiz()}
+            disabled={isSubmitting}
+            className="rounded-full bg-plum-dark text-cream px-8 py-3 text-sm font-bold hover:bg-plum transition-colors disabled:opacity-50"
           >
-            Submit Quiz
+            {isSubmitting ? "Submitting…" : "Submit Quiz"}
           </button>
         </div>
       </div>
@@ -667,28 +726,24 @@ function TestsTab({ classroomId }: { classroomId: string }) {
         {/* Answer review */}
         <div className="space-y-3">
           <h3 className="font-display font-bold text-plum-dark">Answer Review</h3>
-          {activeQuiz.questions.map((q, i) => {
-            const myAns = result.answers.find((a) => a.questionId === q.id);
-            const correct = q.options.filter((o) => o.isCorrect).map((o) => o.label);
-            return (
-              <div key={q.id} className={`rounded-2xl border p-5 ${myAns?.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
-                <div className="flex items-start gap-2 mb-3">
-                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${myAns?.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
-                    {myAns?.isCorrect ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-                  </span>
-                  <p className="text-slate-800 text-sm font-medium flex-1">Q{i + 1}. {q.text}</p>
-                  <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns?.marksAwarded ?? 0}/{q.marks}</span>
-                </div>
-                <p className="text-xs text-slate-600 ml-8">
-                  Your answer: <strong>{myAns?.selectedOptions.join(", ") || "—"}</strong> ·
-                  Correct: <strong className="text-green-700">{correct.join(", ")}</strong>
-                </p>
-                {q.explanation && (
-                  <p className="text-xs text-slate-500 ml-8 mt-2 italic">💡 {q.explanation}</p>
-                )}
+          {result.answers.map((myAns, i) => (
+            <div key={myAns.questionId} className={`rounded-2xl border p-5 ${myAns.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+              <div className="flex items-start gap-2 mb-3">
+                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${myAns.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                  {myAns.isCorrect ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                </span>
+                <p className="text-slate-800 text-sm font-medium flex-1">Q{i + 1}. {myAns.questionText}</p>
+                <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns.marksAwarded}</span>
               </div>
-            );
-          })}
+              <p className="text-xs text-slate-600 ml-8">
+                Your answer: <strong>{myAns.selectedOptions.join(", ") || "—"}</strong> ·
+                Correct: <strong className="text-green-700">{myAns.correctOptions.join(", ")}</strong>
+              </p>
+              {myAns.explanation && (
+                <p className="text-xs text-slate-500 ml-8 mt-2 italic">💡 {myAns.explanation}</p>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -696,9 +751,6 @@ function TestsTab({ classroomId }: { classroomId: string }) {
 
   return null;
 }
-
-// ─── Type alias to avoid circular reference error ─────────────────────────────
-type QuizAttempt = ReturnType<typeof classroomActions.submitQuizAttempt>;
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 

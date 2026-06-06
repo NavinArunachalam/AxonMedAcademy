@@ -2,7 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ClipboardList, CheckCircle2, Clock, X, ChevronLeft, ChevronRight, AlertCircle, Trophy } from "lucide-react";
 import { Card } from "@/components/portal/PortalShell";
 import { useClassroomStore, classroomActions, getGrade, formatTime, type Quiz, type Question } from "@/lib/classroomStore";
-import { useState, useEffect, useCallback } from "react";
+import {
+  getClassroomById,
+  saveQuizAnswer,
+  startQuizAttempt,
+  submitQuizAttempt,
+} from "@/lib/api";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export const Route = createFileRoute("/_student/student/exams")({
   component: Exams,
@@ -10,22 +16,83 @@ export const Route = createFileRoute("/_student/student/exams")({
 
 // ─── Quiz Attempt Modal ───────────────────────────────────────────────────────
 
-function QuizModal({ quiz, classroomId, studentId, studentName, onClose }: {
+function QuizModal({ quiz, classroomId, onClose }: {
   quiz: Quiz; classroomId: string; studentId: string; studentName: string; onClose: () => void;
 }) {
   const [phase, setPhase] = useState<"intro" | "taking" | "result">("intro");
+  const [examQuestions, setExamQuestions] = useState<Question[]>([]);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   const [qIdx, setQIdx] = useState(0);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [timeLeft, setTimeLeft] = useState((quiz.duration || 0) * 60);
   const [result, setResult] = useState<{ rawMarks: number; totalMarks: number; percentage: number; passed: boolean } | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const selectedRef = useRef(selected);
+  const submitRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!attemptId || isSubmitting) return;
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const currentSelected = selectedRef.current;
+      await Promise.all(
+        examQuestions.map((q) =>
+          saveQuizAnswer(quiz.id, {
+            attemptId,
+            questionId: q.id,
+            selectedOptions: currentSelected[q.id] || [],
+          }),
+        ),
+      );
+      const submitted = await submitQuizAttempt(quiz.id, attemptId);
+      setResult(submitted.score);
+      const refreshed = await getClassroomById(classroomId);
+      classroomActions.updateClassroom(classroomId, refreshed);
+      setPhase("result");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit exam");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [attemptId, classroomId, examQuestions, isSubmitting, quiz.id]);
+
+  useEffect(() => {
+    submitRef.current = () => { void handleSubmit(); };
+  }, [handleSubmit]);
+
+  const beginTaking = async () => {
+    if (isStarting) return;
+    setError("");
+    setIsStarting(true);
+    try {
+      const started = await startQuizAttempt(quiz.id);
+      setAttemptId(started.attemptId);
+      setExamQuestions(started.questions);
+      setSelected({});
+      setQIdx(0);
+      setTimeLeft((started.duration || quiz.duration || 0) * 60);
+      setPhase("taking");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start exam");
+    } finally {
+      setIsStarting(false);
+    }
+  };
 
   // Timer
   useEffect(() => {
     if (phase !== "taking" || !quiz.duration) return;
-    if (timeLeft <= 0) { handleSubmit(); return; }
+    if (timeLeft <= 0) { submitRef.current(); return; }
     const t = setInterval(() => setTimeLeft(s => s - 1), 1000);
     return () => clearInterval(t);
-  }, [phase, timeLeft]);
+  }, [phase, timeLeft, quiz.duration]);
 
   const handleSelect = (qId: string, optLabel: string, isMulti: boolean) => {
     setSelected(prev => {
@@ -37,42 +104,7 @@ function QuizModal({ quiz, classroomId, studentId, studentName, onClose }: {
     });
   };
 
-  const handleSubmit = useCallback(() => {
-    let raw = 0;
-    let total = 0;
-    const answers = quiz.questions.map(q => {
-      total += q.marks;
-      const sel = selected[q.id] || [];
-      const correctLabels = q.options.filter(o => o.isCorrect).map(o => o.label);
-      let isCorrect = false;
-      if (q.type === "mcq" || q.type === "true_false") {
-        isCorrect = sel.length === 1 && correctLabels.includes(sel[0]);
-      } else {
-        isCorrect = sel.length === correctLabels.length && sel.every(s => correctLabels.includes(s));
-      }
-      const marks = isCorrect ? q.marks : (quiz.negativeMarking ? -quiz.negativeMarkValue : 0);
-      raw += Math.max(marks, 0);
-      return { questionId: q.id, selectedOptions: sel, isCorrect, marksAwarded: Math.max(marks, 0) };
-    });
-    const pct = total > 0 ? Math.round((raw / total) * 100) : 0;
-    const passed = pct >= quiz.passPercent;
-    const res = { rawMarks: raw, totalMarks: total, percentage: pct, passed };
-    setResult(res);
-
-    const prevAttempts = quiz.attempts.filter(a => a.studentId === studentId);
-    classroomActions.submitQuizAttempt(classroomId, quiz.id, {
-      studentId, studentName,
-      attemptNo: prevAttempts.length + 1,
-      status: "submitted",
-      startedAt: new Date(Date.now() - ((quiz.duration || 0) * 60 - timeLeft) * 1000).toISOString(),
-      submittedAt: new Date().toISOString(),
-      answers,
-      score: res,
-    });
-    setPhase("result");
-  }, [quiz, selected, timeLeft, studentId, studentName, classroomId]);
-
-  const q: Question = quiz.questions[qIdx];
+  const q: Question = examQuestions[qIdx];
   const isMulti = q?.type === "msq";
   const sel = selected[q?.id] || [];
 
@@ -104,9 +136,16 @@ function QuizModal({ quiz, classroomId, studentId, studentName, onClose }: {
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>Do not refresh or close this window during the exam. Your progress will be lost.</span>
             </div>
+            {error && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 text-left">
+                {error}
+              </div>
+            )}
             <div className="mt-6 flex gap-3">
               <button onClick={onClose} className="flex-1 rounded-full bg-slate-100 text-slate-600 py-3 font-semibold">Cancel</button>
-              <button onClick={() => setPhase("taking")} className="flex-1 rounded-full bg-plum-dark text-cream py-3 font-bold">Start Exam →</button>
+              <button onClick={beginTaking} disabled={isStarting} className="flex-1 rounded-full bg-plum-dark text-cream py-3 font-bold disabled:opacity-50">
+                {isStarting ? "Starting…" : "Start Exam →"}
+              </button>
             </div>
           </div>
         )}
@@ -117,7 +156,7 @@ function QuizModal({ quiz, classroomId, studentId, studentName, onClose }: {
             {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <div className="text-xs uppercase tracking-widest text-slate-400">Question {qIdx + 1} of {quiz.questions.length}</div>
+                <div className="text-xs uppercase tracking-widest text-slate-400">Question {qIdx + 1} of {examQuestions.length}</div>
                 <div className="font-semibold text-plum-dark text-sm mt-0.5">{quiz.title}</div>
               </div>
               <div className="flex items-center gap-3">
@@ -132,7 +171,7 @@ function QuizModal({ quiz, classroomId, studentId, studentName, onClose }: {
 
             {/* Progress bar */}
             <div className="h-1 bg-slate-100">
-              <div className="h-full bg-plum transition-all" style={{ width: `${((qIdx + 1) / quiz.questions.length) * 100}%` }} />
+              <div className="h-full bg-plum transition-all" style={{ width: `${((qIdx + 1) / examQuestions.length) * 100}%` }} />
             </div>
 
             <div className="p-6">
@@ -173,18 +212,18 @@ function QuizModal({ quiz, classroomId, studentId, studentName, onClose }: {
                   <ChevronLeft className="h-4 w-4" /> Previous
                 </button>
                 <div className="flex gap-1">
-                  {quiz.questions.map((_, i) => (
+                  {examQuestions.map((eq, i) => (
                     <button key={i} onClick={() => setQIdx(i)}
-                      className={`h-2 w-2 rounded-full transition-all ${i === qIdx ? "bg-plum-dark w-5" : selected[quiz.questions[i].id]?.length ? "bg-plum/50" : "bg-slate-300"}`} />
+                      className={`h-2 w-2 rounded-full transition-all ${i === qIdx ? "bg-plum-dark w-5" : selected[eq.id]?.length ? "bg-plum/50" : "bg-slate-300"}`} />
                   ))}
                 </div>
-                {qIdx < quiz.questions.length - 1 ? (
+                {qIdx < examQuestions.length - 1 ? (
                   <button onClick={() => setQIdx(i => i + 1)} className="flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-cream bg-plum-dark">
                     Next <ChevronRight className="h-4 w-4" />
                   </button>
                 ) : (
-                  <button onClick={handleSubmit} className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-plum-dark bg-lime">
-                    Submit Exam ✓
+                  <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-plum-dark bg-lime disabled:opacity-50">
+                    {isSubmitting ? "Submitting…" : "Submit Exam ✓"}
                   </button>
                 )}
               </div>

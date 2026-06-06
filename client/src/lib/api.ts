@@ -309,6 +309,103 @@ export async function deleteQuiz(quizId: string) {
   return fetchJson(`/quizzes/${encodeURIComponent(quizId)}`, { method: 'DELETE' });
 }
 
+function normalizeBackendQuizAttempt(att: any) {
+  return {
+    id: att._id || att.id,
+    studentId: String(att.student?._id || att.student || ''),
+    studentName: att.studentName
+      || (att.student?.firstName ? `${att.student.firstName} ${att.student.lastName || ''}`.trim() : 'Student'),
+    attemptNo: att.attemptNo || 1,
+    status: att.status || 'submitted',
+    startedAt: att.startedAt,
+    submittedAt: att.submittedAt,
+    score: {
+      rawMarks: att.score?.rawMarks ?? 0,
+      totalMarks: att.score?.totalMarks ?? 0,
+      percentage: Math.round(att.score?.percentage ?? 0),
+      passed: !!att.score?.passed,
+    },
+  };
+}
+
+function normalizeApiQuizQuestion(q: any) {
+  return {
+    id: q._id || q.id,
+    type: q.type || 'mcq',
+    text: q.text || '',
+    marks: q.marks || 1,
+    explanation: q.explanation || '',
+    order: q.order || 0,
+    options: Array.isArray(q.options)
+      ? q.options.map((o: any) => ({ label: o.label, text: o.text, isCorrect: !!o.isCorrect }))
+      : [],
+  };
+}
+
+export async function startQuizAttempt(quizId: string) {
+  const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}/attempt/start`, { method: 'POST' });
+  return {
+    attemptId: String(payload.attempt._id || payload.attempt.id),
+    startedAt: payload.attempt.startedAt,
+    attemptNo: payload.attempt.attemptNo,
+    duration: payload.attempt.duration,
+    questions: Array.isArray(payload.questions) ? payload.questions.map(normalizeApiQuizQuestion) : [],
+  };
+}
+
+export async function saveQuizAnswer(
+  quizId: string,
+  data: { attemptId: string; questionId: string; selectedOptions: string[]; timeTakenSec?: number },
+) {
+  return fetchJson(`/quizzes/${encodeURIComponent(quizId)}/attempt/answer`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function submitQuizAttempt(quizId: string, attemptId: string) {
+  const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}/attempt/submit`, {
+    method: 'POST',
+    body: JSON.stringify({ attemptId }),
+  });
+  return {
+    score: {
+      rawMarks: payload.score?.rawMarks ?? 0,
+      totalMarks: payload.score?.totalMarks ?? 0,
+      percentage: Math.round(payload.score?.percentage ?? 0),
+      passed: !!payload.score?.passed,
+    },
+  };
+}
+
+export async function getQuizAttemptResult(quizId: string, attemptId?: string) {
+  const query = attemptId ? `?attemptId=${encodeURIComponent(attemptId)}` : '';
+  const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}/attempt/my-result${query}`);
+  return {
+    score: {
+      rawMarks: payload.score?.rawMarks ?? 0,
+      totalMarks: payload.score?.totalMarks ?? 0,
+      percentage: Math.round(payload.score?.percentage ?? 0),
+      passed: !!payload.score?.passed,
+    },
+    submittedAt: payload.submittedAt,
+    answers: Array.isArray(payload.answers) ? payload.answers.map((ans: any) => ({
+      questionId: String(ans.questionId),
+      selectedOptions: ans.selectedOptions || [],
+      isCorrect: !!ans.isCorrect,
+      marksAwarded: ans.marksAwarded ?? 0,
+      questionText: ans.questionText || '',
+      explanation: ans.explanation || '',
+      correctOptions: ans.correctOptions || [],
+    })) : [],
+  };
+}
+
+export async function getQuizReport(quizId: string) {
+  const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}/report`);
+  return Array.isArray(payload.attempts) ? payload.attempts.map(normalizeBackendQuizAttempt) : [];
+}
+
 // ─── Chunk size for multipart uploads ────────────────────────────────────────
 // 50 MB per part. Files ≥ 50 MB use the multipart path; smaller files use a
 // single presigned PUT (simpler, no overhead). R2 minimum part size is 5 MB

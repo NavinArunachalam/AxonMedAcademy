@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React, { useState, useRef } from "react";
 import {
-  ArrowLeft, Megaphone, Video, BookOpen, ClipboardList, Users,
-  Plus, X, Trash2, Play, Eye, EyeOff, Check, Send,
-  Calendar, Clock, Radio, Upload,
-} from "lucide-react";
+  LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
+  LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot,
+} from "react-icons/lu";
+import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
 import {
   useClassroomStore,
@@ -16,8 +17,9 @@ import {
   type Question,
   type Classroom,
   type Option,
+  type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, deleteMeeting, getAdminUsers, getClassroomById, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -49,61 +51,98 @@ function timeAgo(iso: string) {
 }
 
 function MeetingStatusBadge({ status }: { status: Meeting["status"] }) {
-  const map: Record<Meeting["status"], { cls: string; label: string }> = {
-    live: { cls: "bg-red-500/20 text-red-300", label: "🔴 LIVE" },
-    scheduled: { cls: "bg-lime/20 text-lime", label: "⏰ Scheduled" },
-    ended: { cls: "bg-cream/10 text-cream/60", label: "✓ Done" },
-    cancelled: { cls: "bg-red-900/30 text-red-400", label: "✗ Cancelled" },
+  const map: Record<Meeting["status"], { cls: string; icon: IconType; label: string }> = {
+    live: { cls: "bg-red-500/20 text-red-300", icon: LuRadio, label: "LIVE" },
+    scheduled: { cls: "bg-lime/20 text-lime", icon: LuClock, label: "Scheduled" },
+    ended: { cls: "bg-cream/10 text-cream/60", icon: LuCheck, label: "Done" },
+    cancelled: { cls: "bg-red-900/30 text-red-400", icon: LuX, label: "Cancelled" },
   };
-  const { cls, label } = map[status];
-  return <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${cls}`}>{label}</span>;
+  const { cls, icon: Icon, label } = map[status];
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${cls}`}>
+      <Icon className={`h-3 w-3 ${status === "live" ? "animate-pulse" : ""}`} />
+      {label}
+    </span>
+  );
 }
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "announcements", label: "📢 Announcements" },
-  { key: "live", label: "🎥 Live Classes" },
-  { key: "recordings", label: "⏺ Recordings" },
-  { key: "tests", label: "📝 Tests" },
-  { key: "students", label: "👥 Students" },
+  { key: "announcements", label: "Announcements", icon: LuMegaphone },
+  { key: "live", label: "Live Classes", icon: LuVideo },
+  { key: "recordings", label: "Recordings", icon: LuCircleDot },
+  { key: "tests", label: "Tests", icon: LuClipboardList },
+  { key: "students", label: "Students", icon: LuUsers },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
 // ─── Announcements Tab ────────────────────────────────────────────────────────
 
-function AnnouncementsTab({ classroomId }: { classroomId: string }) {
-  const { classrooms } = useClassroomStore();
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
+  const cls = classroom;
   const [text, setText] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  const handlePost = () => {
-    if (!text.trim()) return;
-    classroomActions.addAnnouncement(classroomId, text.trim());
-    setText("");
+  const handlePost = async () => {
+    if (!text.trim() || isPosting) return;
+    setError("");
+    setIsPosting(true);
+    try {
+      await createClassroomAnnouncement(classroom.id, text.trim());
+      setText("");
+      await refreshClassroom();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not post announcement");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const handleDelete = async (announcementId: string) => {
+    if (deletingId) return;
+    setError("");
+    setDeletingId(announcementId);
+    try {
+      await deleteClassroomAnnouncement(classroom.id, announcementId);
+      await refreshClassroom();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete announcement");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
     <div className="space-y-4">
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
       {/* Compose */}
       <DarkCard>
         <h3 className="font-display font-bold text-sm text-cream mb-3 flex items-center gap-2">
-          <Megaphone className="h-4 w-4 text-lime" /> Post Announcement
+          <LuMegaphone className="h-4 w-4 text-lime" /> Post Announcement
         </h3>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Type your announcement… (supports emoji 🎯)"
           rows={3}
-          className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-3 text-cream text-sm outline-none focus:border-lime/50 resize-none"
+          disabled={isPosting}
+          className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-3 text-cream text-sm outline-none focus:border-lime/50 resize-none disabled:opacity-50"
         />
         <div className="flex justify-end mt-3">
           <button
             onClick={handlePost}
-            disabled={!text.trim()}
+            disabled={!text.trim() || isPosting}
             className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2 text-sm font-bold disabled:opacity-40"
           >
-            <Send className="h-3.5 w-3.5" /> Post to All Students
+            <LuSend className="h-3.5 w-3.5" /> {isPosting ? "Posting…" : "Post to All Students"}
           </button>
         </div>
       </DarkCard>
@@ -112,7 +151,7 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
       <div className="space-y-3">
         {cls.announcements.length === 0 && (
           <DarkCard className="text-center py-10">
-            <Megaphone className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+            <LuMegaphone className="h-8 w-8 text-cream/20 mx-auto mb-2" />
             <p className="text-cream/50 text-sm">No announcements yet.</p>
           </DarkCard>
         )}
@@ -132,10 +171,11 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
                 </div>
               </div>
               <button
-                onClick={() => classroomActions.deleteAnnouncement(classroomId, ann.id)}
-                className="text-cream/30 hover:text-red-400 transition-colors shrink-0"
+                onClick={() => handleDelete(ann.id)}
+                disabled={deletingId === ann.id}
+                className="text-cream/30 hover:text-red-400 transition-colors shrink-0 disabled:opacity-40"
               >
-                <Trash2 className="h-4 w-4" />
+                <LuTrash2 className="h-4 w-4" />
               </button>
             </div>
           </DarkCard>
@@ -222,7 +262,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
           onClick={() => setShowForm(!showForm)}
           className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold"
         >
-          <Plus className="h-4 w-4" /> Schedule Live Class
+          <LuPlus className="h-4 w-4" /> Schedule Live Class
         </button>
       </div>
 
@@ -285,7 +325,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
             {upcoming.map((m) => (
               <DarkCard key={m.id} className="flex items-center gap-4">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-lime/10 text-lime">
-                  {m.status === "live" ? <Radio className="h-5 w-5 animate-pulse" /> : <Calendar className="h-5 w-5" />}
+                  {m.status === "live" ? <LuRadio className="h-5 w-5 animate-pulse" /> : <LuCalendar className="h-5 w-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -293,8 +333,8 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                     <MeetingStatusBadge status={m.status} />
                   </div>
                   <div className="text-cream/60 text-xs mt-0.5 flex items-center gap-3">
-                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {fmtShortDate(m.scheduledAt)}</span>
-                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtTime(m.scheduledAt)}</span>
+                    <span className="flex items-center gap-1"><LuCalendar className="h-3 w-3" /> {fmtShortDate(m.scheduledAt)}</span>
+                    <span className="flex items-center gap-1"><LuClock className="h-3 w-3" /> {fmtTime(m.scheduledAt)}</span>
                     <span>{m.duration} min</span>
                     <span>{m.attendees.length} joined</span>
                   </div>
@@ -303,14 +343,14 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                   {m.status === "scheduled" && (
                     <button onClick={() => classroomActions.startMeeting(classroomId, m.id)}
                       className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold flex items-center gap-1">
-                      <Play className="h-3 w-3" /> Start
+                      <LuPlay className="h-3 w-3" /> Start
                     </button>
                   )}
                   {m.status === "live" && (
                     <>
                       <button onClick={() => window.open(`https://meet.jit.si/HTA-${m.roomId}`, "_blank")}
                         className="rounded-full bg-red-500/20 text-red-300 px-4 py-2 text-xs font-bold flex items-center gap-1">
-                        <Radio className="h-3 w-3" /> Rejoin
+                        <LuRadio className="h-3 w-3" /> Rejoin
                       </button>
                       <button onClick={() => classroomActions.endMeeting(classroomId, m.id)}
                         className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 text-xs">
@@ -321,7 +361,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                   <button onClick={() => classroomActions.deleteMeeting(classroomId, m.id)}
                     disabled={deletingMeetingId === m.id}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 text-xs disabled:opacity-50">
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <LuTrash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </DarkCard>
@@ -361,7 +401,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 
       {cls.meetings.length === 0 && (
         <DarkCard className="text-center py-12">
-          <Video className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+          <LuVideo className="h-8 w-8 text-cream/20 mx-auto mb-2" />
           <p className="text-cream/50 text-sm">No classes scheduled yet.</p>
         </DarkCard>
       )}
@@ -449,7 +489,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     <div className="space-y-5">
       <div className="flex justify-end">
         <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
-          <Upload className="h-4 w-4" /> Upload Recording
+          <LuUpload className="h-4 w-4" /> Upload Recording
         </button>
       </div>
 
@@ -512,7 +552,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                 <div key={ch.id} className="flex items-center gap-2 bg-cream/5 rounded-lg px-3 py-1.5 mb-1 text-xs text-cream/80">
                   <span className="font-mono text-lime">{Math.floor(ch.startTimeSec / 60).toString().padStart(2, "0")}:{(ch.startTimeSec % 60).toString().padStart(2, "0")}</span>
                   <span className="flex-1">{ch.title}</span>
-                  <button type="button" onClick={() => setForm((f) => ({ ...f, chapters: f.chapters.filter((_, ci) => ci !== i) }))} className="text-cream/40 hover:text-red-400"><X className="h-3 w-3" /></button>
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, chapters: f.chapters.filter((_, ci) => ci !== i) }))} className="text-cream/40 hover:text-red-400"><LuX className="h-3 w-3" /></button>
                 </div>
               ))}
             </div>
@@ -628,7 +668,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       {/* Recording cards */}
       {cls.recordings.length === 0 && (
         <DarkCard className="text-center py-12">
-          <BookOpen className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+          <LuBookOpen className="h-8 w-8 text-cream/20 mx-auto mb-2" />
           <p className="text-cream/50 text-sm">No recordings uploaded yet.</p>
         </DarkCard>
       )}
@@ -642,7 +682,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               <div className="flex items-start gap-4">
                 {/* Thumbnail */}
                 <div className="w-20 h-14 rounded-lg bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0">
-                  <Play className="h-5 w-5 text-lime" />
+                  <LuPlay className="h-5 w-5 text-lime" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -683,7 +723,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
                   >
-                    {rec.isPublished ? <><EyeOff className="h-3 w-3" /> Unpublish</> : <><Eye className="h-3 w-3" /> Publish</>}
+                    {rec.isPublished ? <><LuEyeOff className="h-3 w-3" /> Unpublish</> : <><LuEye className="h-3 w-3" /> Publish</>}
                   </button>
                   <button
                     onClick={async () => {
@@ -695,7 +735,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                       }
                     }}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <LuTrash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -781,7 +821,7 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
           <input type="number" min={0.5} step={0.5} value={q.marks} onChange={(e) => onChange({ ...q, marks: Number(e.target.value) })}
             className="w-16 bg-cream/5 border border-cream/10 rounded-lg px-2 py-1.5 text-cream text-xs outline-none text-center" />
           <span className="text-cream/50 text-xs">marks</span>
-          <button onClick={onRemove} className="text-cream/30 hover:text-red-400 ml-2"><Trash2 className="h-4 w-4" /></button>
+          <button onClick={onRemove} className="text-cream/30 hover:text-red-400 ml-2"><LuTrash2 className="h-4 w-4" /></button>
         </div>
       </div>
 
@@ -794,7 +834,7 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
           <div key={opt.label} className={`flex items-center gap-2 rounded-lg px-3 py-2 border transition-colors ${opt.isCorrect ? "border-lime/40 bg-lime/5" : "border-cream/10 bg-cream/2"}`}>
             <button onClick={() => toggleCorrect(opt.label)}
               className={`h-5 w-5 shrink-0 rounded-full grid place-items-center text-[10px] font-bold border transition-colors ${opt.isCorrect ? "bg-lime border-lime text-plum-dark" : "border-cream/30 text-cream/50"}`}>
-              {opt.isCorrect ? <Check className="h-3 w-3" /> : opt.label}
+              {opt.isCorrect ? <LuCheck className="h-3 w-3" /> : opt.label}
             </button>
             {q.type === "true_false" ? (
               <span className="flex-1 text-sm text-cream/80">{opt.text}</span>
@@ -809,7 +849,7 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
         {q.type !== "true_false" && q.options.length < 6 && (
           <button onClick={() => onChange({ ...q, options: [...q.options, { label: LABELS[q.options.length] || `Opt${q.options.length + 1}`, text: "", isCorrect: false }] })}
             className="text-lime/70 hover:text-lime text-xs flex items-center gap-1 mt-1">
-            <Plus className="h-3 w-3" /> Add option
+            <LuPlus className="h-3 w-3" /> Add option
           </button>
         )}
       </div>
@@ -819,14 +859,44 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
   );
 }
 
-function TestsTab({ classroomId }: { classroomId: string }) {
-  const { classrooms } = useClassroomStore();
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
+  const cls = classroom;
+  const classroomId = classroom.id;
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [quizOperationQuizId, setQuizOperationQuizId] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [viewQuizId, setViewQuizId] = useState<string | null>(null);
+  const [reportAttempts, setReportAttempts] = useState<QuizAttempt[]>([]);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [reportError, setReportError] = useState("");
+
+  React.useEffect(() => {
+    if (!viewQuizId) {
+      setReportAttempts([]);
+      setReportError("");
+      return;
+    }
+    let active = true;
+    const loadReport = async () => {
+      setIsLoadingReport(true);
+      setReportError("");
+      try {
+        const attempts = await getQuizReport(viewQuizId);
+        if (!active) return;
+        setReportAttempts(attempts);
+      } catch (err) {
+        if (active) setReportError(err instanceof Error ? err.message : "Could not load quiz report");
+      } finally {
+        if (active) setIsLoadingReport(false);
+      }
+    };
+    loadReport();
+    return () => {
+      active = false;
+    };
+  }, [viewQuizId]);
+
   const [quiz, setQuiz] = useState<Omit<Quiz, "id" | "attempts">>({
     title: "", instructions: "", duration: null, maxAttempts: 1,
     randomizeQuestions: true, randomizeOptions: true,
@@ -899,7 +969,7 @@ function TestsTab({ classroomId }: { classroomId: string }) {
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowBuilder(false)} className="text-cream/60 hover:text-cream"><ArrowLeft className="h-5 w-5" /></button>
+          <button onClick={() => setShowBuilder(false)} className="text-cream/60 hover:text-cream"><LuArrowLeft className="h-5 w-5" /></button>
           <h2 className="font-display font-bold text-cream text-xl">Quiz Builder</h2>
         </div>
 
@@ -970,7 +1040,7 @@ function TestsTab({ classroomId }: { classroomId: string }) {
 
         <button onClick={() => setQuiz((q) => ({ ...q, questions: [...q.questions, newQuestion(q.questions.length + 1)] }))}
           className="w-full rounded-2xl border-2 border-dashed border-lime/20 hover:border-lime/40 py-5 text-lime/70 hover:text-lime text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-          <Plus className="h-4 w-4" /> Add Question
+          <LuPlus className="h-4 w-4" /> Add Question
         </button>
 
         <div className="flex items-center justify-between rounded-2xl bg-cream/5 px-5 py-3">
@@ -1000,19 +1070,34 @@ function TestsTab({ classroomId }: { classroomId: string }) {
   if (viewQuizId) {
     const q = cls.quizzes.find((x) => x.id === viewQuizId);
     if (!q) return null;
-    const submitted = q.attempts.filter((a) => a.status === "submitted");
+    const submitted = reportAttempts.filter((a) => a.status === "submitted");
     const passRate = submitted.length ? Math.round(submitted.filter((a) => a.score.passed).length / submitted.length * 100) : 0;
     const avgScore = submitted.length ? Math.round(submitted.reduce((s, a) => s + a.score.percentage, 0) / submitted.length) : 0;
 
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <button onClick={() => setViewQuizId(null)} className="text-cream/60 hover:text-cream"><ArrowLeft className="h-5 w-5" /></button>
+          <button onClick={() => setViewQuizId(null)} className="text-cream/60 hover:text-cream"><LuArrowLeft className="h-5 w-5" /></button>
           <div className="flex-1">
             <h2 className="font-display font-bold text-cream">{q.title} — Report</h2>
-            <p className="text-cream/60 text-xs">{submitted.length} submissions · {passRate}% pass rate · {avgScore}% avg score</p>
+            <p className="text-cream/60 text-xs">
+              {isLoadingReport ? "Loading submissions…" : `${submitted.length} submissions · ${passRate}% pass rate · ${avgScore}% avg score`}
+            </p>
           </div>
+          <button
+            onClick={() => void refreshClassroom().then(() => getQuizReport(viewQuizId).then(setReportAttempts))}
+            disabled={isLoadingReport}
+            className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+          >
+            Refresh
+          </button>
         </div>
+
+        {reportError && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {reportError}
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-3">
           {[{ l: "Submitted", v: submitted.length }, { l: "Pass Rate", v: `${passRate}%` }, { l: "Avg Score", v: `${avgScore}%` }].map((s) => (
@@ -1044,7 +1129,8 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                   <td className="text-cream/60 text-xs">{att.submittedAt ? fmtDate(att.submittedAt) : "—"}</td>
                 </tr>
               ))}
-              {submitted.length === 0 && (<tr><td colSpan={5} className="p-6 text-center text-cream/50 text-sm">No submissions yet.</td></tr>)}
+              {isLoadingReport && (<tr><td colSpan={5} className="p-6 text-center text-cream/50 text-sm">Loading report…</td></tr>)}
+              {!isLoadingReport && submitted.length === 0 && (<tr><td colSpan={5} className="p-6 text-center text-cream/50 text-sm">No submissions yet.</td></tr>)}
             </tbody>
           </table>
         </DarkCard>
@@ -1057,13 +1143,13 @@ function TestsTab({ classroomId }: { classroomId: string }) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <button onClick={() => setShowBuilder(true)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
-          <Plus className="h-4 w-4" /> Create Quiz
+          <LuPlus className="h-4 w-4" /> Create Quiz
         </button>
       </div>
 
       {cls.quizzes.length === 0 && (
         <DarkCard className="text-center py-12">
-          <ClipboardList className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+          <LuClipboardList className="h-8 w-8 text-cream/20 mx-auto mb-2" />
           <p className="text-cream/50 text-sm">No quizzes created yet.</p>
         </DarkCard>
       )}
@@ -1091,7 +1177,7 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setViewQuizId(q.id)} className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold flex items-center gap-1">
-                    <Eye className="h-3 w-3" /> Report
+                    <LuEye className="h-3 w-3" /> Report
                   </button>
                   {q.status === "draft" && (
                     <button onClick={() => handlePublishQuiz(q.id)}
@@ -1110,7 +1196,7 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                   <button onClick={() => handleDeleteQuiz(q.id)}
                     disabled={quizOperationQuizId === q.id}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 disabled:cursor-not-allowed disabled:opacity-50">
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <LuTrash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -1184,7 +1270,7 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
       <div className="flex items-center justify-between">
         <p className="text-cream/60 text-sm">{cls.students.length} enrolled · {cls.students.filter((s) => s.status === "active").length} active</p>
         <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
-          <Plus className="h-4 w-4" /> Add Student
+          <LuPlus className="h-4 w-4" /> Add Student
         </button>
       </div>
 
@@ -1345,7 +1431,7 @@ function AdminClassroomDetail() {
       {/* Header */}
       <div className="flex items-start gap-4">
         <Link to="/admin/classrooms" className="text-cream/60 hover:text-cream mt-1 shrink-0">
-          <ArrowLeft className="h-5 w-5" />
+          <LuArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
@@ -1366,17 +1452,18 @@ function AdminClassroomDetail() {
       <div className="flex gap-1 flex-wrap bg-cream/5 rounded-2xl p-1.5">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2.5 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2.5 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>
+            <t.icon className="h-3.5 w-3.5 shrink-0" />
             {t.label}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
-      {tab === "announcements" && <AnnouncementsTab classroomId={classroom.id} />}
+      {tab === "announcements" && <AnnouncementsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "live" && <LiveClassesTab classroomId={classroom.id} />}
       {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "tests" && <TestsTab classroomId={classroom.id} />}
+      {tab === "tests" && <TestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "students" && <StudentsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
     </div>
   );
