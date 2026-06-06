@@ -61,7 +61,7 @@ function AdminExams() {
     // Per-question analysis
     const questionStats = q.questions.map(ques => {
       const correct = submitted.filter(att => {
-        const ans = att.answers.find(a => a.questionId === ques.id);
+        const ans = (att.answers || []).find(a => a.questionId === ques.id);
         return ans?.isCorrect;
       }).length;
       return { ...ques, correctCount: correct, total: submitted.length, pct: submitted.length ? Math.round((correct / submitted.length) * 100) : 0 };

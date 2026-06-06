@@ -147,6 +147,12 @@ function normalizeBackendClassroom(raw: any) {
           status: att.status || 'submitted',
           startedAt: att.startedAt,
           submittedAt: att.submittedAt,
+          answers: Array.isArray(att.answers) ? att.answers.map((ans: any) => ({
+            questionId: String(ans.questionId),
+            selectedOptions: ans.selectedOptions || [],
+            isCorrect: !!ans.isCorrect,
+            marksAwarded: ans.marksAwarded ?? 0,
+          })) : [],
           score: att.score || { rawMarks: 0, totalMarks: 0, percentage: 0, passed: false }
         })) : []
       }))
@@ -203,6 +209,12 @@ function normalizeBackendQuiz(raw: any) {
       status: att.status || 'submitted',
       startedAt: att.startedAt,
       submittedAt: att.submittedAt,
+      answers: Array.isArray(att.answers) ? att.answers.map((ans: any) => ({
+        questionId: String(ans.questionId),
+        selectedOptions: ans.selectedOptions || [],
+        isCorrect: !!ans.isCorrect,
+        marksAwarded: ans.marksAwarded ?? 0,
+      })) : [],
       score: att.score || { rawMarks: 0, totalMarks: 0, percentage: 0, passed: false },
     })) : [],
   };
@@ -319,6 +331,12 @@ function normalizeBackendQuizAttempt(att: any) {
     status: att.status || 'submitted',
     startedAt: att.startedAt,
     submittedAt: att.submittedAt,
+    answers: Array.isArray(att.answers) ? att.answers.map((ans: any) => ({
+      questionId: String(ans.questionId),
+      selectedOptions: ans.selectedOptions || [],
+      isCorrect: !!ans.isCorrect,
+      marksAwarded: ans.marksAwarded ?? 0,
+    })) : [],
     score: {
       rawMarks: att.score?.rawMarks ?? 0,
       totalMarks: att.score?.totalMarks ?? 0,
@@ -916,4 +934,88 @@ export async function updateAdminProgram(
 
 export async function deleteAdminProgram(id: string) {
   return fetchJson(`/programs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// ─── Public Enrollment Registration ──────────────────────────────────────────
+
+export interface RegisterStudentData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  qualification?: string;
+  address?: string;
+  program?: string;
+  message?: string;
+}
+
+export async function registerStudent(data: RegisterStudentData): Promise<{ requestId: string }> {
+  const BASE = getApiBase();
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    credentials: 'include',
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Registration failed');
+  return json;
+}
+
+// ─── Admin Enrollment Requests ────────────────────────────────────────────────
+
+export interface EnrollmentRequest {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  qualification?: string;
+  program?: { _id: string; title: string } | string;
+  message?: string;
+  status: 'pending' | 'approved' | 'held' | 'rejected';
+  adminNote?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  user?: { _id: string; email: string };
+}
+
+export async function getEnrollmentRequests(status?: string): Promise<{
+  requests: EnrollmentRequest[];
+  counts: { total: number; pending_count: number; approved_count: number; held_count: number; rejected_count: number };
+}> {
+  const qs = status && status !== 'all' ? `?status=${status}` : '';
+  const data = await fetchJson(`/requests${qs}`);
+  return data;
+}
+
+export async function approveEnrollmentRequest(id: string, opts: { classroomIds?: string[]; note?: string } = {}) {
+  return fetchJson(`/requests/${id}/approve`, {
+    method: 'PUT',
+    body: JSON.stringify(opts),
+  });
+}
+
+export async function rejectEnrollmentRequest(id: string, opts: { note?: string } = {}) {
+  return fetchJson(`/requests/${id}/reject`, {
+    method: 'PUT',
+    body: JSON.stringify(opts),
+  });
+}
+
+export async function holdEnrollmentRequest(id: string, opts: { note?: string } = {}) {
+  return fetchJson(`/requests/${id}/hold`, {
+    method: 'PUT',
+    body: JSON.stringify(opts),
+  });
+}
+
+export async function getPendingEnrollmentCount(): Promise<number> {
+  try {
+    const data = await fetchJson('/requests?status=pending');
+    return data?.counts?.pending_count ?? 0;
+  } catch {
+    return 0;
+  }
 }

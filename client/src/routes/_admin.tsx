@@ -16,7 +16,7 @@ const NAV = [
   { label: "Exams", to: "/admin/exams", icon: ClipboardList },
   // { label: "Placements", to: "/admin/placements", icon: Briefcase },
   { label: "Analytics", to: "/admin/analytics", icon: BarChart3 },
-  { label: "Finance", to: "/admin/finance", icon: CreditCard },
+  // { label: "Finance", to: "/admin/finance", icon: CreditCard },
   { label: "Settings", to: "/admin/settings", icon: Settings },
 ];
 

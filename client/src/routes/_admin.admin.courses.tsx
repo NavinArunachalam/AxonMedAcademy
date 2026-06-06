@@ -363,7 +363,7 @@ function AdminCourses() {
                           className="bg-[#1A0F33] border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
                           <option value="published">Published</option>
                           <option value="draft">Draft</option>
-                          <option value="archived">Archived</option>
+
                         </select>
                       </td>
                       <td className="text-cream/60 text-xs">{new Date(c.updatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</td>
