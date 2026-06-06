@@ -114,7 +114,7 @@ function StudentDetail({ studentId }: { studentId: string }) {
                 <div className="text-cream/50 text-[10px]">{c.program}</div>
               </div>
               <select value={me.status} onChange={e => classroomActions.updateStudentStatus(c.id, studentId, e.target.value as EnrolledStudent["status"])}
-                className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded border border-cream/10 bg-cream/5 text-cream outline-none`}>
+                className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded border border-cream/10 bg-[#1A0F33] text-cream outline-none`}>
                 <option value="active">Active</option>
                 <option value="held">Hold</option>
                 <option value="at risk">At Risk</option>
@@ -401,7 +401,7 @@ function AdminStudents() {
               <div>
                 <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Enroll in Classroom</label>
                 <select value={form.selectedClassroom} onChange={e => setForm({ ...form, selectedClassroom: e.target.value })}
-                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+                  className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
                   <option value="">None (Just register)</option>
                   {classrooms.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -432,11 +432,11 @@ function AdminStudents() {
             <Search className="h-4 w-4 text-cream/50" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, ID, email…" className="bg-transparent outline-none text-sm flex-1 text-cream placeholder:text-cream/40" />
           </div>
-          <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className="bg-cream/5 rounded-full px-4 py-2 text-sm outline-none text-cream">
+          <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className="bg-[#1A0F45] rounded-full px-4 py-2 text-sm outline-none text-cream focus:border-lime/50 border border-cream/10">
             <option value="All">All programs</option>
             {(programOptions.length > 0 ? programOptions : courses.map((c) => c.title)).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-cream/5 rounded-full px-4 py-2 text-sm outline-none text-cream">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-[#1A0F45] rounded-full px-4 py-2 text-sm outline-none text-cream focus:border-lime/50 border border-cream/10">
             <option value="All">All statuses</option>
             {["active", "held", "at risk", "placed", "removed"].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
           </select>

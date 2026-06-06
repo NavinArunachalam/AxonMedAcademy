@@ -86,7 +86,7 @@ function CourseModal({
             <div>
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Category</label>
               <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+                className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
@@ -99,7 +99,7 @@ function CourseModal({
           <div>
             <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Status</label>
             <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as ProgramCourse["status"] })}
-              className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+              className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
               <option value="draft">Draft</option>
               <option value="published">Published</option>
               <option value="archived">Archived</option>
@@ -360,7 +360,7 @@ function AdminCourses() {
                       <td>
                         <select value={c.status}
                           onChange={e => handleStatusChange(c.id, e.target.value as ProgramCourse["status"])}
-                          className="bg-cream/5 border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
+                          className="bg-[#1A0F33] border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
                           <option value="published">Published</option>
                           <option value="draft">Draft</option>
                           <option value="archived">Archived</option>

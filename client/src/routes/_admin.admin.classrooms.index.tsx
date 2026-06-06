@@ -190,7 +190,7 @@ function CreateClassroomModal({
               <select
                 value={form.program}
                 onChange={(e) => setForm({ ...form, program: e.target.value })}
-                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
               >
                 {programs.map((p) => (
                   <option key={p.id} value={p.title}>

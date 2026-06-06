@@ -290,7 +290,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
               <div>
                 <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Duration</label>
                 <select value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
-                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+                  className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
                   <option value={30}>30 minutes</option>
                   <option value={60}>1 hour</option>
                   <option value={90}>1.5 hours</option>
@@ -1351,7 +1351,7 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
                 </td>
                 <td className="pr-4">
                   <select value={s.status} onChange={(e) => handleStatusChange(s.id, e.target.value as "active" | "held" | "removed")}
-                    className="bg-cream/5 border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
+                    className="bg-[#1A0F33] border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
                     <option value="active">Active</option>
                     <option value="held">Hold</option>
                     <option value="removed">Remove</option>

@@ -271,10 +271,10 @@ function AdminExams() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} className="bg-cream/5 border border-cream/10 rounded-full px-4 py-2 text-sm text-cream outline-none">
+        <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} className="bg-[#1A0F45] border border-cream/10 rounded-full px-4 py-2 text-sm text-cream outline-none">
           {batches.map(b => <option key={b} value={b}>{b === "All" ? "All Batches" : b}</option>)}
         </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-cream/5 border border-cream/10 rounded-full px-4 py-2 text-sm text-cream outline-none">
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-[#1A0F45] border border-cream/10 rounded-full px-4 py-2 text-sm text-cream outline-none">
           {statuses.map(s => <option key={s} value={s} className="capitalize">{s === "All" ? "All Statuses" : s}</option>)}
         </select>
       </div>
