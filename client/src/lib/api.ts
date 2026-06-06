@@ -761,3 +761,71 @@ export async function logoutUser() {
   return fetchJson('/auth/logout', { method: 'POST' });
 }
 
+// ─── Programs (Courses) ───────────────────────────────────────────────────────
+
+export interface ProgramCourse {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  price: number;
+  status: 'published' | 'draft' | 'archived';
+  updatedAt: string;
+}
+
+function normalizeBackendProgram(raw: any): ProgramCourse {
+  const status: ProgramCourse['status'] =
+    raw.status === 'archived' ? 'archived' :
+    (raw.isPublished || raw.status === 'published') ? 'published' : 'draft';
+  return {
+    id: String(raw._id || raw.id),
+    title: raw.title || '',
+    category: raw.category || 'Other',
+    description: raw.description || raw.shortDesc || '',
+    price: raw.fee?.baseAmount ?? 0,
+    status,
+    updatedAt: raw.updatedAt || new Date().toISOString(),
+  };
+}
+
+export async function getAdminPrograms(): Promise<ProgramCourse[]> {
+  const payload = await fetchJson('/programs/admin-all');
+  return (payload.programs as any[]).map(normalizeBackendProgram);
+}
+
+export async function createAdminProgram(
+  data: Omit<ProgramCourse, 'id' | 'updatedAt'>
+): Promise<ProgramCourse> {
+  const payload = await fetchJson('/programs', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      fee: { baseAmount: data.price, gstPercent: 18 },
+      status: data.status,
+    }),
+  });
+  return normalizeBackendProgram(payload.program);
+}
+
+export async function updateAdminProgram(
+  id: string,
+  data: Partial<Omit<ProgramCourse, 'id'>>
+): Promise<ProgramCourse> {
+  const body: Record<string, any> = {};
+  if (data.title !== undefined) body.title = data.title;
+  if (data.description !== undefined) body.description = data.description;
+  if (data.category !== undefined) body.category = data.category;
+  if (data.price !== undefined) body.fee = { baseAmount: data.price, gstPercent: 18 };
+  if (data.status !== undefined) body.status = data.status;
+  const payload = await fetchJson(`/programs/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+  return normalizeBackendProgram(payload.program);
+}
+
+export async function deleteAdminProgram(id: string) {
+  return fetchJson(`/programs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}

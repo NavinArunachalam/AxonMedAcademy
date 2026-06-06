@@ -11,6 +11,7 @@ import {
   BookOpen,
   X,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 import {
@@ -18,21 +19,13 @@ import {
   classroomActions,
   type Classroom,
 } from "@/lib/classroomStore";
-import { createClassroom as apiCreateClassroom, getClassrooms as apiGetClassrooms } from "@/lib/api";
+import { createClassroom as apiCreateClassroom, getClassrooms as apiGetClassrooms, getAdminPrograms, type ProgramCourse } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/")({
   component: AdminClassrooms,
 });
 
-const PROGRAMS = [
-  "ICU Critical Care",
-  "Staff Nursing",
-  "OT Technician",
-  "Lab Technician",
-  "Radiology",
-  "Pharmacy",
-];
 
 function StatusBadge({ status }: { status: Classroom["status"] }) {
   const cls =
@@ -55,11 +48,34 @@ function CreateClassroomModal({
   onClose: () => void;
   onCreated?: (classroom: Classroom) => void;
 }) {
+  // ── Load programs from API ─────────────────────────────────────────────────
+  const [programs, setPrograms] = useState<ProgramCourse[]>([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [programsError, setProgramsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getAdminPrograms()
+      .then((data) => {
+        if (!active) return;
+        // Only show published programs in the classroom create dropdown
+        const published = data.filter((p) => p.status === "published");
+        setPrograms(published);
+        setForm((f) => ({ ...f, program: published[0]?.title ?? "" }));
+      })
+      .catch((err) => {
+        if (!active) return;
+        setProgramsError(err.message || "Failed to load programs");
+      })
+      .finally(() => { if (active) setLoadingPrograms(false); });
+    return () => { active = false; };
+  }, []);
+
   const [form, setForm] = useState({
     name: "",
     description: "",
     code: `CLS-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
-    program: PROGRAMS[0],
+    program: "",
     maxStudents: 40,
     status: "active" as Classroom["status"],
   });
@@ -147,17 +163,33 @@ function CreateClassroomModal({
             <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
               Program
             </label>
-            <select
-              value={form.program}
-              onChange={(e) => setForm({ ...form, program: e.target.value })}
-              className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
-            >
-              {PROGRAMS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+            {loadingPrograms ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-cream/5 border border-cream/10 rounded-xl text-cream/50 text-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading programs…
+              </div>
+            ) : programsError ? (
+              <div className="px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
+                {programsError}
+              </div>
+            ) : programs.length === 0 ? (
+              <div className="px-4 py-2.5 bg-cream/5 border border-cream/10 rounded-xl text-cream/50 text-xs">
+                No published programs found. Create one in Courses first.
+              </div>
+            ) : (
+              <select
+                value={form.program}
+                onChange={(e) => setForm({ ...form, program: e.target.value })}
+                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+              >
+                {programs.map((p) => (
+                  <option key={p.id} value={p.title}>
+                    {p.title}
+                    {p.category ? ` — ${p.category}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">

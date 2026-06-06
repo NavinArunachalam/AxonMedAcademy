@@ -8,9 +8,11 @@ const programSchema = new mongoose.Schema({
   shortDesc:   { type: String },
   thumbnail:   { type: String }, // S3 URL
   previewVideo:{ type: String }, // Mux playback ID
-  category: {
+  category: { type: String, default: 'other' },
+  status: {
     type: String,
-    enum: ['nursing', 'surgical_tech', 'emergency_care', 'medical_admin', 'diagnostics', 'pharmacy', 'other']
+    enum: ['published', 'draft', 'archived'],
+    default: 'draft'
   },
   tags:        [String],
   duration: {

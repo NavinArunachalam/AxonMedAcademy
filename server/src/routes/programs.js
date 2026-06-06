@@ -52,21 +52,29 @@ router.get('/:slug', async (req, res, next) => {
 // POST / → Admin: create program
 router.post('/', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
-    const { title, slug, subtitle, description, shortDesc, category, fee, isPublished } = req.body;
+    const { title, slug, subtitle, description, shortDesc, category, fee, status, isPublished } = req.body;
     
-    if (!title || !slug) {
-      return res.status(400).json({ success: false, message: 'Title and slug are required' });
+    if (!title) {
+      return res.status(400).json({ success: false, message: 'Title is required' });
     }
+
+    // Auto-generate slug from title if not provided
+    const baseSlug = (slug || title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const uniqueSlug = `${baseSlug}-${Date.now()}`;
+
+    // Derive isPublished from status, fallback to explicit isPublished field
+    const resolvedStatus = status || (isPublished ? 'published' : 'draft');
 
     const program = await Program.create({
       title,
-      slug,
+      slug: uniqueSlug,
       subtitle,
       description,
       shortDesc,
       category,
       fee: fee || { baseAmount: 10000, gstPercent: 18, emiAvailable: true, scholarshipAvailable: false },
-      isPublished: isPublished !== undefined ? isPublished : true
+      status: resolvedStatus,
+      isPublished: resolvedStatus === 'published',
     });
 
     res.status(201).json({ success: true, message: 'Program created successfully', program });
@@ -78,10 +86,15 @@ router.post('/', protect, restrictTo('admin', 'superadmin'), async (req, res, ne
 // PUT /:id → Admin: update program
 router.put('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
+    const updates = { ...req.body };
+    // Keep isPublished in sync if status is being updated
+    if (updates.status !== undefined) {
+      updates.isPublished = updates.status === 'published';
+    }
     const program = await Program.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
-      { new: true }
+      { $set: updates },
+      { new: true, runValidators: false }
     );
     if (!program) {
       return res.status(404).json({ success: false, message: 'Program not found' });
