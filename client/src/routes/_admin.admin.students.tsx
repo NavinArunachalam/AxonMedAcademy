@@ -328,7 +328,7 @@ function AdminStudents() {
     try {
       const names = form.name.trim().split(" ");
       const firstName = names[0];
-      const lastName = names.slice(1).join(" ") || ".";
+      const lastName = names.slice(1).join(" ") || " ";
 
       const res = await createAdminUser({
         firstName,
@@ -417,7 +417,7 @@ function AdminStudents() {
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Initial Password</label>
-                <input value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Defaults to 1111"
+                <input value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="********"
                   className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
               </div>
               <div>

@@ -24,7 +24,7 @@ exports.sendWelcomeEmail = async (user, password) => {
           <p>Congratulations! You have been successfully registered as a student at <strong>Hospital Training Academy</strong>.</p>
           <p>You can now access your learning portal using the credentials below:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>Portal URL:</strong> <a href="${process.env.CLIENT || 'https://hta-portal.com'}">${process.env.CLIENT || 'https://hta-portal.com'}</a></p>
+            <p style="margin: 5px 0;"><strong>Portal URL:</strong> <a href="${process.env.CLIENT_URL || 'https://hta-portal.com'}">${process.env.CLIENT_URL || 'https://hta-portal.com'}</a></p>
             <p style="margin: 5px 0;"><strong>Email:</strong> ${user.email}</p>
             <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
           </div>
