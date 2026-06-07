@@ -39,7 +39,7 @@ function LiveClasses() {
 
       all.sort(
         (a, b) =>
-          new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+          new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
       );
 
       setMeetings(all);

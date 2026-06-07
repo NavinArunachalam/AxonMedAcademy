@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlacementsRouteImport } from './routes/placements'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FacultyRouteImport } from './routes/faculty'
+import { Route as EnrollRouteImport } from './routes/enroll'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BlogRouteImport } from './routes/blog'
@@ -56,6 +57,11 @@ const LoginRoute = LoginRouteImport.update({
 const FacultyRoute = FacultyRouteImport.update({
   id: '/faculty',
   path: '/faculty',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnrollRoute = EnrollRouteImport.update({
+  id: '/enroll',
+  path: '/enroll',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoursesRoute = CoursesRouteImport.update({
@@ -219,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRoute
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
+  '/enroll': typeof EnrollRoute
   '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
@@ -252,6 +259,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogRoute
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
+  '/enroll': typeof EnrollRoute
   '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
@@ -288,6 +296,7 @@ export interface FileRoutesById {
   '/blog': typeof BlogRoute
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
+  '/enroll': typeof EnrollRoute
   '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
@@ -323,6 +332,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/courses'
+    | '/enroll'
     | '/faculty'
     | '/login'
     | '/placements'
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/courses'
+    | '/enroll'
     | '/faculty'
     | '/login'
     | '/placements'
@@ -391,6 +402,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/courses'
+    | '/enroll'
     | '/faculty'
     | '/login'
     | '/placements'
@@ -427,6 +439,7 @@ export interface RootRouteChildren {
   BlogRoute: typeof BlogRoute
   ContactRoute: typeof ContactRoute
   CoursesRoute: typeof CoursesRoute
+  EnrollRoute: typeof EnrollRoute
   FacultyRoute: typeof FacultyRoute
   LoginRoute: typeof LoginRoute
   PlacementsRoute: typeof PlacementsRoute
@@ -453,6 +466,13 @@ declare module '@tanstack/react-router' {
       path: '/faculty'
       fullPath: '/faculty'
       preLoaderRoute: typeof FacultyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enroll': {
+      id: '/enroll'
+      path: '/enroll'
+      fullPath: '/enroll'
+      preLoaderRoute: typeof EnrollRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/courses': {
@@ -739,6 +759,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogRoute: BlogRoute,
   ContactRoute: ContactRoute,
   CoursesRoute: CoursesRoute,
+  EnrollRoute: EnrollRoute,
   FacultyRoute: FacultyRoute,
   LoginRoute: LoginRoute,
   PlacementsRoute: PlacementsRoute,

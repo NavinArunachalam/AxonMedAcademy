@@ -370,7 +370,6 @@ function AdminStudents() {
       ] })
     ] }),
     backendError && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm text-red-400", children: [
-      "Using fallback mock data: ",
       backendError
     ] }),
     showAdd && /* @__PURE__ */ jsxRuntimeExports.jsxs(DarkCard, { children: [

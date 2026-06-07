@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  Flame, Trophy, Clock, BookOpen, PlayCircle, ChevronRight, CheckCircle2,
+  Flame, Trophy, Clock, BookOpen, PlayCircle, ChevronRight, CheckCircle2, Radio,
 } from "lucide-react";
 import { Card, StatTile } from "@/components/portal/PortalShell";
 import { useClassroomStore } from "@/lib/classroomStore";
@@ -202,7 +202,13 @@ function Dashboard() {
                   <div className="text-sm font-semibold text-plum-dark truncate">{e.title}</div>
                   <div className="text-xs text-muted-foreground truncate">{e.classroomName}</div>
                 </div>
-                <button className={`text-xs font-semibold rounded-full px-3 py-1.5 ${e.status === 'live' ? "bg-red-500/20 text-red-600" : "bg-plum-dark text-cream"}`}>{e.status === 'live' ? "Live" : "Join"}</button>
+                <a 
+                  href={`/student/jitsi/${e.roomId}`}
+                  className={`text-xs font-semibold rounded-full px-3 py-1.5 flex items-center gap-1.5 ${e.status === 'live' ? "bg-red-500 text-white" : "bg-plum-dark text-cream"}`}
+                >
+                  {e.status === 'live' && <Radio className="h-3 w-3 animate-pulse" />}
+                  {e.status === 'live' ? "Join Now" : "Join"}
+                </a>
               </li>
             ))}
             {upcomingEvents.length === 0 && <li className="text-sm text-muted-foreground">No upcoming classes.</li>}
@@ -219,12 +225,16 @@ function Dashboard() {
               joinableNotifications.map((notif) => (
                 <div key={notif._id} className="rounded-2xl border border-border p-4 bg-slate-50">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="flex-1">
                       <div className="text-sm font-semibold text-plum-dark">{notif.title}</div>
                       <p className="text-xs text-slate-500 mt-1">{notif.message}</p>
                     </div>
-                    <a href={notif.actionUrl || '#'} className="rounded-full bg-lime px-4 py-2 text-xs font-semibold text-plum-dark hover:bg-lime/90">
-                      Join now
+                    <a 
+                      href={notif.actionUrl || '#'} 
+                      className="rounded-full bg-red-500 text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 hover:bg-red-600 transition-colors"
+                    >
+                      <Radio className="h-3 w-3 animate-pulse" />
+                      Join Now
                     </a>
                   </div>
                 </div>

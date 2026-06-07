@@ -91,8 +91,12 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
 function LiveClassesTab({ classroomId }: { classroomId: string }) {
   const { classrooms } = useClassroomStore();
   const cls = classrooms.find((c) => c.id === classroomId)!;
-  const upcoming = cls.meetings.filter((m) => m.status === "scheduled" || m.status === "live");
-  const past = cls.meetings.filter((m) => m.status === "ended");
+  const upcoming = cls.meetings
+    .filter((m) => m.status === "scheduled" || m.status === "live")
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
+  const past = cls.meetings
+    .filter((m) => m.status === "ended")
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
   return (
     <div className="space-y-5">
@@ -133,9 +137,12 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                       <Radio className="h-4 w-4" /> Join Now
                     </a>
                   ) : (
-                    <div className="rounded-full bg-slate-100 text-slate-500 px-4 py-2 text-xs font-semibold shrink-0">
-                      Scheduled
-                    </div>
+                    <a
+                      href={`/student/jitsi/${m.roomId}`}
+                      className="rounded-full bg-plum-dark text-cream px-5 py-2.5 text-sm font-bold flex items-center gap-2 shrink-0 hover:bg-plum transition-colors"
+                    >
+                      Join Class
+                    </a>
                   )}
                 </div>
               </div>

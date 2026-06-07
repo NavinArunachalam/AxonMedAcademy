@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const StudentProfile = require('../models/StudentProfile');
+const { sendWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo } = require('../middleware/auth');
 
 // GET /stats → Command center stats: sessions, exams, incidents, users
@@ -51,8 +53,56 @@ router.get('/users/:id', (req, res) => {
 });
 
 // POST /users → Create user manually
-router.post('/users', (req, res) => {
-  res.json({ success: true, message: 'User created manually (placeholder)' });
+router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { firstName, lastName, email, phone, role, password } = req.body;
+
+    // 1. Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'User with this email already exists' });
+    }
+
+    // 2. Create User
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      phone,
+      role: role || 'student',
+      password: password || '1111',
+      isVerified: true // Admin created users are verified
+    });
+
+    // 3. If role is student, create StudentProfile
+    if (user.role === 'student') {
+      const year = new Date().getFullYear();
+      const count = await StudentProfile.countDocuments();
+      const enrollmentNo = `HTA-${year}-${(count + 1).toString().padStart(4, '0')}`;
+      
+      await StudentProfile.create({
+        user: user._id,
+        enrollmentNo
+      });
+    }
+
+    // 4. Send Welcome Email (non-blocking)
+    sendWelcomeEmail(user, password || '1111').catch(err => console.error('Delayed email error:', err));
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'User created successfully and welcome email sent',
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // PUT /users/:id → Update user

@@ -4,7 +4,7 @@ import { Search, Plus, Download, Mail, ChevronDown, ChevronUp, Video, BookOpen, 
 import { DarkCard } from "@/components/portal/PortalShell";
 import { useClassroomStore, adminActions, classroomActions, messageActions, type EnrolledStudent } from "@/lib/classroomStore";
 import { useState, useMemo, useEffect } from "react";
-import { getAdminUsers, getClassrooms as apiGetClassrooms } from "@/lib/api";
+import { getAdminUsers, getClassrooms as apiGetClassrooms, createAdminUser, addStudentsToClassroom } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/admin/students")({
   component: AdminStudents,
@@ -191,7 +191,7 @@ function AdminStudents() {
         setBackendError(null);
       } catch (err) {
         if (!active) return;
-        setBackendError(err instanceof Error ? err.message : "Could not load students from MongoDB");
+        setBackendError(err instanceof Error ? err.message : "Could not load students");
       }
     };
     loadClassrooms();
@@ -321,19 +321,41 @@ function AdminStudents() {
   const atRisk = enrollments.filter(e => e.status === "at risk").length;
   const programOptions = Array.from(new Set(enrollments.flatMap((e) => e.courses.map(c => c.course)).filter(Boolean)));
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email) return;
-    const user = adminActions.createUser({ name: form.name, email: form.email, role: "student", password: form.password || "1111" });
-    if (form.selectedClassroom) {
-      classroomActions.addStudent(form.selectedClassroom, {
-        id: user.id, name: user.name, email: user.email,
-        enrollmentId: `MCA-${new Date().getFullYear()}-${user.name.split(" ")[0].toUpperCase().slice(0,4)}`,
-        progress: 0, attendance: 0, quizAvg: 0, status: "active", addedAt: new Date().toISOString()
+
+    try {
+      const names = form.name.trim().split(" ");
+      const firstName = names[0];
+      const lastName = names.slice(1).join(" ") || ".";
+
+      const res = await createAdminUser({
+        firstName,
+        lastName,
+        email: form.email,
+        role: "student",
+        password: form.password || "1111"
       });
+
+      if (form.selectedClassroom && res.user?.id) {
+        await addStudentsToClassroom(form.selectedClassroom, [res.user.id]);
+      }
+
+      // Refresh data
+      const [data, students] = await Promise.all([
+        apiGetClassrooms(),
+        getAdminUsers("student"),
+      ]);
+      classroomActions.setClassrooms(data);
+      setMongoStudents(students);
+      
+      setShowAdd(false);
+      setForm({ name: "", email: "", password: "", selectedClassroom: "" });
+      setBackendError(null);
+    } catch (err) {
+      setBackendError(err instanceof Error ? err.message : "Could not create student");
     }
-    setShowAdd(false);
-    setForm({ name: "", email: "", password: "", selectedClassroom: "" });
   };
 
   const handleExport = () => {
@@ -371,7 +393,7 @@ function AdminStudents() {
         </div>
       </div>
 
-      {backendError && <p className="text-sm text-red-400">Using fallback mock data: {backendError}</p>}
+      {backendError && <p className="text-sm text-red-400">{backendError}</p>}
 
       {showAdd && (
         <DarkCard>

@@ -276,6 +276,20 @@ export async function getAdminUsers(role?: string) {
   }));
 }
 
+export async function createAdminUser(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  password?: string;
+  phone?: string;
+}) {
+  return fetchJson('/admin/users', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function getClassrooms() {
   const payload = await fetchJson('/classrooms');
   return payload.classrooms.map(normalizeBackendClassroom);

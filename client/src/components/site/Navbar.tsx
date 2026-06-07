@@ -61,10 +61,10 @@ export function Navbar() {
             Login
           </Link>
           <Link
-            to="/courses"
+            to="/enroll"
             className="group inline-flex items-center gap-2 rounded-full bg-plum-dark px-5 py-2.5 text-sm font-semibold text-cream hover:bg-plum transition-colors"
           >
-            Enroll Now
+            Enrollment
             <span className="grid h-5 w-5 place-items-center rounded-full bg-lime text-plum-dark text-[10px] font-bold group-hover:rotate-45 transition-transform">
               →
             </span>
@@ -119,11 +119,11 @@ export function Navbar() {
                 Login
               </Link>
               <Link
-                to="/courses"
+                to="/enroll"
                 onClick={() => setOpen(false)}
                 className="rounded-full bg-plum-dark px-5 py-3 text-center text-sm font-semibold text-cream"
               >
-                Enroll Now
+                Enrollment
               </Link>
             </div>
           </div>
