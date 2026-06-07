@@ -13,21 +13,18 @@ const { protect } = require('../middleware/auth');
 
 const defaultLoginAccounts = {
   'admin@ex.com': {
-    firstName: 'Admin',
-    lastName: 'User',
+    fullName: 'Admin User',
     password: 'axon@admin',
     role: 'admin'
   },
   'ajay@ex.com': {
-    firstName: 'Ajay',
-    lastName: 'Kumar',
+    fullName: 'Ajay Kumar',
     password: '1111',
     role: 'student',
     phone: '+91 98700 11110'
   },
   'navin@ex.com': {
-    firstName: 'Navin',
-    lastName: 'Raj',
+    fullName: 'Navin Raj',
     password: '2222',
     role: 'student',
     phone: '+91 98700 22220'
@@ -38,8 +35,7 @@ const repairDefaultLoginAccount = async (user, password) => {
   const defaults = defaultLoginAccounts[user.email];
   if (!defaults || password !== defaults.password) return;
 
-  user.firstName = defaults.firstName;
-  user.lastName = defaults.lastName;
+  user.fullName = defaults.fullName;
   user.role = defaults.role;
   user.isVerified = true;
   user.isActive = true;
@@ -68,10 +64,10 @@ const upload = multer({ storage });
 // POST /register → Student registration request submission
 router.post('/register', upload.any(), async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, qualification, address, program, message, password } = req.body;
+    const { fullName, email, phone, qualification, address, program, message, password } = req.body;
 
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide all required fields (firstName, lastName, email, password)' });
+    if (!fullName || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide all required fields (fullName, email, password)' });
     }
 
     const existingUser = await User.findOne({ email });
@@ -81,8 +77,7 @@ router.post('/register', upload.any(), async (req, res, next) => {
 
     // 1. Create User account (isVerified=false, role=student, isActive=true)
     const user = await User.create({
-      firstName,
-      lastName,
+      fullName,
       email,
       phone,
       password, // it will be hashed by pre-save hook in User model
@@ -106,8 +101,7 @@ router.post('/register', upload.any(), async (req, res, next) => {
     // 2. Create StudentRequest document
     const request = await StudentRequest.create({
       user: user._id,
-      firstName,
-      lastName,
+      fullName,
       email,
       phone,
       qualification,
@@ -127,7 +121,7 @@ router.post('/register', upload.any(), async (req, res, next) => {
         io.to(`user:${admin._id}`).emit('notification:new', {
           type: 'student_request',
           title: 'New student registration',
-          message: `${firstName} ${lastName} has submitted a registration request`,
+          message: `${fullName} has submitted a registration request`,
           actionUrl: `/admin/applications`,
           priority: 'medium'
         });
@@ -161,8 +155,7 @@ router.post('/login', async (req, res, next) => {
 
     if (!user && defaultAccount && password === defaultAccount.password) {
       user = await User.create({
-        firstName: defaultAccount.firstName,
-        lastName: defaultAccount.lastName,
+        fullName: defaultAccount.fullName,
         email: normalizedEmail,
         phone: defaultAccount.phone,
         password: defaultAccount.password,
@@ -268,8 +261,7 @@ router.post('/login', async (req, res, next) => {
 
     const sanitizedUser = {
       _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      fullName: user.fullName,
       email: user.email,
       phone: user.phone,
       role: user.role,
@@ -294,8 +286,7 @@ router.get('/me', protect, async (req, res, next) => {
   try {
     const user = {
       _id: req.user._id,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
+      fullName: req.user.fullName,
       email: req.user.email,
       phone: req.user.phone,
       role: req.user.role,
@@ -393,18 +384,17 @@ router.post('/refresh-token', async (req, res, next) => {
 // PUT /me → Update own profile fields
 router.put('/me', protect, async (req, res, next) => {
   try {
-    const { firstName, lastName, phone } = req.body;
+    const { fullName, phone } = req.body;
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      { $set: { firstName, lastName, phone } },
+      { $set: { fullName, phone } },
       { new: true }
     );
     res.json({
       success: true,
       user: {
         _id: updatedUser._id,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
+        fullName: updatedUser.fullName,
         email: updatedUser.email,
         phone: updatedUser.phone,
         role: updatedUser.role

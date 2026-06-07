@@ -39,7 +39,7 @@ function Schedule() {
     scheduledAt: m.scheduledAt,
     duration: m.duration,
     status: m.status,
-    attendees: m.attendees ? m.attendees.map((a: any) => a.student?.firstName ?? '').filter(Boolean) : [],
+    attendees: m.attendees ? m.attendees.map((a: any) => a.student?.fullName ?? '').filter(Boolean) : [],
     roomId: m.roomId,
     classroomName: m.classroom?.name ?? m.classroom?.code ?? 'Classroom',
   }));

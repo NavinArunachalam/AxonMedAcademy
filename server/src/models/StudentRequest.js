@@ -4,8 +4,7 @@ const studentRequestSchema = new mongoose.Schema({
   user:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   
   // Personal info snapshot at registration
-  firstName:    String,
-  lastName:     String,
+  fullName:     String,
   email:        String,
   phone:        String,
   qualification:String,

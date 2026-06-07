@@ -210,13 +210,13 @@ router.put('/:id/approve', async (req, res, next) => {
     await whatsappService.send({
       phone: request.phone,
       template: 'account_approved',
-      data: { name: request.firstName, loginUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/login` }
+      data: { name: request.fullName, loginUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/login` }
     });
 
     await emailService.send({
       to: request.email,
       template: 'account_approved',
-      data: { firstName: request.firstName }
+      data: { fullName: request.fullName }
     });
 
     res.json({ success: true, message: 'Student request approved successfully', request });
@@ -445,17 +445,17 @@ router.put('/:userId/restore', async (req, res, next) => {
 router.put('/:userId/edit', async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName, phone, qualification, address } = req.body;
+    const { fullName, phone, qualification, address } = req.body;
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { $set: { firstName, lastName, phone } },
+      { $set: { fullName, phone } },
       { new: true }
     );
 
     await StudentRequest.findOneAndUpdate(
       { user: userId },
-      { $set: { firstName, lastName, phone, qualification, address } }
+      { $set: { fullName, phone, qualification, address } }
     );
 
     res.json({ success: true, message: 'Student details updated successfully', user });

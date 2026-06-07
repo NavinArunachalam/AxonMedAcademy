@@ -33,11 +33,11 @@ router.get('/users', protect, restrictTo('admin', 'superadmin'), async (req, res
     if (status === 'inactive') filter.isActive = false;
     if (search) {
       const q = new RegExp(String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      filter.$or = [{ firstName: q }, { lastName: q }, { email: q }, { phone: q }];
+      filter.$or = [{ fullName: q }, { email: q }, { phone: q }];
     }
 
     const users = await User.find(filter)
-      .select('firstName lastName email phone role isVerified isActive avatar createdAt')
+      .select('fullName email phone role isVerified isActive avatar createdAt')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -55,7 +55,7 @@ router.get('/users/:id', (req, res) => {
 // POST /users → Create user manually
 router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, role, password } = req.body;
+    const { fullName, email, phone, role, password } = req.body;
 
     // 1. Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -65,8 +65,7 @@ router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, re
 
     // 2. Create User
     const user = await User.create({
-      firstName,
-      lastName,
+      fullName,
       email,
       phone,
       role: role || 'student',
@@ -94,8 +93,7 @@ router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, re
       message: 'User created successfully and welcome email sent',
       user: {
         id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: user.fullName,
         email: user.email,
         role: user.role
       }

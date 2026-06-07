@@ -58,7 +58,7 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
     }
 
     const meetings = await LiveMeeting.find({ classroom: classroom._id })
-      .populate('createdBy', 'firstName lastName')
+      .populate('createdBy', 'fullName')
       .sort({ scheduledAt: 1 });
 
     res.json({ success: true, meetings });
@@ -81,7 +81,7 @@ router.get('/my', protect, async (req, res, next) => {
       status: { $ne: 'cancelled' }
     })
       .populate('classroom', 'name code')
-      .populate('createdBy', 'firstName lastName')
+      .populate('createdBy', 'fullName')
       .sort({ scheduledAt: 1 });
 
     res.json({ success: true, meetings });
@@ -95,8 +95,8 @@ router.get('/room/:roomId', protect, async (req, res, next) => {
   try {
     const meeting = await LiveMeeting.findOne({ roomId: req.params.roomId })
       .populate('classroom', 'name code')
-      .populate('createdBy', 'firstName lastName email')
-      .populate('attendees.student', 'firstName lastName email avatar');
+      .populate('createdBy', 'fullName email')
+      .populate('attendees.student', 'fullName email avatar');
 
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
@@ -183,8 +183,8 @@ router.get('/:id', protect, async (req, res, next) => {
   try {
     const meeting = await LiveMeeting.findById(req.params.id)
       .populate('classroom')
-      .populate('createdBy', 'firstName lastName')
-      .populate('attendees.student', 'firstName lastName email avatar');
+      .populate('createdBy', 'fullName')
+      .populate('attendees.student', 'fullName email avatar');
 
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
@@ -480,7 +480,7 @@ router.post('/:id/end', async (req, res, next) => {
 router.get('/:id/attendance', async (req, res, next) => {
   try {
     const meeting = await LiveMeeting.findById(req.params.id)
-      .populate('attendees.student', 'firstName lastName email phone avatar');
+      .populate('attendees.student', 'fullName email phone avatar');
 
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });

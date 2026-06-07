@@ -6,10 +6,9 @@ const applicationSchema = new mongoose.Schema({
   applicationNo:{ type: String, unique: true }, // e.g. APP-2024-00123
   status:       { type: String, enum: ['draft', 'submitted', 'under_review', 'accepted', 'rejected', 'waitlisted'], default: 'draft' },
   step:         { type: Number, default: 1 }, // 1=Personal, 2=Academic, 3=Documents, 4=Payment
-  personal: {
-    firstName: String, 
-    lastName: String,
-    email: String, 
+  personalInfo: {
+    fullName: String,
+    email: String,
     phone: String, 
     address: String
   },

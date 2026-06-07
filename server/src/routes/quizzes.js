@@ -362,7 +362,7 @@ router.get('/:id/leaderboard', protect, async (req, res, next) => {
       { $unwind: '$studentInfo' },
       {
         $project: {
-          studentName: { $concat: ['$studentInfo.firstName', ' ', '$studentInfo.lastName'] },
+          studentName: '$studentInfo.fullName',
           avatar: '$studentInfo.avatar',
           score: '$bestAttempt.score.rawMarks',
           totalMarks: '$bestAttempt.score.totalMarks',
@@ -521,7 +521,7 @@ router.get('/:id/report', async (req, res, next) => {
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
     const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' })
-      .populate('student', 'firstName lastName email phone')
+      .populate('student', 'fullName email phone')
       .sort({ 'score.rawMarks': -1 });
 
     res.json({ success: true, attempts });
@@ -537,14 +537,14 @@ router.get('/:id/report/export', async (req, res, next) => {
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
     const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' })
-      .populate('student', 'firstName lastName email');
+      .populate('student', 'fullName email');
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=quiz-${req.params.id}-report.csv`);
 
     let csvContent = 'Student Name,Email,Attempt No,Raw Score,Total Marks,Percentage,Passed,Submitted Time\n';
     attempts.forEach(a => {
-      const name = `${a.student.firstName} ${a.student.lastName}`;
+      const name = a.student.fullName;
       csvContent += `"${name}","${a.student.email}",${a.attemptNo},${a.score.rawMarks},${a.score.totalMarks},${a.score.percentage.toFixed(2)}%,${a.score.passed ? 'Yes' : 'No'},"${a.submittedAt.toISOString()}"\n`;
     });
 

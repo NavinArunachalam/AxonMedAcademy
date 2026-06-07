@@ -25,7 +25,7 @@ function Login() {
       const role = backendUser.role === "student" ? "student" : "admin";
       const currentUser: User = {
         id: backendUser._id,
-        name: `${backendUser.firstName || ""} ${backendUser.lastName || ""}`.trim() || backendUser.email,
+        name: backendUser.fullName || backendUser.email,
         email: backendUser.email,
         phone: backendUser.phone,
         role,
@@ -102,15 +102,6 @@ function Login() {
 
           <div className="my-6 flex items-center gap-3 text-xs text-foreground/50">
             <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-dashed border-plum/30 bg-secondary/60 p-4">
-            <div className="text-[10px] uppercase tracking-widest text-plum font-bold">Demo Accounts</div>
-            <div className="mt-2 text-xs text-foreground/60 space-y-1">
-              <p>Admin: ID `Admin`, Pass `axon@admin`</p>
-              <p>Student 1: ID `Ajay`, Pass `1111`</p>
-              <p>Student 2: ID `Navin`, Pass `2222`</p>
-            </div>
           </div>
 
           <p className="mt-6 text-center text-sm text-foreground/65">

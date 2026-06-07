@@ -72,7 +72,7 @@ const attachMeetingsToClassrooms = async (classrooms) => {
   const list = Array.isArray(classrooms) ? classrooms : [classrooms];
   const classroomIds = list.map((classroom) => classroom._id);
   const meetings = await LiveMeeting.find({ classroom: { $in: classroomIds } })
-    .populate('createdBy', 'firstName lastName')
+    .populate('createdBy', 'fullName')
     .sort({ scheduledAt: 1 })
     .lean();
 
@@ -98,13 +98,13 @@ const attachClassroomDetails = async (classrooms) => {
 
   // Fetch recordings with creator and student details populated
   const recordings = await ClassroomRecording.find({ classroom: { $in: classroomIds } })
-    .populate('uploadedBy', 'firstName lastName')
-    .populate('viewStats.student', 'firstName lastName')
+    .populate('uploadedBy', 'fullName')
+    .populate('viewStats.student', 'fullName')
     .sort({ createdAt: -1 })
     .lean();
 
   const announcements = await ClassroomAnnouncement.find({ classroom: { $in: classroomIds } })
-    .populate('author', 'firstName lastName role avatar')
+    .populate('author', 'fullName role avatar')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -115,7 +115,7 @@ const attachClassroomDetails = async (classrooms) => {
 
   // Fetch quiz attempts for the classrooms
   const quizAttempts = await QuizAttempt.find({ classroom: { $in: classroomIds } })
-    .populate('student', 'firstName lastName email phone')
+    .populate('student', 'fullName email phone')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -146,7 +146,7 @@ const attachClassroomDetails = async (classrooms) => {
     acc[key].push({
       ...att,
       id: att._id.toString(),
-      studentName: att.student ? `${att.student.firstName} ${att.student.lastName}`.trim() : 'Student'
+      studentName: att.student ? att.student.fullName : 'Student'
     });
     return acc;
   }, {});
@@ -188,8 +188,8 @@ router.get('/my', protect, async (req, res, next) => {
     })
       .populate('program')
       .populate('batch')
-      .populate('students.student', 'firstName lastName email phone avatar role isVerified isActive')
-      .populate('instructors', 'firstName lastName email avatar')
+      .populate('students.student', 'fullName email phone avatar role isVerified isActive')
+      .populate('instructors', 'fullName email avatar')
       .lean();
 
     res.json({ success: true, classrooms: await attachClassroomDetails(classrooms) });
@@ -204,9 +204,9 @@ router.get('/:id', protect, async (req, res, next) => {
     const classroom = await Classroom.findById(req.params.id)
       .populate('program')
       .populate('batch')
-      .populate('createdBy', 'firstName lastName email')
-      .populate('students.student', 'firstName lastName email phone avatar role isVerified isActive')
-      .populate('instructors', 'firstName lastName email avatar')
+      .populate('createdBy', 'fullName email')
+      .populate('students.student', 'fullName email phone avatar role isVerified isActive')
+      .populate('instructors', 'fullName email avatar')
       .lean();
 
     if (!classroom) {
@@ -231,7 +231,7 @@ router.get('/:id', protect, async (req, res, next) => {
 router.get('/:id/announcements', protect, async (req, res, next) => {
   try {
     const announcements = await ClassroomAnnouncement.find({ classroom: req.params.id })
-      .populate('author', 'firstName lastName role avatar')
+      .populate('author', 'fullName role avatar')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, announcements });
@@ -310,8 +310,8 @@ router.get('/', async (req, res, next) => {
     const classrooms = await Classroom.find(filter)
       .populate('program')
       .populate('batch')
-      .populate('students.student', 'firstName lastName email phone avatar role isVerified isActive')
-      .populate('instructors', 'firstName lastName')
+      .populate('students.student', 'fullName email phone avatar role isVerified isActive')
+      .populate('instructors', 'fullName')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -380,7 +380,7 @@ router.get('/:id/students', async (req, res, next) => {
     const classroom = await Classroom.findById(req.params.id)
       .populate({
         path: 'students.student',
-        select: 'firstName lastName email phone avatar role isVerified isActive'
+        select: 'fullName email phone avatar role isVerified isActive'
       });
 
     if (!classroom) {
@@ -509,7 +509,7 @@ router.post('/:id/announcements', async (req, res, next) => {
 
     // Populating author details
     const populated = await ClassroomAnnouncement.findById(announcement._id)
-      .populate('author', 'firstName lastName role avatar');
+      .populate('author', 'fullName role avatar');
 
     // Socket notify students in classroom
     try {

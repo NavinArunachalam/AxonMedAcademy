@@ -46,7 +46,7 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
     if (!isAdmin) filter.isPublished = true;
 
     const recordings = await ClassroomRecording.find(filter)
-      .populate('uploadedBy', 'firstName lastName')
+      .populate('uploadedBy', 'fullName')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, recordings });
@@ -59,7 +59,7 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
 router.get('/classroom/:classroomId/analytics', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
     const recordings = await ClassroomRecording.find({ classroom: req.params.classroomId })
-      .populate('viewStats.student', 'firstName lastName email');
+      .populate('viewStats.student', 'fullName email');
     res.json({ success: true, recordings });
   } catch (error) {
     next(error);
@@ -407,7 +407,7 @@ router.get('/:id', protect, async (req, res, next) => {
     }
     const recording = await ClassroomRecording.findById(req.params.id)
       .populate('classroom')
-      .populate('uploadedBy', 'firstName lastName');
+      .populate('uploadedBy', 'fullName');
 
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
@@ -519,7 +519,7 @@ router.get('/:id/analytics', protect, restrictTo('admin', 'superadmin'), async (
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
     const recording = await ClassroomRecording.findById(req.params.id)
-      .populate('viewStats.student', 'firstName lastName email avatar');
+      .populate('viewStats.student', 'fullName email avatar');
 
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });

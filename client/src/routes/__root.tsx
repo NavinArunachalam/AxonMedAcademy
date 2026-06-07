@@ -110,7 +110,7 @@ function RootComponent() {
         const role = backendUser.role === "student" ? "student" : "admin";
         const currentUser: User = {
           id: backendUser._id,
-          name: `${backendUser.firstName || ""} ${backendUser.lastName || ""}`.trim() || backendUser.email,
+          name: backendUser.fullName || backendUser.email,
           email: backendUser.email,
           phone: backendUser.phone,
           role,

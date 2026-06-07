@@ -326,13 +326,8 @@ function AdminStudents() {
     if (!form.name || !form.email) return;
 
     try {
-      const names = form.name.trim().split(" ");
-      const firstName = names[0];
-      const lastName = names.slice(1).join(" ") || " ";
-
       const res = await createAdminUser({
-        firstName,
-        lastName,
+        fullName: form.name,
         email: form.email,
         role: "student",
         password: form.password || "1111"

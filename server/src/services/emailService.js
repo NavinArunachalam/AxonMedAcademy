@@ -20,7 +20,7 @@ exports.sendWelcomeEmail = async (user, password) => {
           <h1 style="margin: 0;">Welcome to HTA</h1>
         </div>
         <div style="padding: 20px;">
-          <p>Dear ${user.firstName},</p>
+          <p>Dear ${user.fullName},</p>
           <p>Congratulations! You have been successfully registered as a student at <strong>Hospital Training Academy</strong>.</p>
           <p>You can now access your learning portal using the credentials below:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">

@@ -6,30 +6,26 @@ dotenv.config();
 
 const defaultUsers = [
   {
-    firstName: 'Super',
-    lastName: 'Admin',
+    fullName: 'Super Admin',
     email: process.env.SUPER_ADMIN_EMAIL || 'superadmin@hospitalacademy.edu',
     password: process.env.SUPER_ADMIN_PASSWORD || 'SuperAdminPass123!',
     role: 'superadmin'
   },
   {
-    firstName: 'Admin',
-    lastName: 'User',
+    fullName: 'Admin User',
     email: 'admin@ex.com',
     password: 'axon@admin',
     role: 'admin'
   },
   {
-    firstName: 'Ajay',
-    lastName: 'Kumar',
+    fullName: 'Ajay Kumar',
     email: 'ajay@ex.com',
     password: '1111',
     role: 'student',
     phone: '+91 98700 11110'
   },
   {
-    firstName: 'Navin',
-    lastName: 'Raj',
+    fullName: 'Navin Raj',
     email: 'navin@ex.com',
     password: '2222',
     role: 'student',
@@ -43,8 +39,7 @@ const seedDefaultUsers = async () => {
       const existing = await User.findOne({ email: defaultUser.email }).select('+password');
       if (existing) {
         const passwordMatches = await existing.comparePassword(defaultUser.password);
-        existing.firstName = defaultUser.firstName;
-        existing.lastName = defaultUser.lastName;
+        existing.fullName = defaultUser.fullName;
         existing.role = defaultUser.role;
         existing.isVerified = true;
         existing.isActive = true;

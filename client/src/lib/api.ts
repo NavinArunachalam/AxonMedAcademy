@@ -65,7 +65,7 @@ function normalizeBackendClassroom(raw: any) {
     students: Array.isArray(raw.students)
       ? raw.students.map((s: any) => ({
         id: String(s.student?._id || s.student || `student-${Date.now()}`),
-        name: s.student?.firstName ? `${s.student.firstName} ${s.student.lastName || ''}`.trim() : s.student?.email || 'Student',
+        name: s.student?.fullName || s.student?.email || 'Student',
         email: s.student?.email || '',
         enrollmentId: s.enrollmentId || '',
         progress: 0,
@@ -104,7 +104,7 @@ function normalizeBackendClassroom(raw: any) {
         viewStats: Array.isArray(r.viewStats)
           ? r.viewStats.map((v: any) => ({
             studentId: String(v.student?._id || v.student),
-            studentName: v.student ? `${v.student.firstName || ''} ${v.student.lastName || ''}`.trim() || 'Student' : 'Student',
+            studentName: v.student ? v.student.fullName || 'Student' : 'Student',
             watchedPercent: r.duration > 0 ? Math.round((v.totalWatchedSec / r.duration) * 100) : 0,
           }))
           : [],
@@ -166,9 +166,7 @@ function normalizeBackendAnnouncement(raw: any) {
     id: raw._id || raw.id,
     content: raw.content || '',
     createdAt: raw.createdAt || new Date().toISOString(),
-    author: author?.firstName
-      ? `${author.firstName} ${author.lastName || ''}`.trim()
-      : author?.email || author?.role || 'Admin',
+    author: author?.fullName || author?.email || author?.role || 'Admin',
   };
 }
 
@@ -204,7 +202,7 @@ function normalizeBackendQuiz(raw: any) {
     attempts: Array.isArray(raw.attempts) ? raw.attempts.map((att: any) => ({
       id: att._id || att.id,
       studentId: String(att.student?._id || att.student || ''),
-      studentName: att.studentName || 'Student',
+      studentName: att.studentName || att.student?.fullName || 'Student',
       attemptNo: att.attemptNo || 1,
       status: att.status || 'submitted',
       startedAt: att.startedAt,
@@ -266,7 +264,7 @@ export async function getAdminUsers(role?: string) {
   const payload = await fetchJson(`/admin/users${query}`);
   return payload.users.map((user: any) => ({
     id: String(user._id || user.id),
-    name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+    name: user.fullName || user.email,
     email: user.email || '',
     phone: user.phone || '',
     role: user.role,
@@ -277,8 +275,7 @@ export async function getAdminUsers(role?: string) {
 }
 
 export async function createAdminUser(data: {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
   role: string;
   password?: string;
@@ -339,8 +336,7 @@ function normalizeBackendQuizAttempt(att: any) {
   return {
     id: att._id || att.id,
     studentId: String(att.student?._id || att.student || ''),
-    studentName: att.studentName
-      || (att.student?.firstName ? `${att.student.firstName} ${att.student.lastName || ''}`.trim() : 'Student'),
+    studentName: att.studentName || att.student?.fullName || 'Student',
     attemptNo: att.attemptNo || 1,
     status: att.status || 'submitted',
     startedAt: att.startedAt,
@@ -953,8 +949,7 @@ export async function deleteAdminProgram(id: string) {
 // ─── Public Enrollment Registration ──────────────────────────────────────────
 
 export interface RegisterStudentData {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
   phone?: string;
   password: string;
@@ -981,8 +976,7 @@ export async function registerStudent(data: RegisterStudentData): Promise<{ requ
 
 export interface EnrollmentRequest {
   _id: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
   phone?: string;
   qualification?: string;

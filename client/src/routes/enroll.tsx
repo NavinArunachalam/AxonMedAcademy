@@ -7,8 +7,7 @@ export const Route = createFileRoute("/enroll")({ component: Enroll });
 
 function Enroll() {
   const [formData, setFormData] = useState<RegisterStudentData>({
-    firstName: "",
-    lastName: "",
+    fullName: "",
     email: "",
     phone: "",
     password: "",
@@ -42,6 +41,12 @@ function Enroll() {
     e.preventDefault();
     setError("");
     setIsSubmitting(true);
+
+    if (!formData.fullName || !formData.email || !formData.password) {
+      setError("Please fill in all required fields (Full Name, Email, Password)");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       await registerStudent(formData);
@@ -154,31 +159,17 @@ function Enroll() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">First Name *</label>
-                <input
-                  required
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  type="text"
-                  placeholder="e.g. John"
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Last Name *</label>
-                <input
-                  required
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  type="text"
-                  placeholder="e.g. Doe"
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
-                />
-              </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Full Name *</label>
+              <input
+                required
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                type="text"
+                placeholder="e.g. John Doe"
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

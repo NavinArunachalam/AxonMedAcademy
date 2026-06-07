@@ -51,11 +51,8 @@ const protect = async (req, res, next) => {
         let currentUser = await User.findOne({ email: devUserEmail });
         if (!currentUser) {
           const fullName = String(devUserName || devUserEmail).trim();
-          const [firstName, ...lastParts] = fullName.split(' ');
-          const lastName = lastParts.join(' ') || 'Developer';
           currentUser = await User.create({
-            firstName: firstName || 'Dev',
-            lastName: lastName,
+            fullName: fullName || 'Dev User',
             email: devUserEmail,
             role: devUserRole || 'student',
             password: crypto.randomBytes(12).toString('hex'),
