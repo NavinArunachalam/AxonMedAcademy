@@ -119,6 +119,8 @@ export interface Meeting {
   status: "scheduled" | "live" | "ended" | "cancelled";
   attendees: string[];
   roomId: string;
+  webexLink?: string;
+  webexPassword?: string;
 }
 
 export interface Announcement {

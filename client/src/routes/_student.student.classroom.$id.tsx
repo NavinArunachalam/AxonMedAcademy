@@ -131,14 +131,14 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                   </div>
                   {m.status === "live" ? (
                     <a
-                      href={`/student/jitsi/${m.roomId}`}
+                      href={`/student/webex/${m.roomId}`}
                       className="rounded-full bg-red-500 text-white px-5 py-2.5 text-sm font-bold flex items-center gap-2 shrink-0"
                     >
                       <Radio className="h-4 w-4" /> Join Now
                     </a>
                   ) : (
                     <a
-                      href={`/student/jitsi/${m.roomId}`}
+                      href={`/student/webex/${m.roomId}`}
                       className="rounded-full bg-plum-dark text-cream px-5 py-2.5 text-sm font-bold flex items-center gap-2 shrink-0 hover:bg-plum transition-colors"
                     >
                       Join Class

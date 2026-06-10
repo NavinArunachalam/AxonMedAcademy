@@ -94,7 +94,7 @@ router.get('/my', protect, async (req, res, next) => {
 router.get('/room/:roomId', protect, async (req, res, next) => {
   try {
     const meeting = await LiveMeeting.findOne({ roomId: req.params.roomId })
-      .populate('classroom', 'name code')
+      .populate('classroom', 'name code students')
       .populate('createdBy', 'fullName email')
       .populate('attendees.student', 'fullName email avatar');
 
@@ -102,11 +102,13 @@ router.get('/room/:roomId', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
-    const classroom = await Classroom.findById(meeting.classroom);
+    const classroom = meeting.classroom;
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
     const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
+    
     if (!isAdmin && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to view this meeting' });
+      console.warn(`[Meeting Access Denied] User: ${req.user._id} (${req.user.role}) for Room: ${req.params.roomId}`);
+      return res.status(403).json({ success: false, message: 'You are not authorized to view this meeting room. Please ensure you are enrolled in the classroom.' });
     }
 
     res.json({ success: true, meeting });
@@ -118,16 +120,18 @@ router.get('/room/:roomId', protect, async (req, res, next) => {
 // POST /room/:roomId/join → Student/Admin joins by roomId
 router.post('/room/:roomId/join', protect, async (req, res, next) => {
   try {
-    const meeting = await LiveMeeting.findOne({ roomId: req.params.roomId });
+    const meeting = await LiveMeeting.findOne({ roomId: req.params.roomId })
+      .populate('classroom', 'students');
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
-    const classroom = await Classroom.findById(meeting.classroom);
+    const classroom = meeting.classroom;
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
     const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
+    
     if (!isAdmin && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to join this meeting room' });
+      return res.status(403).json({ success: false, message: 'You are not authorized to join this meeting room. Please ensure you are enrolled in the classroom.' });
     }
 
     const alreadyAttended = meeting.attendees.find(a => a.student.toString() === req.user._id.toString() && !a.leftAt);
@@ -146,7 +150,8 @@ router.post('/room/:roomId/join', protect, async (req, res, next) => {
         _id: meeting._id,
         title: meeting.title,
         roomId: meeting.roomId,
-        jitsiRoom: meeting.jitsiRoom,
+        webexLink: meeting.webexLink,
+        webexPassword: meeting.webexPassword,
         status: meeting.status
       }
     });
@@ -239,7 +244,8 @@ router.post('/:id/join', protect, async (req, res, next) => {
         _id: meeting._id,
         title: meeting.title,
         roomId: meeting.roomId,
-        jitsiRoom: meeting.jitsiRoom,
+        webexLink: meeting.webexLink,
+        webexPassword: meeting.webexPassword,
         status: meeting.status
       }
     });
@@ -293,11 +299,26 @@ router.post('/', async (req, res, next) => {
 
     const classroomDoc = await resolveClassroom(classroom);
     if (!classroomDoc) {
+      console.error('[Meeting Create Error] Classroom not found:', classroom);
       return res.status(404).json({ success: false, message: 'Classroom not found for meeting creation' });
     }
 
+    console.log(`[Meeting Create] Creating Webex meeting for classroom: ${classroomDoc.name} (${classroomDoc._id})`);
+
     const uuid = crypto.randomUUID();
-    const jitsiRoomName = `HTA-${uuid}`;
+    let webexData = null;
+    try {
+      const { createWebexMeeting } = require('../services/webexService');
+      webexData = await createWebexMeeting({
+        title,
+        start: scheduledAt,
+        duration: duration || 60
+      });
+      console.log('[Meeting Create] Webex meeting created:', webexData.id);
+    } catch (err) {
+      console.error('[Webex Create Error]', err.message);
+      return res.status(500).json({ success: false, message: 'Failed to create Webex meeting: ' + err.message });
+    }
 
     const meeting = await LiveMeeting.create({
       classroom: classroomDoc._id,
@@ -308,11 +329,13 @@ router.post('/', async (req, res, next) => {
       createdBy: req.user._id,
       roomId: uuid,
       meetingLink: `/portal/live/${uuid}/room`,
-      jitsiRoom: jitsiRoomName,
+      webexMeetingId: webexData.id,
+      webexLink: webexData.webLink,
+      webexPassword: webexData.password,
       notified: {
         whatsapp: !!sendWhatsApp,
         portal: !!sendPortalNotification,
-        sentAt: sendWhatsApp || sendPortalNotification ? new Date() : null
+        sentAt: (sendWhatsApp || sendPortalNotification) ? new Date() : null
       }
     });
 
@@ -332,9 +355,9 @@ router.post('/', async (req, res, next) => {
         recipient: studentId,
         type: 'live_session',
         title: `Join live class: ${title}`,
-        message: `${title} is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Join link: ${process.env.CLIENT_URL || 'http://localhost:8080'}/student/jitsi/${uuid}`,
+        message: `${title} is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Join link: ${process.env.CLIENT_URL || 'http://localhost:8080'}/student/webex/${uuid}`,
         priority: 'medium',
-        actionUrl: `/student/jitsi/${uuid}`,
+        actionUrl: `/student/webex/${uuid}`,
         metadata: {
           classroom: classroomDoc._id,
           meetingId: meeting._id,
@@ -392,6 +415,16 @@ router.delete('/:id', async (req, res, next) => {
 
     meeting.status = 'cancelled';
     await meeting.save();
+
+    // Delete from Webex if exists
+    if (meeting.webexMeetingId) {
+      try {
+        const { deleteWebexMeeting } = require('../services/webexService');
+        await deleteWebexMeeting(meeting.webexMeetingId);
+      } catch (err) {
+        console.error('[Webex Delete Error]', err.message);
+      }
+    }
 
     // Decrement totalLiveSessions classroom stats
     await Classroom.findByIdAndUpdate(meeting.classroom, {

@@ -16,6 +16,11 @@ const liveMeetingSchema = new mongoose.Schema({
   
   // Jitsi / WebRTC config
   jitsiRoom:    { type: String }, // jitsi room name
+
+  // Webex config
+  webexMeetingId: { type: String },
+  webexLink:      { type: String },
+  webexPassword:  { type: String },
   
   // Notifications sent?
   notified: {

@@ -15,7 +15,7 @@ const batchSchema = new mongoose.Schema({
   enrolledCount: { type: Number, default: 0 },
   faculty: [{ type: mongoose.Schema.Types.ObjectId, ref: 'FacultyProfile' }],
   status: { type: String, enum: ['upcoming', 'active', 'completed', 'cancelled'], default: 'upcoming' },
-  joinLink:      { type: String }, // Zoom/Jitsi room URL
+  joinLink:      { type: String }, // Zoom/Webex room URL
   zoomMeetingId: { type: String },
   isOnline:      { type: Boolean, default: true }
 }, { 

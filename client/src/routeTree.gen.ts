@@ -39,7 +39,7 @@ import { Route as AdminAdminAnalyticsRouteImport } from './routes/_admin.admin.a
 import { Route as StudentStudentMyCoursesIndexRouteImport } from './routes/_student.student.my-courses.index'
 import { Route as StudentStudentClassroomsIndexRouteImport } from './routes/_student.student.classrooms.index'
 import { Route as AdminAdminClassroomsIndexRouteImport } from './routes/_admin.admin.classrooms.index'
-import { Route as StudentStudentJitsiRoomIdRouteImport } from './routes/_student.student.jitsi.$roomId'
+import { Route as StudentStudentWebexRoomIdRouteImport } from './routes/_student.student.webex.$roomId'
 import { Route as StudentStudentCourseIdRouteImport } from './routes/_student.student.course.$id'
 import { Route as StudentStudentClassroomIdRouteImport } from './routes/_student.student.classroom.$id'
 import { Route as AdminAdminClassroomsIdRouteImport } from './routes/_admin.admin.classrooms.$id'
@@ -196,10 +196,10 @@ const AdminAdminClassroomsIndexRoute =
     path: '/admin/classrooms/',
     getParentRoute: () => AdminRoute,
   } as any)
-const StudentStudentJitsiRoomIdRoute =
-  StudentStudentJitsiRoomIdRouteImport.update({
-    id: '/student/jitsi/$roomId',
-    path: '/student/jitsi/$roomId',
+const StudentStudentWebexRoomIdRoute =
+  StudentStudentWebexRoomIdRouteImport.update({
+    id: '/student/webex/$roomId',
+    path: '/student/webex/$roomId',
     getParentRoute: () => StudentRoute,
   } as any)
 const StudentStudentCourseIdRoute = StudentStudentCourseIdRouteImport.update({
@@ -248,7 +248,7 @@ export interface FileRoutesByFullPath {
   '/admin/classrooms/$id': typeof AdminAdminClassroomsIdRoute
   '/student/classroom/$id': typeof StudentStudentClassroomIdRoute
   '/student/course/$id': typeof StudentStudentCourseIdRoute
-  '/student/jitsi/$roomId': typeof StudentStudentJitsiRoomIdRoute
+  '/student/webex/$roomId': typeof StudentStudentWebexRoomIdRoute
   '/admin/classrooms/': typeof AdminAdminClassroomsIndexRoute
   '/student/classrooms/': typeof StudentStudentClassroomsIndexRoute
   '/student/my-courses/': typeof StudentStudentMyCoursesIndexRoute
@@ -282,7 +282,7 @@ export interface FileRoutesByTo {
   '/admin/classrooms/$id': typeof AdminAdminClassroomsIdRoute
   '/student/classroom/$id': typeof StudentStudentClassroomIdRoute
   '/student/course/$id': typeof StudentStudentCourseIdRoute
-  '/student/jitsi/$roomId': typeof StudentStudentJitsiRoomIdRoute
+  '/student/webex/$roomId': typeof StudentStudentWebexRoomIdRoute
   '/admin/classrooms': typeof AdminAdminClassroomsIndexRoute
   '/student/classrooms': typeof StudentStudentClassroomsIndexRoute
   '/student/my-courses': typeof StudentStudentMyCoursesIndexRoute
@@ -319,7 +319,7 @@ export interface FileRoutesById {
   '/_admin/admin/classrooms/$id': typeof AdminAdminClassroomsIdRoute
   '/_student/student/classroom/$id': typeof StudentStudentClassroomIdRoute
   '/_student/student/course/$id': typeof StudentStudentCourseIdRoute
-  '/_student/student/jitsi/$roomId': typeof StudentStudentJitsiRoomIdRoute
+  '/_student/student/webex/$roomId': typeof StudentStudentWebexRoomIdRoute
   '/_admin/admin/classrooms/': typeof AdminAdminClassroomsIndexRoute
   '/_student/student/classrooms/': typeof StudentStudentClassroomsIndexRoute
   '/_student/student/my-courses/': typeof StudentStudentMyCoursesIndexRoute
@@ -355,7 +355,7 @@ export interface FileRouteTypes {
     | '/admin/classrooms/$id'
     | '/student/classroom/$id'
     | '/student/course/$id'
-    | '/student/jitsi/$roomId'
+    | '/student/webex/$roomId'
     | '/admin/classrooms/'
     | '/student/classrooms/'
     | '/student/my-courses/'
@@ -389,7 +389,7 @@ export interface FileRouteTypes {
     | '/admin/classrooms/$id'
     | '/student/classroom/$id'
     | '/student/course/$id'
-    | '/student/jitsi/$roomId'
+    | '/student/webex/$roomId'
     | '/admin/classrooms'
     | '/student/classrooms'
     | '/student/my-courses'
@@ -425,7 +425,7 @@ export interface FileRouteTypes {
     | '/_admin/admin/classrooms/$id'
     | '/_student/student/classroom/$id'
     | '/_student/student/course/$id'
-    | '/_student/student/jitsi/$roomId'
+    | '/_student/student/webex/$roomId'
     | '/_admin/admin/classrooms/'
     | '/_student/student/classrooms/'
     | '/_student/student/my-courses/'
@@ -657,11 +657,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminClassroomsIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/_student/student/jitsi/$roomId': {
-      id: '/_student/student/jitsi/$roomId'
-      path: '/student/jitsi/$roomId'
-      fullPath: '/student/jitsi/$roomId'
-      preLoaderRoute: typeof StudentStudentJitsiRoomIdRouteImport
+    '/_student/student/webex/$roomId': {
+      id: '/_student/student/webex/$roomId'
+      path: '/student/webex/$roomId'
+      fullPath: '/student/webex/$roomId'
+      preLoaderRoute: typeof StudentStudentWebexRoomIdRouteImport
       parentRoute: typeof StudentRoute
     }
     '/_student/student/course/$id': {
@@ -728,7 +728,7 @@ interface StudentRouteChildren {
   StudentStudentScheduleRoute: typeof StudentStudentScheduleRoute
   StudentStudentClassroomIdRoute: typeof StudentStudentClassroomIdRoute
   StudentStudentCourseIdRoute: typeof StudentStudentCourseIdRoute
-  StudentStudentJitsiRoomIdRoute: typeof StudentStudentJitsiRoomIdRoute
+  StudentStudentWebexRoomIdRoute: typeof StudentStudentWebexRoomIdRoute
   StudentStudentClassroomsIndexRoute: typeof StudentStudentClassroomsIndexRoute
   StudentStudentMyCoursesIndexRoute: typeof StudentStudentMyCoursesIndexRoute
 }
@@ -743,7 +743,7 @@ const StudentRouteChildren: StudentRouteChildren = {
   StudentStudentScheduleRoute: StudentStudentScheduleRoute,
   StudentStudentClassroomIdRoute: StudentStudentClassroomIdRoute,
   StudentStudentCourseIdRoute: StudentStudentCourseIdRoute,
-  StudentStudentJitsiRoomIdRoute: StudentStudentJitsiRoomIdRoute,
+  StudentStudentWebexRoomIdRoute: StudentStudentWebexRoomIdRoute,
   StudentStudentClassroomsIndexRoute: StudentStudentClassroomsIndexRoute,
   StudentStudentMyCoursesIndexRoute: StudentStudentMyCoursesIndexRoute,
 }

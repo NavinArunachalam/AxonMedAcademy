@@ -244,9 +244,12 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
         });
         setForm({ title: "", description: "", scheduledAt: "", duration: 60 });
         setShowForm(false);
+        alert("Webex meeting scheduled successfully!");
       })
       .catch((err) => {
+        console.error("Schedule Error:", err);
         setError(err.message || "Could not schedule meeting");
+        alert("Error scheduling meeting: " + (err.message || "Unknown error"));
       })
       .finally(() => setSaving(false));
   };
@@ -348,7 +351,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                   )}
                   {m.status === "live" && (
                     <>
-                      <button onClick={() => window.open(`https://meet.jit.si/HTA-${m.roomId}`, "_blank")}
+                      <button onClick={() => window.open(m.webexLink, "_blank")}
                         className="rounded-full bg-red-500/20 text-red-300 px-4 py-2 text-xs font-bold flex items-center gap-1">
                         <LuRadio className="h-3 w-3" /> Rejoin
                       </button>

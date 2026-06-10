@@ -88,6 +88,8 @@ function normalizeBackendClassroom(raw: any) {
         status: normalizeMeetingStatus(m.status),
         attendees: Array.isArray(m.attendees) ? m.attendees.map((a: any) => String(a.student || a)) : [],
         roomId: m.roomId || '',
+        webexLink: m.webexLink || '',
+        webexPassword: m.webexPassword || '',
       }))
       : [],
     recordings: Array.isArray(raw.recordings)
@@ -1020,11 +1022,14 @@ export async function holdEnrollmentRequest(id: string, opts: { note?: string } 
   });
 }
 
-export async function getPendingEnrollmentCount(): Promise<number> {
-  try {
-    const data = await fetchJson('/requests?status=pending');
-    return data?.counts?.pending_count ?? 0;
-  } catch {
-    return 0;
-  }
+export const api = {
+  get: (path: string) => fetchJson(path, { method: 'GET' }),
+  post: (path: string, body?: any) => fetchJson(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  put: (path: string, body?: any) => fetchJson(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+  delete: (path: string) => fetchJson(path, { method: 'DELETE' }),
+};
+
+export async function getMeetingByRoomId(roomId: string) {
+  const payload = await fetchJson(`/meetings/room/${encodeURIComponent(roomId)}`);
+  return payload.meeting;
 }

@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 // Initialize Socket.io
-// initSocket(server);
+initSocket(server);
 
 // Boot database & listen
 const startServer = async () => {

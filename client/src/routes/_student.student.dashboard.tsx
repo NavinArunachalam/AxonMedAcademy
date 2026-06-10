@@ -203,7 +203,7 @@ function Dashboard() {
                   <div className="text-xs text-muted-foreground truncate">{e.classroomName}</div>
                 </div>
                 <a 
-                  href={`/student/jitsi/${e.roomId}`}
+                  href={`/student/webex/${e.roomId}`}
                   className={`text-xs font-semibold rounded-full px-3 py-1.5 flex items-center gap-1.5 ${e.status === 'live' ? "bg-red-500 text-white" : "bg-plum-dark text-cream"}`}
                 >
                   {e.status === 'live' && <Radio className="h-3 w-3 animate-pulse" />}

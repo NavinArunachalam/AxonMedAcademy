@@ -95,7 +95,7 @@ function LiveClasses() {
           <h2 className="font-display text-xl">Latest Live Class</h2>
           <p className="mt-1">{latestLive.title} – {latestLive.classroomName}</p>
           <Link
-            to="/student/jitsi/$roomId"
+            to="/student/webex/$roomId"
             params={{ roomId: latestLive.roomId }}
             className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-4 py-2 font-bold mt-2"
           >
@@ -126,7 +126,7 @@ function LiveClasses() {
                 </div>
                 {/* ✅ roomId comes from normalized meeting data */}
                 <Link
-                  to="/student/jitsi/$roomId"
+                  to="/student/webex/$roomId"
                   params={{ roomId: m.roomId }}
                   className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-6 py-3 font-bold shrink-0 hover:bg-lime/90 transition-colors"
                 >
@@ -168,7 +168,7 @@ function LiveClasses() {
                 </div>
               </div>
                 <Link
-                  to="/student/jitsi/$roomId"
+                  to="/student/webex/$roomId"
                   params={{ roomId: m.roomId }}
                   className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-4 py-2 font-bold shrink-0 hover:bg-lime/90 transition-colors"
                 >
