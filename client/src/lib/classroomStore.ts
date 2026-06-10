@@ -92,6 +92,7 @@ export interface ViewStat {
   studentId: string;
   studentName: string;
   watchedPercent: number;
+  totalWatchedSec?: number;
   lastPosition: number;
 }
 

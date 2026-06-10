@@ -106,6 +106,7 @@ function normalizeBackendClassroom(raw: any) {
             studentId: String(v.student?._id || v.student),
             studentName: v.student ? v.student.fullName || 'Student' : 'Student',
             watchedPercent: r.duration > 0 ? Math.round((v.totalWatchedSec / r.duration) * 100) : 0,
+            totalWatchedSec: v.totalWatchedSec || 0,
           }))
           : [],
       }))

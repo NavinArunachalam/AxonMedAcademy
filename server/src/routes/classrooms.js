@@ -91,17 +91,73 @@ const attachMeetingsToClassrooms = async (classrooms) => {
   return Array.isArray(classrooms) ? withMeetings : withMeetings[0];
 };
 
+const manualPopulate = async (list, path, select = 'fullName email phone', filterDeleted = true) => {
+  const isArray = Array.isArray(list);
+  const items = isArray ? list : [list];
+  if (items.length === 0) return list;
+
+  const pathParts = path.split('.');
+  const ids = new Set();
+  items.forEach(item => {
+    if (pathParts.length === 1) {
+      const val = item[pathParts[0]];
+      if (val && mongoose.Types.ObjectId.isValid(val)) ids.add(val.toString());
+    } else if (pathParts.length === 2) {
+      const array = item[pathParts[0]];
+      if (Array.isArray(array)) {
+        array.forEach(sub => {
+          const val = sub[pathParts[1]];
+          if (val && mongoose.Types.ObjectId.isValid(val)) ids.add(val.toString());
+        });
+      }
+    }
+  });
+
+  const allIds = Array.from(ids);
+  if (allIds.length === 0) return list;
+
+  const users = await User.find({ _id: { $in: allIds } }).select(select + ' role isActive').lean();
+  const userMap = users.reduce((acc, u) => { acc[u._id.toString()] = u; return acc; }, {});
+
+  items.forEach(item => {
+    if (pathParts.length === 1) {
+      const val = item[pathParts[0]]?.toString();
+      item[pathParts[0]] = (val && userMap[val]) ? userMap[val] : null;
+    } else if (pathParts.length === 2) {
+      const array = item[pathParts[0]];
+      if (Array.isArray(array)) {
+        const originalLength = array.length;
+        const populated = array.map(sub => {
+          const val = sub[pathParts[1]]?.toString();
+          const user = (val && userMap[val]) ? userMap[val] : null;
+          return { ...sub, [pathParts[1]]: user };
+        });
+
+        if (filterDeleted) {
+          item[pathParts[0]] = populated.filter(sub => sub[pathParts[1]] !== null);
+        } else {
+          item[pathParts[0]] = populated;
+        }
+      }
+    }
+  });
+
+  return isArray ? items : items[0];
+};
+
 const attachClassroomDetails = async (classrooms) => {
   const withMeetings = await attachMeetingsToClassrooms(classrooms);
   const list = Array.isArray(withMeetings) ? withMeetings : [withMeetings];
   const classroomIds = list.map((classroom) => classroom._id);
 
-  // Fetch recordings with creator and student details populated
+  // Fetch recordings with creator populated, student details will be manual
   const recordings = await ClassroomRecording.find({ classroom: { $in: classroomIds } })
     .populate('uploadedBy', 'fullName')
-    .populate('viewStats.student', 'fullName')
     .sort({ createdAt: -1 })
     .lean();
+
+  // Manual populate student details in viewStats
+  await manualPopulate(recordings, 'viewStats.student', 'fullName');
 
   const announcements = await ClassroomAnnouncement.find({ classroom: { $in: classroomIds } })
     .populate('author', 'fullName role avatar')
@@ -115,9 +171,11 @@ const attachClassroomDetails = async (classrooms) => {
 
   // Fetch quiz attempts for the classrooms
   const quizAttempts = await QuizAttempt.find({ classroom: { $in: classroomIds } })
-    .populate('student', 'fullName email phone')
     .sort({ createdAt: -1 })
     .lean();
+
+  // Manual populate student details in quizAttempts
+  await manualPopulate(quizAttempts, 'student', 'fullName email phone');
 
   const recordingsByClassroom = recordings.reduce((acc, rec) => {
     const key = rec.classroom.toString();
@@ -188,10 +246,10 @@ router.get('/my', protect, async (req, res, next) => {
     })
       .populate('program')
       .populate('batch')
-      .populate('students.student', 'fullName email phone avatar role isVerified isActive')
       .populate('instructors', 'fullName email avatar')
       .lean();
 
+    await manualPopulate(classrooms, 'students.student', 'fullName email phone avatar role isVerified isActive');
     res.json({ success: true, classrooms: await attachClassroomDetails(classrooms) });
   } catch (error) {
     next(error);
@@ -205,13 +263,14 @@ router.get('/:id', protect, async (req, res, next) => {
       .populate('program')
       .populate('batch')
       .populate('createdBy', 'fullName email')
-      .populate('students.student', 'fullName email phone avatar role isVerified isActive')
       .populate('instructors', 'fullName email avatar')
       .lean();
 
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
+
+    await manualPopulate(classroom, 'students.student', 'fullName email phone avatar role isVerified isActive');
 
     // Verify student is enrolled or user is admin
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
@@ -310,11 +369,11 @@ router.get('/', async (req, res, next) => {
     const classrooms = await Classroom.find(filter)
       .populate('program')
       .populate('batch')
-      .populate('students.student', 'fullName email phone avatar role isVerified isActive')
       .populate('instructors', 'fullName')
       .sort({ createdAt: -1 })
       .lean();
 
+    await manualPopulate(classrooms, 'students.student', 'fullName email phone avatar role isVerified isActive');
     res.json({ success: true, classrooms: await attachClassroomDetails(classrooms) });
   } catch (error) {
     next(error);
@@ -377,16 +436,13 @@ router.delete('/:id', async (req, res, next) => {
 // GET /:id/students → Admin: list all students in classroom
 router.get('/:id/students', async (req, res, next) => {
   try {
-    const classroom = await Classroom.findById(req.params.id)
-      .populate({
-        path: 'students.student',
-        select: 'fullName email phone avatar role isVerified isActive'
-      });
+    const classroom = await Classroom.findById(req.params.id).lean();
 
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
 
+    await manualPopulate(classroom, 'students.student', 'fullName email phone avatar role isVerified isActive');
     res.json({ success: true, students: classroom.students });
   } catch (error) {
     next(error);

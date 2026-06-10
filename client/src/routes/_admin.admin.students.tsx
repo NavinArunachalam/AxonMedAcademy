@@ -71,11 +71,16 @@ function StudentDetail({ studentId }: { studentId: string }) {
   const totalPublishedRecs = enrolled.reduce((s, c) => s + c.recordings.filter(r => r.isPublished).length, 0);
   const totalWatchedRecs = enrolled.reduce((s, c) =>
     s + c.recordings.filter(r => r.isPublished && r.viewStats.some(v => v.studentId === studentId && v.watchedPercent > 0)).length, 0);
-  const totalHoursWatched = enrolled.reduce((s, c) =>
+  
+  const totalWatchedSeconds = enrolled.reduce((s, c) =>
     s + c.recordings.reduce((ss, r) => {
       const vs = r.viewStats.find(v => v.studentId === studentId);
-      return ss + (vs ? (vs.watchedPercent / 100) * r.duration : 0);
+      return ss + (vs?.totalWatchedSec || 0);
     }, 0), 0);
+    
+  const totalLiveAttended = enrolled.reduce((s, c) => s + c.meetings.filter(m => m.attendees.includes(studentId)).length, 0);
+  const totalMeetings = enrolled.reduce((s, c) => s + c.meetings.length, 0);
+
   const avgWatchPct = totalPublishedRecs > 0
     ? Math.round(enrolled.reduce((s, c) => s + c.recordings.filter(r => r.isPublished).reduce((ss, r) => {
         const vs = r.viewStats.find(v => v.studentId === studentId);
@@ -86,11 +91,12 @@ function StudentDetail({ studentId }: { studentId: string }) {
   return (
     <div className="bg-cream/5 rounded-xl p-4 mt-2 space-y-4">
       {/* Activity Summary */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         {[
           { l: "Classrooms", v: enrolled.length },
           { l: "Videos Watched", v: `${totalWatchedRecs}/${totalPublishedRecs}` },
-          { l: "Hours Watched", v: `${Math.round(totalHoursWatched / 3600)}h` },
+          { l: "Time Watched", v: `${(totalWatchedSeconds / 3600).toFixed(1)}h` },
+          { l: "Live Classes", v: `${totalLiveAttended}/${totalMeetings}` },
           { l: "Avg Watch %", v: `${avgWatchPct}%` },
         ].map(s => (
           <div key={s.l} className="bg-cream/5 rounded-lg p-2 text-center">
@@ -106,6 +112,7 @@ function StudentDetail({ studentId }: { studentId: string }) {
         const pubRecs = c.recordings.filter(r => r.isPublished);
         const watchedRecs = pubRecs.filter(r => r.viewStats.some(v => v.studentId === studentId && v.watchedPercent > 0));
         const quizAttempts = c.quizzes.flatMap(q => q.attempts.filter(a => a.studentId === studentId));
+        const liveAttended = c.meetings.filter(m => m.attendees.includes(studentId)).length;
         return (
           <div key={c.id} className="border border-cream/10 rounded-xl p-3">
             <div className="flex items-center justify-between mb-2">
@@ -122,7 +129,7 @@ function StudentDetail({ studentId }: { studentId: string }) {
                 <option value="removed">Remove</option>
               </select>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-4 gap-2 text-xs">
               <div className="text-cream/60">
                 <div className="text-cream/40 text-[10px] uppercase tracking-widest mb-0.5">Progress</div>
                 <div className="flex items-center gap-2">
@@ -135,6 +142,10 @@ function StudentDetail({ studentId }: { studentId: string }) {
               <div className="text-cream/60">
                 <div className="text-cream/40 text-[10px] uppercase tracking-widest mb-0.5">Videos</div>
                 <span className="flex items-center gap-1"><Video className="h-3 w-3 text-lime" />{watchedRecs.length}/{pubRecs.length}</span>
+              </div>
+              <div className="text-cream/60">
+                <div className="text-cream/40 text-[10px] uppercase tracking-widest mb-0.5">Live Classes</div>
+                <span className="flex items-center gap-1 font-mono text-lime">{liveAttended}/{c.meetings.length}</span>
               </div>
               <div className="text-cream/60">
                 <div className="text-cream/40 text-[10px] uppercase tracking-widest mb-0.5">Quiz Attempts</div>
@@ -211,15 +222,33 @@ function AdminStudents() {
 
   const enrollments = useMemo(() => {
     const classroomEnrollments = classrooms.flatMap(c =>
-      c.students.map(s => ({
-        ...s,
-        course: c.program,
-        batch: c.name.split("—")[1]?.trim() || "N/A",
-        classroomId: c.id,
-        classroomName: c.name,
-        totalPubRecs: c.recordings.filter(r => r.isPublished).length,
-        watchedRecs: c.recordings.filter(r => r.isPublished && r.viewStats.some(v => v.studentId === s.id && v.watchedPercent > 0)).length,
-      }))
+      c.students.map(s => {
+        const watchedRecs = c.recordings.filter(r => r.isPublished && r.viewStats.some(v => v.studentId === s.id && v.watchedPercent > 0)).length;
+        const watchedHours = c.recordings.reduce((sum, r) => {
+          const vs = r.viewStats.find(v => v.studentId === s.id);
+          return sum + (vs?.totalWatchedSec || 0);
+        }, 0) / 3600;
+
+        const liveAttended = c.meetings.filter(m => m.attendees.includes(s.id)).length;
+        
+        const quizAttempts = c.quizzes.flatMap(q => q.attempts.filter(a => a.studentId === s.id));
+        const quizAvg = quizAttempts.length > 0 
+          ? Math.round(quizAttempts.reduce((sum, a) => sum + (a.score?.percentage || 0), 0) / quizAttempts.length)
+          : 0;
+
+        return {
+          ...s,
+          course: c.program,
+          batch: c.name.split("—")[1]?.trim() || "N/A",
+          classroomId: c.id,
+          classroomName: c.name,
+          totalPubRecs: c.recordings.filter(r => r.isPublished).length,
+          watchedRecs,
+          watchedHours,
+          liveAttended,
+          quizAvg
+        };
+      })
     );
 
     const studentMap: Record<string, {
@@ -229,6 +258,8 @@ function AdminStudents() {
       enrollmentId: string;
       addedAt: string;
       status: string;
+      totalWatchedHours: number;
+      totalLiveAttended: number;
       courses: Array<{
         course: string;
         batch: string;
@@ -240,6 +271,8 @@ function AdminStudents() {
         status: string;
         totalPubRecs: number;
         watchedRecs: number;
+        watchedHours: number;
+        liveAttended: number;
         enrollmentId: string;
       }>;
     }> = {};
@@ -253,9 +286,13 @@ function AdminStudents() {
           enrollmentId: item.enrollmentId,
           addedAt: item.addedAt,
           status: "active",
+          totalWatchedHours: 0,
+          totalLiveAttended: 0,
           courses: []
         };
       }
+      studentMap[item.id].totalWatchedHours += item.watchedHours;
+      studentMap[item.id].totalLiveAttended += item.liveAttended;
       studentMap[item.id].courses.push({
         course: item.course,
         batch: item.batch,
@@ -267,6 +304,8 @@ function AdminStudents() {
         status: item.status,
         totalPubRecs: item.totalPubRecs,
         watchedRecs: item.watchedRecs,
+        watchedHours: item.watchedHours,
+        liveAttended: item.liveAttended,
         enrollmentId: item.enrollmentId,
       });
     });
@@ -283,9 +322,11 @@ function AdminStudents() {
         id: student.id,
         name: student.name,
         email: student.email,
-        enrollmentId: "Not enrolled",
+        enrollmentId: "",
         addedAt: "",
         status: student.isActive === false ? "removed" : "active",
+        totalWatchedHours: 0,
+        totalLiveAttended: 0,
         courses: [{
           course: "Not enrolled",
           batch: "N/A",
@@ -297,7 +338,9 @@ function AdminStudents() {
           status: student.isActive === false ? "removed" : "active",
           totalPubRecs: 0,
           watchedRecs: 0,
-          enrollmentId: "Not enrolled",
+          watchedHours: 0,
+          liveAttended: 0,
+          enrollmentId: "",
         }]
       }));
 
@@ -354,7 +397,7 @@ function AdminStudents() {
   };
 
   const handleExport = () => {
-    const csv = ["Name,Email,Courses,Batches,Progress,Attendance,Quiz Avg,Status,Watch Progress",
+    const csv = ["Name,Email,Courses,Batches,Progress,Attendance,Live Attendance,Quiz Avg,Status,Watch Progress,Watch Time (h)",
       ...filtered.map(e => {
         const name = `"${e.name.replace(/"/g, '""')}"`;
         const email = `"${e.email.replace(/"/g, '""')}"`;
@@ -362,10 +405,12 @@ function AdminStudents() {
         const batchesStr = `"${e.courses.map(c => c.batch).join("; ").replace(/"/g, '""')}"`;
         const progressStr = `"${e.courses.map(c => `${c.progress}%`).join("; ")}"`;
         const attendanceStr = `"${e.courses.map(c => `${c.attendance}%`).join("; ")}"`;
+        const liveAttStr = `"${e.courses.map(c => `${c.liveAttended} classes`).join("; ")}"`;
         const quizAvgStr = `"${e.courses.map(c => `${c.quizAvg}%`).join("; ")}"`;
         const statusStr = `"${e.status}"`;
         const watchProgressStr = `"${e.courses.map(c => `${c.watchedRecs}/${c.totalPubRecs}`).join("; ")}"`;
-        return `${name},${email},${coursesStr},${batchesStr},${progressStr},${attendanceStr},${quizAvgStr},${statusStr},${watchProgressStr}`;
+        const watchTimeStr = `"${e.courses.map(c => `${c.watchedHours.toFixed(1)}h`).join("; ")}"`;
+        return `${name},${email},${coursesStr},${batchesStr},${progressStr},${attendanceStr},${liveAttStr},${quizAvgStr},${statusStr},${watchProgressStr},${watchTimeStr}`;
       })
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -463,11 +508,19 @@ function AdminStudents() {
           <table className="w-full text-sm">
             <thead className="bg-cream/5">
               <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60">
-                <th className="p-4">Student</th><th>Program / Batch</th><th>Progress</th><th>Videos</th><th>Quiz Avg</th><th>Status</th><th></th>
+                <th className="p-4">Student</th>
+                <th>Program / Batch</th>
+                <th>Progress</th>
+                <th>Videos</th>
+                <th>Watch Time</th>
+                <th>Live Classes</th>
+                <th>Quiz Avg</th>
+                <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-cream/50">No students found.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-cream/50">No students found.</td></tr>}
               {filtered.map(s => (
                 <React.Fragment key={s.id}>
                   <tr className={`border-t border-cream/10 hover:bg-cream/5 cursor-pointer ${expandedId === s.id ? "bg-cream/5" : ""}`}
@@ -478,7 +531,7 @@ function AdminStudents() {
                         <div>
                           <div className="font-semibold">{s.name}</div>
                           <div className="text-[11px] text-cream/60 font-mono">
-                            {Array.from(new Set(s.courses.map(c => c.enrollmentId).filter(Boolean))).join(" / ") || "Not enrolled"}
+                            {Array.from(new Set(s.courses.map(c => c.enrollmentId).filter(Boolean))).join(" / ") || " "}
                           </div>
                         </div>
                       </div>
@@ -522,6 +575,24 @@ function AdminStudents() {
                     <td>
                       <div className="flex flex-col justify-center gap-1.5 py-1">
                         {s.courses.map((c, idx) => (
+                          <div key={c.classroomId || idx} className="h-10 flex items-center text-xs font-mono">
+                            {c.watchedHours.toFixed(1)}h
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex flex-col justify-center gap-1.5 py-1">
+                        {s.courses.map((c, idx) => (
+                          <div key={c.classroomId || idx} className="h-10 flex items-center text-xs font-mono">
+                            {c.liveAttended} classes
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex flex-col justify-center gap-1.5 py-1">
+                        {s.courses.map((c, idx) => (
                           <div key={c.classroomId || idx} className="h-10 flex items-center font-mono text-xs">
                             {c.quizAvg}%
                           </div>
@@ -550,7 +621,7 @@ function AdminStudents() {
                   </tr>
                   {expandedId === s.id && (
                     <tr className="border-t border-cream/10">
-                      <td colSpan={7} className="px-4 pb-4">
+                      <td colSpan={9} className="px-4 pb-4">
                         <StudentDetail studentId={s.id} />
                       </td>
                     </tr>
