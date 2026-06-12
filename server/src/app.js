@@ -29,7 +29,8 @@ if (process.env.NODE_ENV !== 'production') {
   [
     'http://localhost:3000',
     'http://localhost:5173',
-    'http://localhost:8080'
+    'http://localhost:8080',
+    'http://localhost:8081'
   ].forEach(origin => {
     if (!allowedOrigins.includes(origin)) {
       allowedOrigins.push(origin);
@@ -53,7 +54,7 @@ const corsOptions = {
 
     // Allow ALL *.vercel.app preview deployments (covers every PR deploy)
     if (/^https:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+\.vercel\.app$/.test(origin) ||
-        /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+      /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
 

@@ -323,6 +323,14 @@ export async function createQuiz(classroomId: string, quiz: any) {
   return normalizeBackendQuiz(payload.quiz);
 }
 
+export async function updateQuiz(quizId: string, quiz: any) {
+  const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(quiz),
+  });
+  return normalizeBackendQuiz(payload.quiz);
+}
+
 export async function publishQuiz(quizId: string) {
   return fetchJson(`/quizzes/${encodeURIComponent(quizId)}/publish`, { method: 'PUT' });
 }
@@ -873,6 +881,18 @@ export async function unpublishRecording(recordingId: string) {
 export async function deleteRecording(recordingId: string) {
   return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}`, {
     method: 'DELETE',
+  });
+}
+
+export async function reuseClassroomRecording(payload: {
+  sourceRecordingId: string;
+  targetClassroomId: string;
+  title?: string;
+  description?: string;
+}) {
+  return fetchJson('/recordings/classroom/reuse', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }
 

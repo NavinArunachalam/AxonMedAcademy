@@ -3,7 +3,7 @@ import React, { useState, useRef } from "react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
-  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot,
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
@@ -19,7 +19,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -416,7 +416,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 
 function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
   const cls = classroom;
-  const { accessToken } = useClassroomStore();
+  const { accessToken, classrooms } = useClassroomStore();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: true, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -429,6 +429,15 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [uploadPartInfo, setUploadPartInfo] = useState<{ part: number; totalParts: number } | null>(null);
   const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
   const [activeRec, setActiveRec] = useState<any | null>(null);
+
+  // Reuse Video states
+  const [showReuseModal, setShowReuseModal] = useState(false);
+  const [selectedSourceClassroomId, setSelectedSourceClassroomId] = useState<string>("");
+  const [selectedSourceRecordingId, setSelectedSourceRecordingId] = useState<string>("");
+  const [reuseTitle, setReuseTitle] = useState("");
+  const [reuseDescription, setReuseDescription] = useState("");
+  const [isReusing, setIsReusing] = useState(false);
+  const [reuseError, setReuseError] = useState<string | null>(null);
 
   const formatMB = (bytes: number) => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -490,6 +499,33 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     setChapterInput({ title: "", startTimeSec: 0 });
   };
 
+  const handleConfirmReuse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSourceRecordingId || !reuseTitle) return;
+
+    setIsReusing(true);
+    setReuseError(null);
+    try {
+      await reuseClassroomRecording({
+        sourceRecordingId: selectedSourceRecordingId,
+        targetClassroomId: classroom.id,
+        title: reuseTitle,
+        description: reuseDescription,
+      });
+      setShowReuseModal(false);
+      setSelectedSourceClassroomId("");
+      setSelectedSourceRecordingId("");
+      setReuseTitle("");
+      setReuseDescription("");
+      await refreshClassroom();
+      alert("Video recording reused successfully!");
+    } catch (err) {
+      setReuseError(err instanceof Error ? err.message : "Failed to reuse recording");
+    } finally {
+      setIsReusing(false);
+    }
+  };
+
   const streamUrl = activeRec
     ? activeRec.storageProvider === 'cloudflare'
       ? `${getRecordingStreamUrl(activeRec.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
@@ -498,11 +534,126 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
-        <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
+      <div className="flex justify-end gap-3">
+        <button onClick={() => { setShowForm(!showForm); setShowReuseModal(false); }} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
           <LuUpload className="h-4 w-4" /> Upload Recording
         </button>
+        <button onClick={() => { setShowReuseModal(!showReuseModal); setShowForm(false); }} className="inline-flex items-center gap-2 rounded-full bg-cream/10 text-cream px-5 py-2.5 text-sm font-bold hover:bg-cream/20 transition-colors">
+          <LuCopy className="h-4 w-4" /> Reuse Video from other Class
+        </button>
       </div>
+
+      {showReuseModal && (
+        <DarkCard>
+          <h3 className="font-display font-bold text-cream mb-4">Reuse Video from another Classroom</h3>
+          <form onSubmit={handleConfirmReuse} className="space-y-4">
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Source Classroom *</label>
+              <select
+                required
+                value={selectedSourceClassroomId}
+                onChange={(e) => {
+                  setSelectedSourceClassroomId(e.target.value);
+                  setSelectedSourceRecordingId("");
+                  setReuseTitle("");
+                  setReuseDescription("");
+                }}
+                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+              >
+                <option value="" className="bg-plum-dark">-- Select Class --</option>
+                {classrooms
+                  .filter((c) => c.id !== classroom.id && c.status === "active")
+                  .map((c) => (
+                    <option key={c.id} value={c.id} className="bg-plum-dark">
+                      {c.name} ({c.code})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {selectedSourceClassroomId && (() => {
+              const sourceClassroom = classrooms.find(c => c.id === selectedSourceClassroomId);
+              const recordings = sourceClassroom ? sourceClassroom.recordings : [];
+              return (
+                <div>
+                  <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Select Recording *</label>
+                  <select
+                    required
+                    value={selectedSourceRecordingId}
+                    onChange={(e) => {
+                      const recId = e.target.value;
+                      setSelectedSourceRecordingId(recId);
+                      const r = recordings.find(x => x.id === recId);
+                      if (r) {
+                        setReuseTitle(r.title);
+                        setReuseDescription(r.description || "");
+                      }
+                    }}
+                    className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                  >
+                    <option value="" className="bg-plum-dark">-- Select Recording --</option>
+                    {recordings.map((r) => (
+                      <option key={r.id} value={r.id} className="bg-plum-dark">
+                        {r.title} ({Math.round(r.duration / 60)} min)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
+
+            {selectedSourceRecordingId && (
+              <>
+                <div>
+                  <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">New Recording Title *</label>
+                  <input
+                    required
+                    value={reuseTitle}
+                    onChange={(e) => setReuseTitle(e.target.value)}
+                    placeholder="Enter title for this class"
+                    className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">New Description</label>
+                  <textarea
+                    value={reuseDescription}
+                    onChange={(e) => setReuseDescription(e.target.value)}
+                    rows={2}
+                    placeholder="Enter description for this class"
+                    className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReuseModal(false);
+                  setSelectedSourceClassroomId("");
+                  setSelectedSourceRecordingId("");
+                  setReuseTitle("");
+                  setReuseDescription("");
+                }}
+                disabled={isReusing}
+                className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!selectedSourceRecordingId || !reuseTitle || isReusing}
+                className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-60"
+              >
+                {isReusing ? 'Reusing...' : 'Reuse Recording'}
+              </button>
+            </div>
+            {reuseError && <p className="text-sm text-red-400 mt-1">{reuseError}</p>}
+          </form>
+        </DarkCard>
+      )}
 
       {showForm && (
         <DarkCard>
@@ -944,6 +1095,7 @@ function QuestionCard({ q, qIdx, onChange, onRemove }: {
 function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
   const cls = classroom;
   const classroomId = classroom.id;
+  const { classrooms } = useClassroomStore();
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [quizOperationQuizId, setQuizOperationQuizId] = useState<string | null>(null);
@@ -952,6 +1104,11 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   const [reportAttempts, setReportAttempts] = useState<QuizAttempt[]>([]);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [reportError, setReportError] = useState("");
+
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [duplicateQuiz, setDuplicateQuiz] = useState<Quiz | null>(null);
+  const [selectedTargetClassrooms, setSelectedTargetClassrooms] = useState<string[]>([]);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   React.useEffect(() => {
     if (!viewQuizId) {
@@ -999,9 +1156,15 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     setSaveError(null);
     setIsSavingQuiz(true);
     try {
-      const createdQuiz = await createQuiz(classroomId, { ...quiz, status });
-      classroomActions.addQuiz(classroomId, createdQuiz);
+      if (editingQuizId) {
+        const updatedQuiz = await updateQuiz(editingQuizId, { ...quiz, status });
+        classroomActions.updateQuiz(classroomId, editingQuizId, updatedQuiz);
+      } else {
+        const createdQuiz = await createQuiz(classroomId, { ...quiz, status });
+        classroomActions.addQuiz(classroomId, createdQuiz);
+      }
       setShowBuilder(false);
+      setEditingQuizId(null);
       setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
     } catch (error) {
       console.error(error);
@@ -1047,12 +1210,133 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     }
   };
 
+  const handleDownloadQuiz = (q: Quiz, format: 'json' | 'txt') => {
+    let content = "";
+    let mimeType = "";
+    let filename = "";
+
+    if (format === 'json') {
+      const exportData = {
+        title: q.title,
+        instructions: q.instructions,
+        duration: q.duration,
+        maxAttempts: q.maxAttempts,
+        randomizeQuestions: q.randomizeQuestions,
+        randomizeOptions: q.randomizeOptions,
+        showLeaderboard: q.showLeaderboard,
+        negativeMarking: q.negativeMarking,
+        negativeMarkValue: q.negativeMarkValue,
+        passPercent: q.passPercent,
+        questions: q.questions.map((quest) => ({
+          type: quest.type,
+          text: quest.text,
+          marks: quest.marks,
+          explanation: quest.explanation,
+          options: quest.options.map((o) => ({
+            label: o.label,
+            text: o.text,
+            isCorrect: o.isCorrect,
+          })),
+        })),
+      };
+      content = JSON.stringify(exportData, null, 2);
+      mimeType = "application/json";
+      filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.json`;
+    } else {
+      let txt = `==================================================\n`;
+      txt += `QUIZ: ${q.title}\n`;
+      txt += `==================================================\n\n`;
+      txt += `Instructions: ${q.instructions || "None"}\n`;
+      txt += `Timer Duration: ${q.duration ? `${q.duration} minutes` : "No timer"}\n`;
+      txt += `Pass Percentage: ${q.passPercent}%\n`;
+      txt += `Negative Marking: ${q.negativeMarking ? `Yes (-${q.negativeMarkValue} per incorrect)` : "No"}\n\n`;
+      txt += `--------------------------------------------------\n`;
+      txt += `QUESTIONS (${q.questions.length})\n`;
+      txt += `--------------------------------------------------\n\n`;
+
+      q.questions.forEach((quest, i) => {
+        txt += `Q${i + 1} [Type: ${quest.type.toUpperCase()}] [Marks: ${quest.marks}]: ${quest.text}\n`;
+        quest.options.forEach((opt) => {
+          txt += `  [${opt.isCorrect ? "x" : " "}] Option ${opt.label}: ${opt.text}\n`;
+        });
+        if (quest.explanation) {
+          txt += `  Explanation: ${quest.explanation}\n`;
+        }
+        txt += `\n`;
+      });
+      content = txt;
+      mimeType = "text/plain";
+      filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.txt`;
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDuplicateConfirm = async () => {
+    if (!duplicateQuiz || selectedTargetClassrooms.length === 0) return;
+    setIsDuplicating(true);
+    try {
+      const quizData = {
+        title: `${duplicateQuiz.title}`,
+        instructions: duplicateQuiz.instructions,
+        duration: duplicateQuiz.duration,
+        maxAttempts: duplicateQuiz.maxAttempts,
+        randomizeQuestions: duplicateQuiz.randomizeQuestions,
+        randomizeOptions: duplicateQuiz.randomizeOptions,
+        showLeaderboard: duplicateQuiz.showLeaderboard,
+        negativeMarking: duplicateQuiz.negativeMarking,
+        negativeMarkValue: duplicateQuiz.negativeMarkValue,
+        passPercent: duplicateQuiz.passPercent,
+        availableFrom: duplicateQuiz.availableFrom,
+        availableUntil: duplicateQuiz.availableUntil,
+        status: "draft",
+        questions: duplicateQuiz.questions.map((quest) => ({
+          type: quest.type,
+          text: quest.text,
+          marks: quest.marks,
+          explanation: quest.explanation,
+          options: quest.options.map((o) => ({
+            label: o.label,
+            text: o.text,
+            isCorrect: o.isCorrect,
+          })),
+        })),
+      };
+
+      for (const targetId of selectedTargetClassrooms) {
+        await createQuiz(targetId, quizData);
+      }
+
+      alert("Quiz duplicated successfully to selected class(es)!");
+      setDuplicateQuiz(null);
+      setSelectedTargetClassrooms([]);
+      await refreshClassroom();
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Duplication failed");
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
   if (showBuilder) {
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowBuilder(false)} className="text-cream/60 hover:text-cream"><LuArrowLeft className="h-5 w-5" /></button>
-          <h2 className="font-display font-bold text-cream text-xl">Quiz Builder</h2>
+          <button onClick={() => {
+            setShowBuilder(false);
+            setEditingQuizId(null);
+            setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+          }} className="text-cream/60 hover:text-cream"><LuArrowLeft className="h-5 w-5" /></button>
+          <h2 className="font-display font-bold text-cream text-xl">{editingQuizId ? "Edit Quiz" : "Quiz Builder"}</h2>
         </div>
 
         {/* Settings */}
@@ -1190,32 +1474,34 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           ))}
         </div>
 
-        <DarkCard className="p-0 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-cream/5">
-              <tr className="text-[10px] uppercase tracking-widest text-cream/60 text-left">
-                <th className="p-4">Student</th>
-                <th>Score</th>
-                <th>%</th>
-                <th>Status</th>
-                <th>Submitted</th>
-              </tr>
-            </thead>
-            <tbody>
-              {submitted.map((att) => (
-                <tr key={att.id} className="border-t border-cream/10 hover:bg-cream/5">
-                  <td className="p-4 font-semibold text-cream">{att.studentName}</td>
-                  <td className="font-mono text-cream/80">{att.score.rawMarks}/{att.score.totalMarks}</td>
-                  <td className="font-mono text-cream/80">{att.score.percentage}%</td>
-                  <td><span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${att.score.passed ? "bg-lime/20 text-lime" : "bg-red-500/20 text-red-300"}`}>{att.score.passed ? "Pass" : "Fail"}</span></td>
-                  <td className="text-cream/60 text-xs">{att.submittedAt ? fmtDate(att.submittedAt) : "—"}</td>
+        <div className="p-0 overflow-hidden">
+          <DarkCard className="p-0 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-cream/5">
+                <tr className="text-[10px] uppercase tracking-widest text-cream/60 text-left">
+                  <th className="p-4">Student</th>
+                  <th>Score</th>
+                  <th>%</th>
+                  <th>Status</th>
+                  <th>Submitted</th>
                 </tr>
-              ))}
-              {isLoadingReport && (<tr><td colSpan={5} className="p-6 text-center text-cream/50 text-sm">Loading report…</td></tr>)}
-              {!isLoadingReport && submitted.length === 0 && (<tr><td colSpan={5} className="p-6 text-center text-cream/50 text-sm">No submissions yet.</td></tr>)}
-            </tbody>
-          </table>
-        </DarkCard>
+              </thead>
+              <tbody>
+                {submitted.map((att) => (
+                  <tr key={att.id} className="border-t border-cream/10 hover:bg-cream/5">
+                    <td className="p-4 font-semibold text-cream">{att.studentName}</td>
+                    <td className="font-mono text-cream/80">{att.score.rawMarks}/{att.score.totalMarks}</td>
+                    <td className="font-mono text-cream/80">{att.score.percentage}%</td>
+                    <td><span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${att.score.passed ? "bg-lime/20 text-lime" : "bg-red-500/20 text-red-300"}`}>{att.score.passed ? "Pass" : "Fail"}</span></td>
+                    <td className="text-cream/60 text-xs">{att.submittedAt ? fmtDate(att.submittedAt) : "—"}</td>
+                  </tr>
+                ))}
+                {isLoadingReport && (<tr><td colSpan={5} className="p-6 text-center text-cream/50 text-sm">Loading report…</td></tr>)}
+                {!isLoadingReport && submitted.length === 0 && (<tr><td colSpan={5} className="p-6 text-center text-cream/50 text-sm">No submissions yet.</td></tr>)}
+              </tbody>
+            </table>
+          </DarkCard>
+        </div>
       </div>
     );
   }
@@ -1224,7 +1510,11 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button onClick={() => setShowBuilder(true)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
+        <button onClick={() => {
+          setEditingQuizId(null);
+          setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+          setShowBuilder(true);
+        }} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
           <LuPlus className="h-4 w-4" /> Create Quiz
         </button>
       </div>
@@ -1258,26 +1548,75 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setViewQuizId(q.id)} className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold flex items-center gap-1">
+                  <button onClick={() => setViewQuizId(q.id)} className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors">
                     <LuEye className="h-3 w-3" /> Report
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingQuizId(q.id);
+                      setQuiz({
+                        title: q.title,
+                        instructions: q.instructions || "",
+                        duration: q.duration,
+                        maxAttempts: q.maxAttempts || 1,
+                        randomizeQuestions: q.randomizeQuestions ?? true,
+                        randomizeOptions: q.randomizeOptions ?? true,
+                        showLeaderboard: q.showLeaderboard ?? false,
+                        negativeMarking: q.negativeMarking ?? false,
+                        negativeMarkValue: q.negativeMarkValue ?? 0.25,
+                        passPercent: q.passPercent || 60,
+                        availableFrom: q.availableFrom || "",
+                        availableUntil: q.availableUntil || "",
+                        status: q.status || "draft",
+                        questions: q.questions || [],
+                      });
+                      setShowBuilder(true);
+                    }}
+                    className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDuplicateQuiz(q);
+                      setSelectedTargetClassrooms([]);
+                    }}
+                    className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
+                    title="Reuse/Duplicate to another class"
+                  >
+                    <LuCopy className="h-3 w-3" /> Reuse
+                  </button>
+                  <button
+                    onClick={() => handleDownloadQuiz(q, 'json')}
+                    className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
+                    title="Download Quiz as JSON"
+                  >
+                    <LuDownload className="h-3.5 w-3.5" /> JSON
+                  </button>
+                  <button
+                    onClick={() => handleDownloadQuiz(q, 'txt')}
+                    className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
+                    title="Download Quiz as TXT (Printable)"
+                  >
+                    <LuDownload className="h-3.5 w-3.5" /> TXT
                   </button>
                   {q.status === "draft" && (
                     <button onClick={() => handlePublishQuiz(q.id)}
                       disabled={quizOperationQuizId === q.id}
-                      className="rounded-full bg-lime/10 text-lime px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50">
+                      className="rounded-full bg-lime/10 text-lime px-3 py-1.5 text-xs font-semibold hover:bg-lime/20 disabled:cursor-not-allowed disabled:opacity-50 transition-colors">
                       {quizOperationQuizId === q.id ? 'Publishing...' : 'Publish'}
                     </button>
                   )}
                   {q.status === "published" && (
                     <button onClick={() => handleCloseQuiz(q.id)}
                       disabled={quizOperationQuizId === q.id}
-                      className="rounded-full bg-cream/10 text-cream/70 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50">
+                      className="rounded-full bg-cream/10 text-cream/70 px-3 py-1.5 text-xs font-semibold hover:bg-cream/20 disabled:cursor-not-allowed disabled:opacity-50 transition-colors">
                       {quizOperationQuizId === q.id ? 'Closing...' : 'Close'}
                     </button>
                   )}
                   <button onClick={() => handleDeleteQuiz(q.id)}
                     disabled={quizOperationQuizId === q.id}
-                    className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors">
                     <LuTrash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1286,6 +1625,84 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           );
         })}
       </div>
+
+      {/* Quiz Reuse / Duplication Modal */}
+      {duplicateQuiz && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1A0F33] border border-cream/10 rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-cream/10 flex items-center justify-between">
+              <h3 className="font-display font-bold text-cream">Reuse Quiz in other Classes</h3>
+              <button
+                onClick={() => setDuplicateQuiz(null)}
+                className="text-cream/50 hover:text-cream p-1 rounded-full hover:bg-cream/5"
+              >
+                <LuX className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-cream/70 mb-2">
+                Duplicate <strong className="text-lime">{duplicateQuiz.title}</strong> to the following classroom(s):
+              </div>
+              <div className="space-y-2">
+                {classrooms
+                  .filter((c) => c.id !== classroomId && c.status === "active")
+                  .map((targetCls) => {
+                    const isChecked = selectedTargetClassrooms.includes(targetCls.id);
+                    return (
+                      <label
+                        key={targetCls.id}
+                        className="flex items-center gap-3 bg-cream/5 border border-cream/10 rounded-xl p-3 cursor-pointer hover:border-lime/30 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTargetClassrooms([...selectedTargetClassrooms, targetCls.id]);
+                            } else {
+                              setSelectedTargetClassrooms(selectedTargetClassrooms.filter((id) => id !== targetCls.id));
+                            }
+                          }}
+                          className="accent-lime h-4 w-4"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-cream">{targetCls.name}</div>
+                          <div className="text-[10px] font-mono text-cream/50 uppercase tracking-widest">{targetCls.code} &middot; {targetCls.program}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                {classrooms.filter((c) => c.id !== classroomId && c.status === "active").length === 0 && (
+                  <p className="text-xs text-cream/40 text-center py-4">No other active classes available.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3.5 bg-black/20 border-t border-cream/10 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDuplicateQuiz(null)}
+                disabled={isDuplicating}
+                className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDuplicateConfirm}
+                disabled={selectedTargetClassrooms.length === 0 || isDuplicating}
+                className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-40"
+              >
+                {isDuplicating ? "Duplicating…" : "Confirm Duplicate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

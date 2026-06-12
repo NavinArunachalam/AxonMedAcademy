@@ -539,6 +539,19 @@ export const classroomActions = {
     }));
   },
 
+  updateQuiz: (classroomId: string, quizId: string, updates: Partial<Quiz>) => {
+    classroomStore.setState((s) => ({
+      classrooms: s.classrooms.map((c) =>
+        c.id === classroomId
+          ? {
+              ...c,
+              quizzes: c.quizzes.map((q) => (q.id === quizId ? { ...q, ...updates } : q)),
+            }
+          : c,
+      ),
+    }));
+  },
+
   deleteQuiz: (classroomId: string, quizId: string) => {
     classroomStore.setState((s) => ({
       classrooms: s.classrooms.map((c) =>

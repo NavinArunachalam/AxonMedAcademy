@@ -796,9 +796,59 @@ function StudentClassroomDetail() {
   const { classrooms, currentUser } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const [tab, setTab] = useState<TabKey>("announcements");
+  const [isLoading, setIsLoading] = useState(!classrooms.some((c) => c.id === id));
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const cls = classrooms.find((c) => c.id === id);
   const myInfo = cls?.students.find((s) => s.id === CURRENT_STUDENT.id);
+
+  React.useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        setLoadError(null);
+        if (!classrooms.some((c) => c.id === id)) {
+          setIsLoading(true);
+        }
+        const refreshed = await getClassroomById(id);
+        if (!active) return;
+        if (classrooms.some((c) => c.id === id)) {
+          classroomActions.updateClassroom(id, refreshed);
+        } else {
+          classroomActions.addClassroom(refreshed);
+        }
+      } catch (err) {
+        if (active && !classrooms.some((c) => c.id === id)) {
+          setLoadError(err instanceof Error ? err.message : "Could not load classroom");
+        }
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-slate-500 text-sm">Loading classroom...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-500 text-sm">Error loading classroom: {loadError}</p>
+        <button onClick={() => navigate({ to: "/student/classrooms" })} className="mt-5 rounded-full bg-plum-dark text-cream px-6 py-2.5 text-sm font-bold">
+          ← My Classrooms
+        </button>
+      </div>
+    );
+  }
 
   if (!cls || !myInfo || myInfo.status !== "active") {
     return (

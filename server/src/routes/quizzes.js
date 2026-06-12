@@ -397,6 +397,20 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Classroom and title are required' });
     }
 
+    // Map question 'id' to '_id' for database compatibility
+    let formattedQuestions = [];
+    if (questions && Array.isArray(questions)) {
+      formattedQuestions = questions.map(q => {
+        const questionData = { ...q };
+        if (q.id && mongoose.Types.ObjectId.isValid(q.id)) {
+          questionData._id = q.id;
+        } else {
+          delete questionData._id;
+        }
+        return questionData;
+      });
+    }
+
     const quiz = await Quiz.create({
       classroom,
       title,
@@ -412,7 +426,7 @@ router.post('/', async (req, res, next) => {
       negativeMarking: !!negativeMarking,
       negativeMarkValue: negativeMarkValue || 0.25,
       passPercent: passPercent || 40,
-      questions: questions || [],
+      questions: formattedQuestions,
       status: status || 'draft'
     });
 
@@ -432,6 +446,19 @@ router.put('/:id', async (req, res, next) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    // Map question 'id' to '_id' for database compatibility
+    if (req.body.questions && Array.isArray(req.body.questions)) {
+      req.body.questions = req.body.questions.map(q => {
+        const questionData = { ...q };
+        if (q.id && mongoose.Types.ObjectId.isValid(q.id)) {
+          questionData._id = q.id;
+        } else {
+          delete questionData._id;
+        }
+        return questionData;
+      });
+    }
 
     // Update settings
     const keys = [

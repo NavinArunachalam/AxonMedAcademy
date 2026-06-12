@@ -395,6 +395,70 @@ router.post('/', protect, restrictTo('admin', 'superadmin'), async (req, res, ne
   }
 });
 
+// POST /reuse → Admin: reuse/duplicate recording from another classroom (tracking is unique per class)
+router.post('/reuse', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { sourceRecordingId, targetClassroomId, title, description } = req.body;
+
+    if (!sourceRecordingId || !targetClassroomId) {
+      return res.status(400).json({ success: false, message: 'sourceRecordingId and targetClassroomId are required' });
+    }
+
+    if (!isValidId(sourceRecordingId) || !isValidId(targetClassroomId)) {
+      return res.status(400).json({ success: false, message: 'Invalid sourceRecordingId or targetClassroomId' });
+    }
+
+    const sourceRec = await ClassroomRecording.findById(sourceRecordingId);
+    if (!sourceRec) {
+      return res.status(404).json({ success: false, message: 'Source recording not found' });
+    }
+
+    const targetClassroom = await Classroom.findById(targetClassroomId);
+    if (!targetClassroom) {
+      return res.status(404).json({ success: false, message: 'Target classroom not found' });
+    }
+
+    // Create a new ClassroomRecording document linked to the target classroom,
+    // sharing the same video details but with a fresh/empty viewStats tracker
+    const newRec = await ClassroomRecording.create({
+      classroom: targetClassroomId,
+      title: title || sourceRec.title,
+      description: description || sourceRec.description,
+      uploadedBy: req.user._id,
+      storageProvider: sourceRec.storageProvider,
+      muxAssetId: sourceRec.muxAssetId,
+      muxPlaybackId: sourceRec.muxPlaybackId,
+      muxStatus: sourceRec.muxStatus,
+      cloudflareKey: sourceRec.cloudflareKey,
+      cloudflareUrl: sourceRec.cloudflareUrl,
+      duration: sourceRec.duration,
+      thumbnail: sourceRec.thumbnail,
+      chapters: sourceRec.chapters ? sourceRec.chapters.map(c => ({
+        title: c.title,
+        startTimeSec: c.startTimeSec,
+        order: c.order
+      })) : [],
+      security: { ...sourceRec.security },
+      viewStats: [], // UNIQUE stats list for target classroom tracking
+      isPublished: false, // Default to draft so admin can decide when to publish
+      version: 1
+    });
+
+    // Increment recording counts in target classroom
+    await Classroom.findByIdAndUpdate(targetClassroomId, {
+      $inc: { 'stats.totalRecordings': 1 }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Recording reused successfully in target classroom',
+      recording: newRec
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // =============================================================================
 // DYNAMIC /:id ROUTES — must be defined AFTER all static named routes
 // =============================================================================
