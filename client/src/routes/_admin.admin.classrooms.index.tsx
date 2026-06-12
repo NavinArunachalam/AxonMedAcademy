@@ -284,10 +284,17 @@ function ClassroomCard({ cls }: { cls: Classroom }) {
   );
 }
 
+// ─── Module-level list cache ─────────────────────────────────────────────────
+// Prevents the classrooms list from refetching every time the admin navigates
+// back from a classroom detail page. Same 60-second staleness window as detail pages.
+const STALE_MS = 60_000;
+let listLastFetchedAt = 0;
+const isListStale = () => Date.now() - listLastFetchedAt > STALE_MS;
+
 function AdminClassrooms() {
   const { classrooms } = useClassroomStore();
-  const [backendClassrooms, setBackendClassrooms] = useState<Classroom[] | null>(null);
-  const [loadingBackend, setLoadingBackend] = useState(false);
+  // Show the full-page loading only when store is completely empty
+  const [loadingBackend, setLoadingBackend] = useState(classrooms.length === 0);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
@@ -296,16 +303,18 @@ function AdminClassrooms() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      setLoadingBackend(true);
+      // Skip refetch if list data is fresh in cache
+      if (classrooms.length > 0 && !isListStale()) return;
+      if (classrooms.length === 0) setLoadingBackend(true);
       try {
         const data = await apiGetClassrooms();
         if (active) {
-          setBackendClassrooms(data);
           classroomActions.setClassrooms(data);
+          listLastFetchedAt = Date.now();
           setBackendError(null);
         }
       } catch (err) {
-        if (active) {
+        if (active && classrooms.length === 0) {
           setBackendError(String(err instanceof Error ? err.message : err));
         }
       } finally {
@@ -313,29 +322,31 @@ function AdminClassrooms() {
       }
     };
     load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
-  const sourceClassrooms = backendClassrooms || [];
-  const filtered = sourceClassrooms.filter((c) => {
-    const matchSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase()) ||
-      c.program.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "all" || c.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  // Use store directly — updated by the background fetch above
+  const sourceClassrooms = classrooms;
+  const filtered = React.useMemo(() =>
+    sourceClassrooms.filter((c) => {
+      const matchSearch =
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.code.toLowerCase().includes(search.toLowerCase()) ||
+        c.program.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = filterStatus === "all" || c.status === filterStatus;
+      return matchSearch && matchStatus;
+    }),
+    [sourceClassrooms, search, filterStatus]
+  );
 
-  const totalStudents = sourceClassrooms.reduce(
-    (s, c) => s + c.students.filter((st) => st.status === "active").length,
-    0,
-  );
-  const totalRecordings = sourceClassrooms.reduce(
-    (s, c) => s + c.recordings.filter((r) => r.isPublished).length,
-    0,
-  );
+  const { totalStudents, totalRecordings } = React.useMemo(() => ({
+    totalStudents: sourceClassrooms.reduce(
+      (s, c) => s + c.students.filter((st) => st.status === "active").length, 0,
+    ),
+    totalRecordings: sourceClassrooms.reduce(
+      (s, c) => s + c.recordings.filter((r) => r.isPublished).length, 0,
+    ),
+  }), [sourceClassrooms]);
 
   return (
     <div className="space-y-6 text-cream">
@@ -343,7 +354,8 @@ function AdminClassrooms() {
         <CreateClassroomModal
           onClose={() => setShowCreate(false)}
           onCreated={(classroom) => {
-            setBackendClassrooms((prev) => (prev ? [...prev, classroom] : [classroom]));
+            classroomActions.addClassroom(classroom);
+            listLastFetchedAt = 0; // force re-sync on next visit
           }}
         />
       )}

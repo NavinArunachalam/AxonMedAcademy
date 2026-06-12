@@ -10,6 +10,8 @@ import {
   useClassroomStore,
   classroomActions,
   formatDuration,
+  isClassroomStale,
+  markClassroomFresh,
   type Quiz,
   type Question,
 } from "@/lib/classroomStore";
@@ -807,9 +809,10 @@ function StudentClassroomDetail() {
     const load = async () => {
       try {
         setLoadError(null);
-        if (!classrooms.some((c) => c.id === id)) {
-          setIsLoading(true);
-        }
+        const hasCached = classrooms.some((c) => c.id === id);
+        // Skip fetch entirely if data is fresh in cache
+        if (hasCached && !isClassroomStale(id)) return;
+        if (!hasCached) setIsLoading(true);
         const refreshed = await getClassroomById(id);
         if (!active) return;
         if (classrooms.some((c) => c.id === id)) {
@@ -817,6 +820,7 @@ function StudentClassroomDetail() {
         } else {
           classroomActions.addClassroom(refreshed);
         }
+        markClassroomFresh(id);
       } catch (err) {
         if (active && !classrooms.some((c) => c.id === id)) {
           setLoadError(err instanceof Error ? err.message : "Could not load classroom");

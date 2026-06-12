@@ -12,6 +12,8 @@ import {
   classroomActions,
   formatDuration,
   uid,
+  isClassroomStale,
+  markClassroomFresh,
   type Meeting,
   type Quiz,
   type Question,
@@ -1871,48 +1873,60 @@ function AdminClassroomDetail() {
   const params = (Route.useParams as any)();
   const id = params.id as string;
   const { classrooms } = useClassroomStore();
-  const [backendClassroom, setBackendClassroom] = useState<Classroom | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // ── Stale-While-Revalidate: grab cached classroom immediately ──────────────
+  const storeClassroom = React.useMemo(
+    () => classrooms.find((c) => c.id === id) ?? null,
+    [classrooms, id]
+  );
+
+  // Only show the full-page spinner when we have NOTHING in cache
+  const [isLoading, setIsLoading] = useState(!storeClassroom);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("announcements");
 
-  const storeClassroom = classrooms.find((c) => c.id === id);
-
-  const refreshClassroom = async () => {
+  const refreshClassroom = React.useCallback(async () => {
     const refreshed = await getClassroomById(id);
-    setBackendClassroom(refreshed);
     if (storeClassroom) {
       classroomActions.updateClassroom(id, refreshed);
     } else {
       classroomActions.addClassroom(refreshed);
     }
+    markClassroomFresh(id);
     return refreshed;
-  };
+  }, [id, storeClassroom]);
 
   React.useEffect(() => {
     let active = true;
+
     const load = async () => {
+      // Skip entirely if cache is fresh
+      if (storeClassroom && !isClassroomStale(id)) return;
+
       try {
         setLoadError(null);
+        if (!storeClassroom) setIsLoading(true);
         await refreshClassroom();
-        if (!active) return;
       } catch (err) {
-        if (active) {
+        if (active && !storeClassroom) {
           setLoadError(err instanceof Error ? err.message : "Could not load classroom by id");
         }
       } finally {
         if (active) setIsLoading(false);
       }
     };
+
     load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [id]);
 
-  const classroom = backendClassroom;
+  // Merge: prefer store data (kept fresh by background sync) over nothing
+  const classroom = React.useMemo(
+    () => storeClassroom,
+    [storeClassroom]
+  );
 
-  if (isLoading) {
+  if (isLoading && !classroom) {
     return (
       <div className="text-cream text-center py-20">
         <p className="text-cream/60">Loading classroom...</p>

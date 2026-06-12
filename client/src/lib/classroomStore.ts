@@ -298,6 +298,27 @@ export function useClassroomStore() {
   );
 }
 
+// ─── Per-classroom Fetch Cache ────────────────────────────────────────────────
+// Tracks the last time each classroom was fetched from the backend.
+// Both student and admin routes use this to implement Stale-While-Revalidate.
+
+const STALE_MS = 60_000; // 60 seconds
+
+/** Map of classroomId → epoch ms of last successful fetch */
+export const classroomFetchCache = new Map<string, number>();
+
+/** Returns true if we should re-fetch the classroom from the API */
+export function isClassroomStale(id: string): boolean {
+  const last = classroomFetchCache.get(id);
+  if (last === undefined) return true;
+  return Date.now() - last > STALE_MS;
+}
+
+/** Call after a successful fetch to mark the classroom as fresh */
+export function markClassroomFresh(id: string) {
+  classroomFetchCache.set(id, Date.now());
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export const authActions = {
