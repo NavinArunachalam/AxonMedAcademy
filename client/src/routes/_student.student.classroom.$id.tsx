@@ -888,7 +888,8 @@ function StudentClassroomDetail() {
           </div>
         </div>
       </div>
-
+  
+  
       {/* Tab bar */}
       <div className="flex gap-1 bg-slate-100 rounded-2xl p-1.5 flex-wrap">
         {TABS.map((t) => (
