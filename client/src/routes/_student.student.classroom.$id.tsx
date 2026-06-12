@@ -3,8 +3,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Megaphone, Video, BookOpen, ClipboardList,
   Play, Check, X, Clock, Calendar, ChevronRight,
-  Trophy, Radio, Lock,
+  Trophy, Radio, Lock, ShieldAlert
 } from "lucide-react";
+import { useVideoProtection } from "@/lib/video-protection";
 import {
   useClassroomStore,
   classroomActions,
@@ -183,12 +184,11 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 
 function SecurePlayer({ recording, onClose }: { recording: { id: string; title: string; duration: number; chapters: { id: string; title: string; startTimeSec: number }[]; storageProvider?: string; cloudflareUrl?: string }; onClose: () => void }) {
   const { currentUser, accessToken } = useClassroomStore();
-  const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [blurred, setBlurred] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { isLocked, lockReason, resetLock } = useVideoProtection(true);
 
   const streamUrl = recording.storageProvider === 'cloudflare'
     ? `${getRecordingStreamUrl(recording.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
@@ -215,34 +215,39 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
     };
   }, [recording.id]);
 
-  // Blur on tab switch
+  // Pause video if locked
   useEffect(() => {
-    const handler = () => {
-      if (document.hidden) { setBlurred(true); setIsPlaying(false); }
-      else setBlurred(false);
-    };
-    document.addEventListener("visibilitychange", handler);
-    return () => document.removeEventListener("visibilitychange", handler);
-  }, []);
-
-  // Context menu block
-  useEffect(() => {
-    const block = (e: MouseEvent) => e.preventDefault();
-    document.addEventListener("contextmenu", block);
-    return () => document.removeEventListener("contextmenu", block);
-  }, []);
+    if (isLocked && videoRef.current) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, [isLocked]);
 
   const pct = recording.duration > 0 ? (position / recording.duration) * 100 : 0;
   const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col" onContextMenu={(e) => e.preventDefault()}>
+    <div className="fixed inset-0 z-50 bg-black flex flex-col no-select select-none" onContextMenu={(e) => e.preventDefault()}>
+      <style>{`
+        @media print {
+          body, html, #root, .fixed, video {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+          }
+        }
+        .no-select {
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+        }
+      `}</style>
+
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 py-3 bg-black/80">
         <span className="text-white font-semibold text-sm truncate">{recording.title}</span>
         <div className="flex items-center gap-3">
-          {/* Watermark hint */}
-          {/* <span className="text-white/30 text-xs font-mono">{CURRENT_STUDENT.name} · {CURRENT_STUDENT.id.slice(-8)}</span> */}
           <button onClick={onClose} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
         </div>
       </div>
@@ -251,28 +256,27 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
       <div className="flex flex-1 relative select-none">
         {/* Video area */}
         <div className="flex-1 bg-linear-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative">
-          {/* Watermark */}
-          {/* <div className="absolute top-4 right-4 text-white/20 text-xs font-mono pointer-events-none select-none">
-            {CURRENT_STUDENT.name} · SECURE
-          </div> */}
+          
+
 
           {streamUrl ? (
             <video
               ref={videoRef}
               src={streamUrl}
               crossOrigin="use-credentials"
-              className="w-full h-[95vh] object-contain bg-black"
+              className="w-full h-[95vh] object-contain bg-black no-select select-none"
               controls
               controlsList="nodownload"
               poster="/default-video-thumb.jpg"
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
+              onDragStart={(e) => e.preventDefault()}
             />
           ) : (
             <>
               {/* Fake video frame */}
               <button onClick={() => {
-                if (blurred) return;
+                if (isLocked) return;
                 setIsPlaying((p) => !p);
               }} className="text-white/80 hover:text-white transition-colors">
                 {isPlaying ? (
@@ -287,11 +291,35 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
             </>
           )}
 
-          {/* Blur overlay */}
-          {blurred && (
-            <div className="absolute inset-0 backdrop-blur-xl bg-black/80 flex flex-col items-center justify-center z-10">
-              <Lock className="h-10 w-10 text-white/60 mb-3" />
-              <p className="text-white font-semibold">Video paused — return to this tab to continue</p>
+          {/* Security Lock overlay */}
+          {isLocked && (
+            <div className="absolute inset-0 backdrop-blur-xl bg-black/90 flex flex-col items-center justify-center z-30 p-6 transition-all duration-300">
+              <div className="relative mb-6">
+                <div className="absolute inset-0 rounded-full bg-red-500/20 blur-xl animate-pulse" />
+                <div className="relative rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                  <ShieldAlert className="h-12 w-12 text-red-500 animate-bounce" />
+                </div>
+              </div>
+              <h2 className="text-white font-display text-xl font-bold tracking-wider mb-2 uppercase">
+                {lockReason === "shortcut" ? "Security Alert" : "Playback Paused"}
+              </h2>
+              <p className="text-slate-400 text-sm max-w-md text-center mb-6 leading-relaxed">
+                {lockReason === "shortcut"
+                  ? "A screenshot, screen-recording shortcut, or Developer Tools attempt was detected. For security reasons, playback has been locked."
+                  : "Browser focus was lost (possible application switch, notification shade, or screenshot tool). Please return to this tab to continue."}
+              </p>
+              <button
+                onClick={() => {
+                  resetLock();
+                  if (videoRef.current) {
+                    videoRef.current.play().catch(() => {});
+                  }
+                }}
+                className="relative group overflow-hidden rounded-full bg-linear-to-r from-red-600 to-red-500 text-white px-8 py-3 text-sm font-bold shadow-lg hover:shadow-red-500/20 hover:scale-105 active:scale-95 transition-all duration-200"
+              >
+                <span className="relative z-10">Resume Playback</span>
+                <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
             </div>
           )}
 

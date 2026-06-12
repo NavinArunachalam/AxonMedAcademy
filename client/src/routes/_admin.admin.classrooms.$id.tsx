@@ -19,7 +19,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -416,6 +416,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 
 function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
   const cls = classroom;
+  const { accessToken } = useClassroomStore();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: true, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -427,6 +428,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   // Multipart tracking — null when using single-PUT path
   const [uploadPartInfo, setUploadPartInfo] = useState<{ part: number; totalParts: number } | null>(null);
   const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
+  const [activeRec, setActiveRec] = useState<any | null>(null);
 
   const formatMB = (bytes: number) => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -487,6 +489,12 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     setForm((f) => ({ ...f, chapters: [...f.chapters, { id: uid(), ...chapterInput }] }));
     setChapterInput({ title: "", startTimeSec: 0 });
   };
+
+  const streamUrl = activeRec
+    ? activeRec.storageProvider === 'cloudflare'
+      ? `${getRecordingStreamUrl(activeRec.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
+      : activeRec.cloudflareUrl
+    : '';
 
   return (
     <div className="space-y-5">
@@ -583,11 +591,11 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                     {uploadPhase === 'uploading' && uploadPartInfo && (
                       <span className="flex items-center gap-1.5">
                         <span className="inline-block h-2 w-2 rounded-full bg-lime animate-pulse" />
-                        Part 
+                        Part&nbsp;
                         <span className="text-lime font-bold">{uploadPartInfo.part}</span>
-                         of 
+                        &nbsp;of&nbsp;
                         <span className="text-lime font-bold">{uploadPartInfo.totalParts}</span>
-                         uploading…
+                        &nbsp;uploading…
                       </span>
                     )}
                     {uploadPhase === 'uploading' && !uploadPartInfo && (
@@ -684,9 +692,12 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
             <DarkCard key={rec.id}>
               <div className="flex items-start gap-4">
                 {/* Thumbnail */}
-                <div className="w-20 h-14 rounded-lg bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0">
+                <button
+                  onClick={() => setActiveRec(rec)}
+                  className="w-20 h-14 rounded-lg bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0 hover:from-lime/30 hover:to-lime/10 transition-colors"
+                >
                   <LuPlay className="h-5 w-5 text-lime" />
-                </div>
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 flex-wrap">
                     <span className="font-semibold text-cream text-sm">{rec.title}</span>
@@ -702,28 +713,34 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                <button
-  onClick={async () => {
-    console.log("PUBLISH BUTTON CLICKED");
-    console.log("Recording:", rec);
-    console.log("Recording ID:", rec.id);
-    console.log("Published:", rec.isPublished);
+                  <button
+                    onClick={() => setActiveRec(rec)}
+                    className="rounded-full bg-lime text-plum-dark px-3.5 py-1.5 text-xs font-bold flex items-center gap-1 hover:bg-lime/90 transition-colors"
+                  >
+                    <LuPlay className="h-3 w-3 fill-plum-dark animate-pulse" /> Watch
+                  </button>
+                  <button
+                    onClick={async () => {
+                      console.log("PUBLISH BUTTON CLICKED");
+                      console.log("Recording:", rec);
+                      console.log("Recording ID:", rec.id);
+                      console.log("Published:", rec.isPublished);
 
-    try {
-      if (rec.isPublished) {
-        console.log("Calling unpublishRecording...");
-        await unpublishRecording(rec.id);
-      } else {
-        console.log("Calling publishRecording...");
-        await publishRecording(rec.id);
-      }
+                      try {
+                        if (rec.isPublished) {
+                          console.log("Calling unpublishRecording...");
+                          await unpublishRecording(rec.id);
+                        } else {
+                          console.log("Calling publishRecording...");
+                          await publishRecording(rec.id);
+                        }
 
-      console.log("Refresh classroom...");
-      await refreshClassroom();
-    } catch (error) {
-      console.error("Publish/Unpublish Error:", error);
-    }
-  }}
+                        console.log("Refresh classroom...");
+                        await refreshClassroom();
+                      } catch (error) {
+                        console.error("Publish/Unpublish Error:", error);
+                      }
+                    }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
                   >
                     {rec.isPublished ? <><LuEyeOff className="h-3 w-3" /> Unpublish</> : <><LuEye className="h-3 w-3" /> Publish</>}
@@ -763,6 +780,68 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
           );
         })}
       </div>
+
+      {/* Admin Video Preview Modal */}
+      {activeRec && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col justify-between">
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-5 py-3 bg-[#110D26] border-b border-cream/10">
+            <div className="flex flex-col">
+              <span className="text-white font-semibold text-sm truncate">{activeRec.title}</span>
+              <span className="text-cream/50 text-[10px] uppercase tracking-widest font-mono font-medium">Admin Video Preview</span>
+            </div>
+            <button
+              onClick={() => setActiveRec(null)}
+              className="text-white/60 hover:text-white p-1 hover:bg-cream/10 rounded-full transition-colors"
+            >
+              <LuX className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Player area */}
+          <div className="flex flex-1 relative">
+            <div className="flex-1 bg-black flex items-center justify-center relative">
+              {streamUrl ? (
+                <video
+                  src={streamUrl}
+                  crossOrigin="use-credentials"
+                  className="w-full h-full max-h-[85vh] object-contain bg-black"
+                  controls
+                  autoPlay
+                  poster="/default-video-thumb.jpg"
+                />
+              ) : (
+                <p className="text-cream/50 text-sm">Video stream URL not configured.</p>
+              )}
+            </div>
+
+            {/* Chapters sidebar */}
+            {activeRec.chapters && activeRec.chapters.length > 0 && (
+              <div className="w-64 bg-[#110D26] border-l border-cream/10 overflow-y-auto animate-in slide-in-from-right duration-250">
+                <div className="p-3 border-b border-cream/10 text-white/70 text-xs uppercase tracking-widest font-bold">Chapters</div>
+                {activeRec.chapters.map((ch: any) => (
+                  <button
+                    key={ch.id}
+                    onClick={() => {
+                      const video = document.querySelector('video');
+                      if (video) {
+                        video.currentTime = ch.startTimeSec;
+                        video.play().catch(() => {});
+                      }
+                    }}
+                    className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-cream/5 border-b border-cream/5 text-cream/70 hover:text-cream transition-colors"
+                  >
+                    <span className="font-mono text-[10px] text-lime font-bold shrink-0">
+                      {Math.floor(ch.startTimeSec / 60).toString().padStart(2, "0")}:{(ch.startTimeSec % 60).toString().padStart(2, "0")}
+                    </span>
+                    <span className="text-xs truncate font-medium">{ch.title}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
