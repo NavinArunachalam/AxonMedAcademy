@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const User = require('../models/User');
+const FacultyMember = require('../models/FacultyMember');
 
 dotenv.config();
 
@@ -33,6 +34,17 @@ const defaultUsers = [
   }
 ];
 
+const defaultFaculty = [
+  { name: "Dr. Anita Sharma",  role: "Senior Cardiologist", specialty: "Cardiac Care",  years: 18, rating: 4.9, initials: "AS" },
+  { name: "Dr. Rohan Mehta",   role: "Anesthesiologist",    specialty: "OT Technology", years: 14, rating: 4.8, initials: "RM" },
+  { name: "Dr. Priya Iyer",    role: "Chief Pathologist",   specialty: "Lab Sciences",  years: 22, rating: 5.0, initials: "PI" },
+  { name: "Dr. Aman Khan",     role: "Radiologist",         specialty: "Imaging",       years: 12, rating: 4.7, initials: "AK" },
+  { name: "Nurse Latha R.",    role: "Nursing Head",        specialty: "Staff Nursing", years: 20, rating: 4.9, initials: "LR" },
+  { name: "Dr. Sanjay V.",     role: "ICU Specialist",      specialty: "Critical Care", years: 16, rating: 4.8, initials: "SV" },
+  { name: "Dr. Meera Joshi",   role: "Pediatrician",        specialty: "Pediatric Care",years: 11, rating: 4.8, initials: "MJ" },
+  { name: "Dr. Vikram Rao",    role: "Emergency Physician", specialty: "ER & Trauma",   years: 13, rating: 4.7, initials: "VR" }
+];
+
 const seedDefaultUsers = async () => {
   try {
     for (const defaultUser of defaultUsers) {
@@ -62,6 +74,19 @@ const seedDefaultUsers = async () => {
   }
 };
 
+const seedDefaultFaculty = async () => {
+  try {
+    const count = await FacultyMember.countDocuments();
+    if (count === 0) {
+      console.log('[Database] Seeding default faculty members...');
+      await FacultyMember.insertMany(defaultFaculty);
+      console.log('[Database] Seeding default faculty members completed.');
+    }
+  } catch (err) {
+    console.error('[Database] Failed to seed default faculty members:', err.message);
+  }
+};
+
 const connectDB = async () => {
   try {
     const connStr = process.env.MONGODB_URI || 'mongodb://localhost:27017/hta_db';
@@ -75,6 +100,8 @@ const connectDB = async () => {
     
     // Seed default login users
     await seedDefaultUsers();
+    // Seed default faculty members
+    await seedDefaultFaculty();
   } catch (error) {
     console.error(`[Database] MongoDB connection failure: ${error.message}`);
     process.exit(1);

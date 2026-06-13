@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const StudentProfile = require('../models/StudentProfile');
+const FacultyMember = require('../models/FacultyMember');
 const { sendWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo } = require('../middleware/auth');
+const multer = require('multer');
+const { storage, cloudinary } = require('../config/cloudinary');
+
+const upload = multer({ storage });
 
 // GET /stats → Command center stats: sessions, exams, incidents, users
 router.get('/stats', (req, res) => {
@@ -78,7 +83,7 @@ router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, re
       const year = new Date().getFullYear();
       const count = await StudentProfile.countDocuments();
       const enrollmentNo = `HTA-${year}-${(count + 1).toString().padStart(4, '0')}`;
-      
+
       await StudentProfile.create({
         user: user._id,
         enrollmentNo
@@ -88,8 +93,8 @@ router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, re
     // 4. Send Welcome Email (non-blocking)
     sendWelcomeEmail(user, password || '1111').catch(err => console.error('Delayed email error:', err));
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: 'User created successfully and welcome email sent',
       user: {
         id: user._id,
@@ -265,6 +270,105 @@ router.post('/live/sessions/:id/poll', (req, res) => {
 // PUT /live/sessions/:id/mute-all → Mute all participants
 router.put('/live/sessions/:id/mute-all', (req, res) => {
   res.json({ success: true, message: 'Muted all session participants (placeholder)' });
+});
+
+// ==========================================
+// FACULTY MEMBER MANAGEMENT (CRUD)
+// ==========================================
+
+// GET /faculty → Get all faculty members
+router.get('/faculty', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const facultyList = await FacultyMember.find().sort({ createdAt: 1 });
+    res.json({ success: true, facultyList });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /faculty → Create new faculty member
+router.post('/faculty', protect, restrictTo('admin', 'superadmin'), upload.single('image'), async (req, res, next) => {
+  try {
+    const { name, role, specialty, years, rating, initials } = req.body;
+    if (!name || !role || !specialty || years === undefined) {
+      return res.status(400).json({ success: false, message: 'Required fields: name, role, specialty, years' });
+    }
+
+    const image = req.file ? req.file.path : undefined;
+    const imagePublicId = req.file ? req.file.filename : undefined;
+
+    const faculty = await FacultyMember.create({
+      name,
+      role,
+      specialty,
+      years,
+      rating: rating ?? 5.0,
+      image,
+      imagePublicId,
+      initials: initials || name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    });
+    res.status(201).json({ success: true, faculty });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /faculty/:id → Update faculty member
+router.put('/faculty/:id', protect, restrictTo('admin', 'superadmin'), upload.single('image'), async (req, res, next) => {
+  try {
+    const { name, role, specialty, years, rating, initials, removeImage } = req.body;
+
+    const updateData = { name, role, specialty, years, rating, initials };
+
+    if (req.file) {
+      // 1. If faculty has an existing image, delete it from Cloudinary
+      const existingFaculty = await FacultyMember.findById(req.params.id);
+      if (existingFaculty && existingFaculty.imagePublicId) {
+        cloudinary.uploader.destroy(existingFaculty.imagePublicId).catch(err => console.error('Cloudinary delete error:', err));
+      }
+
+      updateData.image = req.file.path;
+      updateData.imagePublicId = req.file.filename;
+    } else if (removeImage === 'true' || removeImage === true) {
+      const existingFaculty = await FacultyMember.findById(req.params.id);
+      if (existingFaculty && existingFaculty.imagePublicId) {
+        cloudinary.uploader.destroy(existingFaculty.imagePublicId).catch(err => console.error('Cloudinary delete error:', err));
+      }
+      updateData.image = null;
+      updateData.imagePublicId = null;
+    }
+
+    const faculty = await FacultyMember.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+    if (!faculty) {
+      return res.status(404).json({ success: false, message: 'Faculty member not found' });
+    }
+    res.json({ success: true, faculty });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /faculty/:id → Delete faculty member
+router.delete('/faculty/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const faculty = await FacultyMember.findById(req.params.id);
+    if (!faculty) {
+      return res.status(404).json({ success: false, message: 'Faculty member not found' });
+    }
+
+    if (faculty.imagePublicId) {
+      cloudinary.uploader.destroy(faculty.imagePublicId).catch(err => console.error('Cloudinary delete error:', err));
+    }
+
+    await faculty.deleteOne();
+    res.json({ success: true, message: 'Faculty member deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

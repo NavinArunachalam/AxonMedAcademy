@@ -8,8 +8,9 @@ import {
   updateAdminProgram,
   deleteAdminProgram,
   type ProgramCourse,
+  getAssetUrl,
 } from "@/lib/api";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export const Route = createFileRoute("/_admin/admin/courses")({
   component: AdminCourses,
@@ -34,9 +35,17 @@ function CourseModal({
     description: initial?.description ?? "",
     price: initial?.price ?? 15000,
     status: (initial?.status ?? "draft") as ProgramCourse["status"],
+    specialty: initial?.specialty ?? "",
+    duration: initial?.duration ?? "6 Months",
+    rating: initial?.rating ?? 4.5,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const imageRef = useRef<HTMLInputElement>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +55,9 @@ function CourseModal({
     try {
       let saved: ProgramCourse;
       if (initial) {
-        saved = await updateAdminProgram(initial.id, form);
+        saved = await updateAdminProgram(initial.id, form, imageFile, removeImage);
       } else {
-        saved = await createAdminProgram(form);
+        saved = await createAdminProgram(form, imageFile);
       }
       onSave(saved);
       onClose();
@@ -72,16 +81,78 @@ function CourseModal({
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Course Title *</label>
-            <input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
-              placeholder="e.g. ICU Critical Care" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+          {/* ── Photo picker ── */}
+          <div className="flex items-center gap-5">
+            <div className="relative shrink-0">
+              <div className="h-20 w-32 overflow-hidden rounded-2xl bg-cream/5 border-2 border-dashed border-cream/10 grid place-items-center">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                ) : !removeImage && initial?.image ? (
+                  <img src={getAssetUrl(initial.image)} alt="Current" className="h-full w-full object-cover" />
+                ) : (
+                  <BookOpen className="h-8 w-8 text-cream/10" />
+                )}
+              </div>
+              {(imagePreview || (!removeImage && initial?.image)) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                    setRemoveImage(true);
+                    if (imageRef.current) imageRef.current.value = "";
+                  }}
+                  className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-red-500 text-white grid place-items-center shadow"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => imageRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-full bg-cream/10 hover:bg-cream/20 text-cream border border-cream/10 px-4 py-2 text-xs font-bold transition-colors"
+              >
+                {imagePreview || (!removeImage && initial?.image) ? "Change Image" : "Upload Image"}
+              </button>
+              <p className="text-[10px] text-cream/30 uppercase tracking-[0.15em]">JPG, PNG or WebP · Max 2MB</p>
+              <input
+                ref={imageRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setImageFile(file);
+                    setImagePreview(URL.createObjectURL(file));
+                    setRemoveImage(false);
+                  }
+                }}
+              />
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Course Title *</label>
+              <input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
+                placeholder="e.g. ICU Critical Care" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Specialty</label>
+              <input value={form.specialty} onChange={e => setForm({ ...form, specialty: e.target.value })}
+                placeholder="e.g. Cardiology" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+            </div>
+          </div>
+
           <div>
             <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-              rows={3} placeholder="What will students learn?" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none" />
+              rows={2} placeholder="What will students learn?" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none" />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Category</label>
@@ -91,19 +162,32 @@ function CourseModal({
               </select>
             </div>
             <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Duration</label>
+              <input value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })}
+                placeholder="e.g. 6 Months" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Rating</label>
+              <input type="number" step="0.1" min="1" max="5" value={form.rating} onChange={e => setForm({ ...form, rating: Number(e.target.value) })}
+                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
+            </div>
+            <div>
               <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Price (₹)</label>
               <input type="number" min={0} value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })}
                 className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
             </div>
-          </div>
-          <div>
-            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Status</label>
-            <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as ProgramCourse["status"] })}
-              className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Status</label>
+              <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as ProgramCourse["status"] })}
+                className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50">
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} disabled={saving}
@@ -350,10 +434,26 @@ function AdminCourses() {
                   return (
                     <tr key={c.id} className="border-t border-cream/10 hover:bg-cream/5">
                       <td className="p-4">
-                        <div className="font-semibold">{c.title}</div>
-                        {c.description && <div className="text-[11px] text-cream/50 mt-0.5 max-w-[220px] truncate">{c.description}</div>}
+                        <div className="flex items-center gap-3">
+                          {c.image ? (
+                            <div className="h-10 w-16 overflow-hidden rounded-md bg-cream/10 shrink-0">
+                              <img src={getAssetUrl(c.image)} alt={c.title} className="h-full w-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="h-10 w-16 rounded-md bg-cream/5 border border-cream/10 grid place-items-center shrink-0">
+                              <BookOpen className="h-4 w-4 text-cream/20" />
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold">{c.title}</div>
+                            {c.specialty && <div className="text-[11px] text-lime/80 mt-0.5">{c.specialty}</div>}
+                          </div>
+                        </div>
                       </td>
-                      <td className="text-cream/70">{c.category}</td>
+                      <td className="text-cream/70">
+                        {c.category}
+                        {c.duration && <div className="text-[10px] text-cream/40 mt-0.5">{c.duration}</div>}
+                      </td>
                       <td className="font-mono">{enrolled}</td>
                       <td className="font-mono">₹{revenue.toLocaleString("en-IN")}</td>
                       <td className="font-mono text-lime">₹{c.price.toLocaleString("en-IN")}</td>

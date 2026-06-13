@@ -1,4 +1,4 @@
-import { R as React__default } from "./react.mjs";
+import { a as React__default } from "./react.mjs";
 var DefaultContext = {
   color: void 0,
   size: void 0,

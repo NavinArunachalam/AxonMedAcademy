@@ -15,10 +15,10 @@ const programSchema = new mongoose.Schema({
     default: 'draft'
   },
   tags:        [String],
-  duration: {
-    months:  { type: Number },
-    totalHours: { type: Number }
-  },
+  duration:    { type: String }, // e.g. "6 Months"
+  specialty:   { type: String }, // e.g. "OT Tech"
+  image:       { type: String }, // Cloudinary URL
+  imagePublicId: { type: String }, // Cloudinary Public ID
   mode: { type: String, enum: ['online', 'offline', 'hybrid'], default: 'online' },
   isProctored: { type: Boolean, default: true },
   credits:     { type: Number },
@@ -42,10 +42,7 @@ const programSchema = new mongoose.Schema({
   badge:       { type: String, enum: ['top_rated', 'new', 'in_demand', null], default: null },
   isPublished: { type: Boolean, default: false },
   enrollmentCount: { type: Number, default: 0 },
-  rating: {
-    average: { type: Number, default: 0 },
-    count:   { type: Number, default: 0 }
-  },
+  rating:      { type: Number, default: 4.5 },
   seoMeta: {
     title: String, 
     description: String, 

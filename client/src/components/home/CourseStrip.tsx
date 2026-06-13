@@ -1,16 +1,19 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Clock, Users, Star, Stethoscope, Syringe, FlaskConical, HeartPulse, Microscope, ScanLine } from "lucide-react";
-
-const courses = [
-  { icon: HeartPulse, title: "Advanced Cardiac Care", duration: "6 Months", students: 1240, rating: 4.9, fee: 45000, badge: "ICU", color: "from-plum to-plum-dark" },
-  { icon: Syringe,    title: "Staff Nursing Diploma", duration: "1 Year",   students: 2100, rating: 4.8, fee: 68000, badge: "Nursing", color: "from-plum-dark to-plum" },
-  { icon: Stethoscope,title: "OT Technician Program", duration: "3 Months", students: 820,  rating: 4.7, fee: 32000, badge: "OT",      color: "from-plum to-plum-dark" },
-  { icon: FlaskConical,title:"Lab Technician (DMLT)",  duration: "1 Year",   students: 1530, rating: 4.8, fee: 54000, badge: "Lab",     color: "from-plum-dark to-plum" },
-  { icon: ScanLine,   title: "Radiology & Imaging",   duration: "6 Months", students: 690,  rating: 4.6, fee: 49000, badge: "Radio",   color: "from-plum to-plum-dark" },
-  { icon: Microscope, title: "Clinical Pathology",    duration: "3 Months", students: 540,  rating: 4.7, fee: 28000, badge: "Path",    color: "from-plum-dark to-plum" },
-];
+import { ArrowUpRight, Clock, Users, Star, BookOpen, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getPublicPrograms, type ProgramCourse, getAssetUrl } from "@/lib/api";
 
 export function CourseStrip() {
+  const [programs, setPrograms] = useState<ProgramCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPublicPrograms()
+      .then(data => setPrograms(data))
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <section className="py-10 lg:py-16">
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
@@ -28,40 +31,55 @@ export function CourseStrip() {
           </Link>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c) => (
-            <div key={c.title} className="group relative overflow-hidden rounded-3xl border border-border bg-card p-6 hover:border-plum-dark/30 hover:-translate-y-1 transition-all">
-              <div className={`absolute -top-16 -right-16 h-44 w-44 rounded-full bg-gradient-to-br ${c.color} opacity-10 group-hover:opacity-20 transition-opacity`} />
-              <div className="relative">
-                <div className="flex items-center justify-between">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-plum-dark text-lime">
-                    <c.icon className="h-5 w-5" />
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-plum" />
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {programs.slice(0, 6).map((c, i) => {
+              const color = i % 2 === 0 ? "from-plum to-plum-dark" : "from-plum-dark to-plum";
+              return (
+                <div key={c.id} className="group relative overflow-hidden rounded-3xl border border-border bg-card p-6 hover:border-plum-dark/30 hover:-translate-y-1 transition-all">
+                  <div className={`absolute -top-16 -right-16 h-44 w-44 rounded-full bg-gradient-to-br ${color} opacity-10 group-hover:opacity-20 transition-opacity`} />
+                  <div className="relative">
+                    <div className="flex items-center justify-between">
+                      {c.image ? (
+                        <div className="h-12 w-12 overflow-hidden rounded-2xl bg-plum-dark">
+                          <img src={getAssetUrl(c.image)} alt={c.title} className="h-full w-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-plum-dark text-lime">
+                          <BookOpen className="h-5 w-5" />
+                        </div>
+                      )}
+                      <span className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-plum-dark">
+                        {c.specialty || c.category || "Course"}
+                      </span>
+                    </div>
+                    <h3 className="mt-5 font-display text-lg font-semibold text-plum-dark group-hover:text-plum transition">
+                      {c.title}
+                    </h3>
+                    <div className="mt-3 flex items-center gap-4 text-xs text-foreground/60">
+                      <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {c.duration || "6 Months"}</span>
+                      <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {(c.title.length * 123 % 2000) + 300}</span>
+                      <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-lime text-lime" /> {c.rating || 4.5}</span>
+                    </div>
+                    <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
+                      <div>
+                        <div className="text-xs text-foreground/50">Starting at</div>
+                        <div className="font-display text-xl font-bold text-plum-dark">₹{c.price.toLocaleString()}</div>
+                      </div>
+                      <Link to="/courses" className="rounded-full bg-plum-dark px-4 py-2 text-xs font-semibold text-cream hover:bg-plum transition">
+                        Enroll →
+                      </Link>
+                    </div>
                   </div>
-                  <span className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-plum-dark">
-                    {c.badge}
-                  </span>
                 </div>
-                <h3 className="mt-5 font-display text-lg font-semibold text-plum-dark group-hover:text-plum transition">
-                  {c.title}
-                </h3>
-                <div className="mt-3 flex items-center gap-4 text-xs text-foreground/60">
-                  <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {c.duration}</span>
-                  <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {c.students.toLocaleString()}</span>
-                  <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-lime text-lime" /> {c.rating}</span>
-                </div>
-                <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-                  <div>
-                    <div className="text-xs text-foreground/50">Starting at</div>
-                    <div className="font-display text-xl font-bold text-plum-dark">₹{c.fee.toLocaleString()}</div>
-                  </div>
-                  <Link to="/courses" className="rounded-full bg-plum-dark px-4 py-2 text-xs font-semibold text-cream hover:bg-plum transition">
-                    Enroll →
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );

@@ -865,6 +865,14 @@ export function getRecordingStreamUrl(recordingId: string): string {
   return `${API_BASE}/recordings/classroom/${recordingId}/stream`;
 }
 
+export function getAssetUrl(path: string | null | undefined): string {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  // If it starts with /uploads, it's relative to the server root (not API_BASE)
+  const baseUrl = API_BASE.replace(/\/api\/v1$/, '');
+  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 export async function publishRecording(recordingId: string) {
   return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}/publish`, {
     method: 'PUT',
@@ -910,6 +918,10 @@ export interface ProgramCourse {
   price: number;
   status: 'published' | 'draft' | 'archived';
   updatedAt: string;
+  specialty?: string;
+  duration?: string;
+  rating?: number;
+  image?: string;
 }
 
 function normalizeBackendProgram(raw: any): ProgramCourse {
@@ -924,6 +936,10 @@ function normalizeBackendProgram(raw: any): ProgramCourse {
     price: raw.fee?.baseAmount ?? 0,
     status,
     updatedAt: raw.updatedAt || new Date().toISOString(),
+    specialty: raw.specialty,
+    duration: raw.duration,
+    rating: raw.rating,
+    image: raw.image,
   };
 }
 
@@ -932,36 +948,57 @@ export async function getAdminPrograms(): Promise<ProgramCourse[]> {
   return (payload.programs as any[]).map(normalizeBackendProgram);
 }
 
+export async function getPublicPrograms(): Promise<ProgramCourse[]> {
+  const payload = await fetchJson('/programs');
+  return (payload.programs as any[]).map(normalizeBackendProgram);
+}
+
 export async function createAdminProgram(
-  data: Omit<ProgramCourse, 'id' | 'updatedAt'>
+  data: Omit<ProgramCourse, 'id' | 'updatedAt'>,
+  imageFile?: File | null
 ): Promise<ProgramCourse> {
-  const payload = await fetchJson('/programs', {
-    method: 'POST',
-    body: JSON.stringify({
-      title: data.title,
-      description: data.description,
-      category: data.category,
-      fee: { baseAmount: data.price, gstPercent: 18 },
-      status: data.status,
-    }),
-  });
+  const fd = new FormData();
+  fd.append("title", data.title);
+  fd.append("category", data.category);
+  fd.append("status", data.status);
+  if (data.description) fd.append("description", data.description);
+  if (data.specialty) fd.append("specialty", data.specialty);
+  if (data.duration) fd.append("duration", data.duration);
+  if (data.rating) fd.append("rating", String(data.rating));
+  fd.append("fee", JSON.stringify({ baseAmount: data.price, gstPercent: 18 }));
+  if (imageFile) {
+    fd.append("image", imageFile);
+  }
+
+  const payload = await api.multipart('/programs', 'POST', fd);
   return normalizeBackendProgram(payload.program);
 }
 
 export async function updateAdminProgram(
   id: string,
-  data: Partial<Omit<ProgramCourse, 'id'>>
+  data: Partial<Omit<ProgramCourse, 'id'>>,
+  imageFile?: File | null,
+  removeImage?: boolean
 ): Promise<ProgramCourse> {
-  const body: Record<string, any> = {};
-  if (data.title !== undefined) body.title = data.title;
-  if (data.description !== undefined) body.description = data.description;
-  if (data.category !== undefined) body.category = data.category;
-  if (data.price !== undefined) body.fee = { baseAmount: data.price, gstPercent: 18 };
-  if (data.status !== undefined) body.status = data.status;
-  const payload = await fetchJson(`/programs/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    body: JSON.stringify(body),
-  });
+  const fd = new FormData();
+  if (data.title !== undefined) fd.append("title", data.title);
+  if (data.category !== undefined) fd.append("category", data.category);
+  if (data.status !== undefined) fd.append("status", data.status);
+  if (data.description !== undefined) fd.append("description", data.description);
+  if (data.specialty !== undefined) fd.append("specialty", data.specialty);
+  if (data.duration !== undefined) fd.append("duration", data.duration);
+  if (data.rating !== undefined) fd.append("rating", String(data.rating));
+  if (data.price !== undefined) {
+    fd.append("fee", JSON.stringify({ baseAmount: data.price, gstPercent: 18 }));
+  }
+
+  if (imageFile) {
+    fd.append("image", imageFile);
+  } else if (removeImage) {
+    fd.append("removeImage", "true");
+  }
+
+  const payload = await api.multipart(`/programs/${encodeURIComponent(id)}`, 'PUT', fd);
   return normalizeBackendProgram(payload.program);
 }
 
@@ -1047,6 +1084,29 @@ export const api = {
   post: (path: string, body?: any) => fetchJson(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   put: (path: string, body?: any) => fetchJson(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   delete: (path: string) => fetchJson(path, { method: 'DELETE' }),
+  multipart: async (path: string, method: 'POST' | 'PUT', formData: FormData) => {
+    const accessToken = classroomStore.getState().accessToken;
+    const headers: Record<string, string> = {
+      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      ...getDevAuthUserHeaders(),
+    };
+    
+    const response = await fetch(`${API_BASE}${path}`, {
+      method,
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
+        classroomStore.setState(() => ({ currentUser: null }));
+      }
+      throw new Error(payload.message || 'Server error');
+    }
+    return payload;
+  }
 };
 
 export async function getMeetingByRoomId(roomId: string) {

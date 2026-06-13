@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const FacultyMember = require('../models/FacultyMember');
 
 // GET /programs → Published programs list
 router.get('/programs', (req, res) => {
@@ -12,8 +13,13 @@ router.get('/programs/:slug', (req, res) => {
 });
 
 // GET /faculty → Faculty directory
-router.get('/faculty', (req, res) => {
-  res.json({ success: true, facultyList: [] });
+router.get('/faculty', async (req, res, next) => {
+  try {
+    const facultyList = await FacultyMember.find().sort({ createdAt: 1 });
+    res.json({ success: true, facultyList });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /testimonials → Student testimonials

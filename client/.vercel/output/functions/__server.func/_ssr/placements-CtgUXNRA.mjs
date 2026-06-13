@@ -1,6 +1,6 @@
 import { j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { P as PublicLayout } from "./Layout-dYQ0o33O.mjs";
-import { i as Building2, Q as MapPin, al as TrendingUp } from "../_libs/lucide-react.mjs";
+import { i as Building2, P as MapPin, ai as TrendingUp } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__react-router.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";

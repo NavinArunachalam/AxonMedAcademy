@@ -228,17 +228,6 @@ const Flame = createLucideIcon("Flame", [
     }
   ]
 ]);
-const FlaskConical = createLucideIcon("FlaskConical", [
-  [
-    "path",
-    {
-      d: "M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2",
-      key: "pzvekw"
-    }
-  ],
-  ["path", { d: "M8.5 2h7", key: "csnxdl" }],
-  ["path", { d: "M7 16h10", key: "wp8him" }]
-]);
 const GraduationCap = createLucideIcon("GraduationCap", [
   [
     "path",
@@ -430,13 +419,6 @@ const Save = createLucideIcon("Save", [
   ["path", { d: "M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7", key: "1ydtos" }],
   ["path", { d: "M7 3v4a1 1 0 0 0 1 1h7", key: "t51u73" }]
 ]);
-const ScanLine = createLucideIcon("ScanLine", [
-  ["path", { d: "M3 7V5a2 2 0 0 1 2-2h2", key: "aa7l1z" }],
-  ["path", { d: "M17 3h2a2 2 0 0 1 2 2v2", key: "4qcy5o" }],
-  ["path", { d: "M21 17v2a2 2 0 0 1-2 2h-2", key: "6vwrx8" }],
-  ["path", { d: "M7 21H5a2 2 0 0 1-2-2v-2", key: "ioqczr" }],
-  ["path", { d: "M7 12h10", key: "b7w52i" }]
-]);
 const School = createLucideIcon("School", [
   ["path", { d: "M14 22v-4a2 2 0 1 0-4 0v4", key: "hhkicm" }],
   [
@@ -555,14 +537,6 @@ const Stethoscope = createLucideIcon("Stethoscope", [
   ["path", { d: "M8 15a6 6 0 0 0 12 0v-3", key: "x18d4x" }],
   ["circle", { cx: "20", cy: "10", r: "2", key: "ts1r5v" }]
 ]);
-const Syringe = createLucideIcon("Syringe", [
-  ["path", { d: "m18 2 4 4", key: "22kx64" }],
-  ["path", { d: "m17 7 3-3", key: "1w1zoj" }],
-  ["path", { d: "M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5", key: "1exhtz" }],
-  ["path", { d: "m9 11 4 4", key: "rovt3i" }],
-  ["path", { d: "m5 19-3 3", key: "59f2uf" }],
-  ["path", { d: "m14 4 6 6", key: "yqp9t2" }]
-]);
 const Target = createLucideIcon("Target", [
   ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
   ["circle", { cx: "12", cy: "12", r: "6", key: "1vlfrh" }],
@@ -597,6 +571,11 @@ const Trophy = createLucideIcon("Trophy", [
   ["path", { d: "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", key: "1nw9bq" }],
   ["path", { d: "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", key: "1np0yb" }],
   ["path", { d: "M18 2H6v7a6 6 0 0 0 12 0V2Z", key: "u46fv3" }]
+]);
+const Upload = createLucideIcon("Upload", [
+  ["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", key: "ih7n3h" }],
+  ["polyline", { points: "17 8 12 3 7 8", key: "t8dd8p" }],
+  ["line", { x1: "12", x2: "12", y1: "3", y2: "15", key: "widbto" }]
 ]);
 const User = createLucideIcon("User", [
   ["path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", key: "975kel" }],
@@ -633,7 +612,7 @@ const Youtube = createLucideIcon("Youtube", [
   ["path", { d: "m10 15 5-3-5-3z", key: "1jp15x" }]
 ]);
 export {
-  Play as $,
+  Plus as $,
   Activity as A,
   Bell as B,
   Calendar as C,
@@ -643,54 +622,52 @@ export {
   GraduationCap as G,
   Heart as H,
   IndianRupee as I,
-  Instagram as J,
-  Linkedin as K,
+  Linkedin as J,
+  LoaderCircle as K,
   LayoutDashboard as L,
-  LoaderCircle as M,
-  Lock as N,
-  LogOut as O,
-  Mail as P,
-  MapPin as Q,
-  Megaphone as R,
-  Menu as S,
-  MessageCircle as T,
-  MessageSquare as U,
-  Microscope as V,
-  Minus as W,
-  Pen as X,
-  PenLine as Y,
-  Phone as Z,
-  Pill as _,
+  Lock as M,
+  LogOut as N,
+  Mail as O,
+  MapPin as P,
+  Megaphone as Q,
+  Menu as R,
+  MessageCircle as S,
+  MessageSquare as T,
+  Microscope as U,
+  Minus as V,
+  Pen as W,
+  PenLine as X,
+  Phone as Y,
+  Pill as Z,
+  Play as _,
   Archive as a,
-  Plus as a0,
-  Quote as a1,
-  Radio as a2,
-  RefreshCw as a3,
-  Save as a4,
-  ScanLine as a5,
-  School as a6,
-  ScrollText as a7,
-  Search as a8,
-  Send as a9,
-  Settings as aa,
-  Share2 as ab,
-  ShieldAlert as ac,
-  ShieldCheck as ad,
-  SlidersHorizontal as ae,
-  Sparkles as af,
-  Star as ag,
-  Stethoscope as ah,
-  Syringe as ai,
-  Target as aj,
-  Trash2 as ak,
-  TrendingUp as al,
-  TriangleAlert as am,
-  Trophy as an,
-  User as ao,
-  Users as ap,
-  Video as aq,
-  X as ar,
-  Youtube as as,
+  Quote as a0,
+  Radio as a1,
+  RefreshCw as a2,
+  Save as a3,
+  School as a4,
+  ScrollText as a5,
+  Search as a6,
+  Send as a7,
+  Settings as a8,
+  Share2 as a9,
+  ShieldAlert as aa,
+  ShieldCheck as ab,
+  SlidersHorizontal as ac,
+  Sparkles as ad,
+  Star as ae,
+  Stethoscope as af,
+  Target as ag,
+  Trash2 as ah,
+  TrendingUp as ai,
+  TriangleAlert as aj,
+  Trophy as ak,
+  Upload as al,
+  User as am,
+  Users as an,
+  Video as ao,
+  X as ap,
+  Youtube as aq,
   ArrowDownRight as b,
   ArrowLeft as c,
   ArrowRight as d,
@@ -714,6 +691,6 @@ export {
   Clock as v,
   CreditCard as w,
   Flame as x,
-  FlaskConical as y,
-  HeartPulse as z
+  HeartPulse as y,
+  Instagram as z
 };

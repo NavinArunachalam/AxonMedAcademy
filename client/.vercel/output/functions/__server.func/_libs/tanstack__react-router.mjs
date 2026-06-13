@@ -1,6 +1,6 @@
-import { r as reactExports, j as jsxRuntimeExports, R as React__default } from "./react.mjs";
+import { r as reactExports, j as jsxRuntimeExports, a as React__default } from "./react.mjs";
 import { w as invariant, x as isDangerousProtocol, l as exactPathTest, G as removeTrailingSlash, v as hasKeys, h as deepEqual, n as functionalUpdate, B as BaseRootRoute, a as BaseRoute, y as isModuleNotFoundError, z as isNotFound, t as getScrollRestorationScriptForRouter, J as rootRouteId, D as isServer, A as isRedirect, e as createNonReactiveReadonlyStore, d as createNonReactiveMutableStore, R as RouterCore, k as escapeHtml, o as getAssetCrossOrigin, s as getScriptPreloadAttrs, b as appendUniqueUserTags, I as resolveManifestCssLink, L as transformReadableStreamWithRouter, K as transformPipeableStreamWithRouter } from "./tanstack__router-core.mjs";
-import { R as ReactDOMServer } from "./react-dom.mjs";
+import { a as ReactDOMServer } from "./react-dom.mjs";
 import { PassThrough } from "node:stream";
 import { i as isbot } from "./isbot.mjs";
 var reactUse = reactExports.use;
