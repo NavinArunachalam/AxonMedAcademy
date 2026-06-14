@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ClipboardList, CheckCircle2, Clock, X, ChevronLeft, ChevronRight, AlertCircle, Trophy } from "lucide-react";
+import { ClipboardList, CheckCircle2, Clock, X, ChevronLeft, ChevronRight, AlertCircle, Trophy, Check } from "lucide-react";
 import { Card } from "@/components/portal/PortalShell";
 import { useClassroomStore, classroomActions, getGrade, formatTime, type Quiz, type Question } from "@/lib/classroomStore";
 import {
@@ -7,8 +7,22 @@ import {
   saveQuizAnswer,
   startQuizAttempt,
   submitQuizAttempt,
+  getQuizAttemptResult,
 } from "@/lib/api";
 import { useState, useEffect, useCallback, useRef } from "react";
+
+type QuizResultReview = {
+  score: { rawMarks: number; totalMarks: number; percentage: number; passed: boolean };
+  answers: Array<{
+    questionId: string;
+    selectedOptions: string[];
+    isCorrect: boolean;
+    marksAwarded: number;
+    questionText: string;
+    explanation: string;
+    correctOptions: string[];
+  }>;
+};
 
 export const Route = createFileRoute("/_student/student/exams")({
   component: Exams,
@@ -16,16 +30,16 @@ export const Route = createFileRoute("/_student/student/exams")({
 
 // ─── Quiz Attempt Modal ───────────────────────────────────────────────────────
 
-function QuizModal({ quiz, classroomId, onClose }: {
-  quiz: Quiz; classroomId: string; studentId: string; studentName: string; onClose: () => void;
+function QuizModal({ quiz, classroomId, reviewAttemptId, onClose }: {
+  quiz: Quiz; classroomId: string; studentId: string; studentName: string; reviewAttemptId?: string | null; onClose: () => void;
 }) {
-  const [phase, setPhase] = useState<"intro" | "taking" | "result">("intro");
+  const [phase, setPhase] = useState<"intro" | "taking" | "result">(reviewAttemptId ? "result" : "intro");
   const [examQuestions, setExamQuestions] = useState<Question[]>([]);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [qIdx, setQIdx] = useState(0);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [timeLeft, setTimeLeft] = useState((quiz.duration || 0) * 60);
-  const [result, setResult] = useState<{ rawMarks: number; totalMarks: number; percentage: number; passed: boolean } | null>(null);
+  const [result, setResult] = useState<QuizResultReview | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -35,6 +49,21 @@ function QuizModal({ quiz, classroomId, onClose }: {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+
+  useEffect(() => {
+    if (reviewAttemptId) {
+      const loadReview = async () => {
+        setError("");
+        try {
+          const review = await getQuizAttemptResult(quiz.id, reviewAttemptId);
+          setResult(review);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Could not load quiz review");
+        }
+      };
+      void loadReview();
+    }
+  }, [reviewAttemptId, quiz.id]);
 
   const handleSubmit = useCallback(async () => {
     if (!attemptId || isSubmitting) return;
@@ -51,8 +80,9 @@ function QuizModal({ quiz, classroomId, onClose }: {
           }),
         ),
       );
-      const submitted = await submitQuizAttempt(quiz.id, attemptId);
-      setResult(submitted.score);
+      await submitQuizAttempt(quiz.id, attemptId);
+      const review = await getQuizAttemptResult(quiz.id, attemptId);
+      setResult(review);
       const refreshed = await getClassroomById(classroomId);
       classroomActions.updateClassroom(classroomId, refreshed);
       setPhase("result");
@@ -234,30 +264,90 @@ function QuizModal({ quiz, classroomId, onClose }: {
         {/* RESULT */}
         {phase === "result" && result && (
           <div className="p-8 text-center">
-            <div className={`grid h-20 w-20 place-items-center rounded-3xl mx-auto mb-4 ${result.passed ? "bg-lime text-plum-dark" : "bg-red-500/10 text-red-500"}`}>
-              {result.passed ? <Trophy className="h-10 w-10" /> : <X className="h-10 w-10" />}
+            <div className={`grid h-20 w-20 place-items-center rounded-3xl mx-auto mb-4 ${result.score.passed ? "bg-lime text-plum-dark" : "bg-red-500/10 text-red-500"}`}>
+              {result.score.passed ? <Trophy className="h-10 w-10" /> : <X className="h-10 w-10" />}
             </div>
-            <h2 className={`font-display text-3xl font-bold ${result.passed ? "text-plum-dark" : "text-red-600"}`}>
-              {result.passed ? "You Passed! 🎉" : "Not Passed"}
+            <h2 className={`font-display text-3xl font-bold ${result.score.passed ? "text-plum-dark" : "text-red-600"}`}>
+              {result.score.passed ? "You Passed! 🎉" : "Not Passed"}
             </h2>
             <p className="text-slate-500 text-sm mt-2">{quiz.title}</p>
 
             <div className="mt-6 grid grid-cols-3 gap-4">
               {[
-                { l: "Score", v: `${result.rawMarks}/${result.totalMarks}` },
-                { l: "Percentage", v: `${result.percentage}%` },
-                { l: "Grade", v: getGrade(result.percentage) },
+                { l: "Score", v: `${result.score.rawMarks}/${result.score.totalMarks}` },
+                { l: "Percentage", v: `${result.score.percentage}%` },
+                { l: "Grade", v: getGrade(result.score.percentage) },
               ].map(s => (
-                <div key={s.l} className={`rounded-2xl p-4 ${result.passed ? "bg-lime/10" : "bg-red-50"}`}>
-                  <div className={`font-display text-2xl font-bold ${result.passed ? "text-plum-dark" : "text-red-600"}`}>{s.v}</div>
+                <div key={s.l} className={`rounded-2xl p-4 ${result.score.passed ? "bg-lime/10" : "bg-red-50"}`}>
+                  <div className={`font-display text-2xl font-bold ${result.score.passed ? "text-plum-dark" : "text-red-600"}`}>{s.v}</div>
                   <div className="text-xs text-slate-500 mt-1">{s.l}</div>
                 </div>
               ))}
             </div>
 
-            <p className={`mt-4 text-sm font-semibold ${result.passed ? "text-lime-700" : "text-red-600"}`}>
-              {result.passed ? `Great work! You scored above the ${quiz.passPercent}% pass mark.` : `You needed ${quiz.passPercent}% to pass. Keep practicing!`}
+            <p className={`mt-4 text-sm font-semibold ${result.score.passed ? "text-lime-700" : "text-red-600"}`}>
+              {result.score.passed ? `Great work! You scored above the ${quiz.passPercent}% pass mark.` : `You needed ${quiz.passPercent}% to pass. Keep practicing!`}
             </p>
+
+            {/* Answer review */}
+            {result.answers && result.answers.length > 0 && (
+              <div className="space-y-3 mt-6 text-left pr-2">
+                <h3 className="font-display font-bold text-plum-dark">Answer Review</h3>
+                {result.answers.map((myAns, i) => {
+                  // Try ID match first, then text match, then position fallback
+                  const quizQ = quiz.questions.find(q => q.id === myAns.questionId)
+                    || quiz.questions.find(q => q.text === myAns.questionText)
+                    || quiz.questions[i];
+                  return (
+                    <div key={myAns.questionId || i} className={`rounded-2xl border p-5 ${myAns.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+                      <div className="flex items-start gap-2 mb-3">
+                        <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${myAns.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                          {myAns.isCorrect ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                        </span>
+                        <p className="text-slate-800 text-sm font-semibold flex-1">Q{i + 1}. {myAns.questionText || quizQ?.text || ""}</p>
+                        <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns.marksAwarded} marks</span>
+                      </div>
+                      {/* Options */}
+                      {quizQ && quizQ.options && quizQ.options.length > 0 && (
+                        <div className="ml-8 space-y-1.5 mb-3">
+                          {quizQ.options.map((opt) => {
+                            const isSelected = myAns.selectedOptions.includes(opt.label);
+                            const isCorrectOpt = myAns.correctOptions.includes(opt.label);
+                            // Styling
+                            let optClass = "border-slate-200 bg-white text-slate-600";
+                            if (isCorrectOpt && isSelected) optClass = "border-green-500 bg-green-100 text-green-800 font-semibold";
+                            else if (isCorrectOpt) optClass = "border-green-400 bg-green-50 text-green-700 font-semibold";
+                            else if (isSelected) optClass = "border-red-400 bg-red-100 text-red-700";
+                            // Badge text
+                            let badge: React.ReactNode = null;
+                            if (isCorrectOpt && isSelected) badge = <span className="ml-auto text-green-600 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✓ Your answer (Correct)</span>;
+                            else if (isCorrectOpt) badge = <span className="ml-auto text-green-600 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✓ Correct Answer</span>;
+                            else if (isSelected) badge = <span className="ml-auto text-red-500 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✗ Your answer (Wrong)</span>;
+                            return (
+                              <div key={opt.label} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${optClass}`}>
+                                <span className={`h-5 w-5 shrink-0 grid place-items-center rounded-full text-[10px] font-bold border ${
+                                  isCorrectOpt ? "bg-green-500 border-green-500 text-white"
+                                  : isSelected ? "bg-red-400 border-red-400 text-white"
+                                  : "border-slate-300 text-slate-400"
+                                }`}>
+                                  {isCorrectOpt ? <Check className="h-3 w-3" /> : isSelected ? <X className="h-3 w-3" /> : opt.label}
+                                </span>
+                                <span>{opt.text}</span>
+                                {badge}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {myAns.explanation && (
+                        <p className="text-xs text-slate-500 ml-8 mt-1 italic">💡 {myAns.explanation}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <button onClick={onClose} className="mt-6 w-full rounded-full bg-plum-dark text-cream py-3 font-bold">Close</button>
           </div>
         )}

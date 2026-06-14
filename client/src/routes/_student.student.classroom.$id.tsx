@@ -593,13 +593,33 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => startQuiz(q)}
-                  disabled={!canAttempt}
-                  className={`rounded-full px-5 py-2.5 text-sm font-bold shrink-0 ${canAttempt ? "bg-plum-dark text-cream hover:bg-plum" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
-                >
-                  {!canAttempt ? "Max attempts reached" : myAttempts.length > 0 ? "Retry" : "Start Quiz"}
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  {bestAttempt && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          setError("");
+                          const review = await getQuizAttemptResult(q.id, bestAttempt.id);
+                          setActiveQuiz(q);
+                          setResult(review);
+                          setPhase("result");
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "Could not load quiz review");
+                        }
+                      }}
+                      className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 text-sm font-bold"
+                    >
+                      Review Answers
+                    </button>
+                  )}
+                  <button
+                    onClick={() => startQuiz(q)}
+                    disabled={!canAttempt}
+                    className={`rounded-full px-5 py-2.5 text-sm font-bold ${canAttempt ? "bg-plum-dark text-cream hover:bg-plum" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
+                  >
+                    {!canAttempt ? "Max attempts reached" : myAttempts.length > 0 ? "Retry" : "Start Quiz"}
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -763,24 +783,58 @@ function TestsTab({ classroomId }: { classroomId: string }) {
         {/* Answer review */}
         <div className="space-y-3">
           <h3 className="font-display font-bold text-plum-dark">Answer Review</h3>
-          {result.answers.map((myAns, i) => (
-            <div key={myAns.questionId} className={`rounded-2xl border p-5 ${myAns.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
-              <div className="flex items-start gap-2 mb-3">
-                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${myAns.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
-                  {myAns.isCorrect ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-                </span>
-                <p className="text-slate-800 text-sm font-medium flex-1">Q{i + 1}. {myAns.questionText}</p>
-                <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns.marksAwarded}</span>
+          {result.answers.map((myAns, i) => {
+            // Try ID match first, then text match, then position fallback
+            const quizQ = activeQuiz.questions.find(q => q.id === myAns.questionId)
+              || activeQuiz.questions.find(q => q.text === myAns.questionText)
+              || activeQuiz.questions[i];
+            return (
+              <div key={myAns.questionId} className={`rounded-2xl border p-5 ${myAns.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+                <div className="flex items-start gap-2 mb-3">
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${myAns.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                    {myAns.isCorrect ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                  </span>
+                  <p className="text-slate-800 text-sm font-semibold flex-1">Q{i + 1}. {myAns.questionText || quizQ?.text || ""}</p>
+                  <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns.marksAwarded} marks</span>
+                </div>
+                {/* Options */}
+                {quizQ && quizQ.options.length > 0 && (
+                  <div className="ml-8 space-y-1.5 mb-3">
+                    {quizQ.options.map((opt) => {
+                      const isSelected = myAns.selectedOptions.includes(opt.label);
+                      const isCorrectOpt = myAns.correctOptions.includes(opt.label);
+                      // Styling
+                      let optClass = "border-slate-200 bg-white text-slate-600";
+                      if (isCorrectOpt && isSelected) optClass = "border-green-500 bg-green-100 text-green-800 font-semibold";
+                      else if (isCorrectOpt) optClass = "border-green-400 bg-green-50 text-green-700 font-semibold";
+                      else if (isSelected) optClass = "border-red-400 bg-red-100 text-red-700";
+                      // Badge
+                      let badge: React.ReactNode = null;
+                      if (isCorrectOpt && isSelected) badge = <span className="ml-auto text-green-600 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✓ Your answer (Correct)</span>;
+                      else if (isCorrectOpt) badge = <span className="ml-auto text-green-600 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✓ Correct Answer</span>;
+                      else if (isSelected) badge = <span className="ml-auto text-red-500 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✗ Your answer (Wrong)</span>;
+                      return (
+                        <div key={opt.label} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${optClass}`}>
+                          <span className={`h-5 w-5 shrink-0 grid place-items-center rounded-full text-[10px] font-bold border ${
+                            isCorrectOpt ? "bg-green-500 border-green-500 text-white"
+                            : isSelected ? "bg-red-400 border-red-400 text-white"
+                            : "border-slate-300 text-slate-400"
+                          }`}>
+                            {isCorrectOpt ? <Check className="h-3 w-3" /> : isSelected ? <X className="h-3 w-3" /> : opt.label}
+                          </span>
+                          <span>{opt.text}</span>
+                          {badge}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {myAns.explanation && (
+                  <p className="text-xs text-slate-500 ml-8 mt-1 italic">💡 {myAns.explanation}</p>
+                )}
               </div>
-              <p className="text-xs text-slate-600 ml-8">
-                Your answer: <strong>{myAns.selectedOptions.join(", ") || "—"}</strong> ·
-                Correct: <strong className="text-green-700">{myAns.correctOptions.join(", ")}</strong>
-              </p>
-              {myAns.explanation && (
-                <p className="text-xs text-slate-500 ml-8 mt-2 italic">💡 {myAns.explanation}</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

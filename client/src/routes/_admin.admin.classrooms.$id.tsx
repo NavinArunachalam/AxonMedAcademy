@@ -680,9 +680,8 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                     <span className="text-xs text-cream/50">
                       {videoFile.name} &mdash; {mb.toFixed(1)} MB
                     </span>
-                    <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${
-                      isMultipart ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/60'
-                    }`}>
+                    <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${isMultipart ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/60'
+                      }`}>
                       {isMultipart
                         ? `⚡ Multipart · ${parts} × 50 MB chunks`
                         : '↑ Single upload'}
@@ -795,12 +794,11 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                     {uploadPhase === 'uploading'
                       ? `${formatMB(uploadBytes.loaded)} / ${formatMB(uploadBytes.total)}`
                       : uploadPhase === 'saving'
-                      ? `${formatMB(uploadBytes.total)} — assembling on R2…`
-                      : 'Connecting…'}
+                        ? `${formatMB(uploadBytes.total)} — assembling on R2…`
+                        : 'Connecting…'}
                   </span>
-                  <span className={`uppercase tracking-widest font-bold px-2 py-0.5 rounded ${
-                    uploadPartInfo ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/50'
-                  }`}>
+                  <span className={`uppercase tracking-widest font-bold px-2 py-0.5 rounded ${uploadPartInfo ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/50'
+                    }`}>
                     {uploadPartInfo
                       ? `⚡ Multipart · ${uploadPartInfo.totalParts} chunks`
                       : '↑ Direct upload'}
@@ -817,10 +815,10 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                   uploadPhase === 'saving'
                     ? 'Saving…'
                     : uploadPartInfo
-                    ? `Part ${uploadPartInfo.part}/${uploadPartInfo.totalParts} — ${uploadProgress}%`
-                    : uploadProgress > 0
-                    ? `Uploading… ${uploadProgress}%`
-                    : 'Preparing…'
+                      ? `Part ${uploadPartInfo.part}/${uploadPartInfo.totalParts} — ${uploadProgress}%`
+                      : uploadProgress > 0
+                        ? `Uploading… ${uploadProgress}%`
+                        : 'Preparing…'
                 ) : 'Save Recording'}
               </button>
             </div>
@@ -979,7 +977,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                       const video = document.querySelector('video');
                       if (video) {
                         video.currentTime = ch.startTimeSec;
-                        video.play().catch(() => {});
+                        video.play().catch(() => { });
                       }
                     }}
                     className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-cream/5 border-b border-cream/5 text-cream/70 hover:text-cream transition-colors"
@@ -1001,12 +999,12 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
 
 // ─── Quiz Builder Tab ─────────────────────────────────────────────────────────
 
-function newQuestion(order: number): Question {
+function newQuestion(order: number, defaultMarks: number = 1): Question {
   return {
     id: uid(),
     type: "mcq",
     text: "",
-    marks: 1,
+    marks: defaultMarks,
     explanation: "",
     order,
     options: [
@@ -1111,6 +1109,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   const [duplicateQuiz, setDuplicateQuiz] = useState<Quiz | null>(null);
   const [selectedTargetClassrooms, setSelectedTargetClassrooms] = useState<string[]>([]);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [bulkMarksEnabled, setBulkMarksEnabled] = useState(false);
+  const [bulkMarksValue, setBulkMarksValue] = useState(4);
+  const [bulkNegEnabled, setBulkNegEnabled] = useState(false);
+  const [bulkNegValue, setBulkNegValue] = useState(1);
 
   React.useEffect(() => {
     if (!viewQuizId) {
@@ -1141,14 +1143,17 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   const [quiz, setQuiz] = useState<Omit<Quiz, "id" | "attempts">>({
     title: "", instructions: "", duration: null, maxAttempts: 1,
     randomizeQuestions: true, randomizeOptions: true,
-    showLeaderboard: false, negativeMarking: false,
-    negativeMarkValue: 0.25, passPercent: 60,
+    showLeaderboard: false, negativeMarking: true,
+    negativeMarkValue: 1, passPercent: 60,
     availableFrom: "", availableUntil: "",
     status: "draft", questions: [],
   });
 
   const updateQ = (idx: number, updated: Question) => {
     setQuiz((q) => { const qs = [...q.questions]; qs[idx] = updated; return { ...q, questions: qs }; });
+    if (updated.marks !== bulkMarksValue) {
+      setBulkMarksEnabled(false);
+    }
   };
 
   const totalMarks = quiz.questions.reduce((s, q) => s + q.marks, 0);
@@ -1167,7 +1172,11 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       }
       setShowBuilder(false);
       setEditingQuizId(null);
-      setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+      setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: true, negativeMarkValue: 1, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+      setBulkMarksEnabled(false);
+      setBulkMarksValue(4);
+      setBulkNegEnabled(false);
+      setBulkNegValue(1);
     } catch (error) {
       console.error(error);
       setSaveError(error instanceof Error ? error.message : 'Could not save quiz.');
@@ -1212,74 +1221,56 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     }
   };
 
-  const handleDownloadQuiz = (q: Quiz, format: 'json' | 'txt') => {
-    let content = "";
-    let mimeType = "";
-    let filename = "";
-
-    if (format === 'json') {
-      const exportData = {
-        title: q.title,
-        instructions: q.instructions,
-        duration: q.duration,
-        maxAttempts: q.maxAttempts,
-        randomizeQuestions: q.randomizeQuestions,
-        randomizeOptions: q.randomizeOptions,
-        showLeaderboard: q.showLeaderboard,
-        negativeMarking: q.negativeMarking,
-        negativeMarkValue: q.negativeMarkValue,
-        passPercent: q.passPercent,
-        questions: q.questions.map((quest) => ({
-          type: quest.type,
-          text: quest.text,
-          marks: quest.marks,
-          explanation: quest.explanation,
-          options: quest.options.map((o) => ({
-            label: o.label,
-            text: o.text,
-            isCorrect: o.isCorrect,
-          })),
-        })),
-      };
-      content = JSON.stringify(exportData, null, 2);
-      mimeType = "application/json";
-      filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.json`;
-    } else {
-      let txt = `==================================================\n`;
-      txt += `QUIZ: ${q.title}\n`;
-      txt += `==================================================\n\n`;
-      txt += `Instructions: ${q.instructions || "None"}\n`;
-      txt += `Timer Duration: ${q.duration ? `${q.duration} minutes` : "No timer"}\n`;
-      txt += `Pass Percentage: ${q.passPercent}%\n`;
-      txt += `Negative Marking: ${q.negativeMarking ? `Yes (-${q.negativeMarkValue} per incorrect)` : "No"}\n\n`;
-      txt += `--------------------------------------------------\n`;
-      txt += `QUESTIONS (${q.questions.length})\n`;
-      txt += `--------------------------------------------------\n\n`;
-
-      q.questions.forEach((quest, i) => {
-        txt += `Q${i + 1} [Type: ${quest.type.toUpperCase()}] [Marks: ${quest.marks}]: ${quest.text}\n`;
-        quest.options.forEach((opt) => {
-          txt += `  [${opt.isCorrect ? "x" : " "}] Option ${opt.label}: ${opt.text}\n`;
-        });
-        if (quest.explanation) {
-          txt += `  Explanation: ${quest.explanation}\n`;
-        }
-        txt += `\n`;
+  const handleDownloadQuiz = (q: Quiz, format: 'pdf' | 'doc') => {
+    let txt = ``;
+    q.questions.forEach((quest, i) => {
+      txt += `${i + 1}. ${quest.text}\n`;
+      quest.options.forEach((opt) => {
+        txt += `  Option ${opt.label}: ${opt.text}\n`;
       });
-      content = txt;
-      mimeType = "text/plain";
-      filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.txt`;
-    }
+      if (quest.explanation) {
+        txt += `  Explanation: ${quest.explanation}\n`;
+      }
+      const correctOpt = quest.options.find(o => o.isCorrect);
+      if (correctOpt) {
+        txt += `  Ans: Option ${correctOpt.label}\n`;
+      }
+      txt += `\n`;
+    });
 
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (format === 'doc') {
+      const blob = new Blob([txt], { type: "application/msword" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } else if (format === 'pdf') {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>${q.title}</title>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; padding: 40px; white-space: pre-wrap; color: black; background: white; }
+              </style>
+            </head>
+            <body>${txt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      } else {
+        alert("Please allow popups to generate PDF");
+      }
+    }
   };
 
   const handleDuplicateConfirm = async () => {
@@ -1337,6 +1328,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
             setShowBuilder(false);
             setEditingQuizId(null);
             setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+            setBulkMarksEnabled(false);
+            setBulkMarksValue(1);
+            setBulkNegEnabled(true);
+            setBulkNegValue(1);
           }} className="text-cream/60 hover:text-cream"><LuArrowLeft className="h-5 w-5" /></button>
           <h2 className="font-display font-bold text-cream text-xl">{editingQuizId ? "Edit Quiz" : "Quiz Builder"}</h2>
         </div>
@@ -1387,7 +1382,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
             {[
               { key: "randomizeQuestions", label: "Randomize question order" },
               { key: "randomizeOptions", label: "Randomize option order" },
-              { key: "negativeMarking", label: "Negative marking (−0.25/wrong)" },
+              { key: "negativeMarking", label: "Negative marking (−1/wrong)" },
               { key: "showLeaderboard", label: "Show leaderboard to students" },
             ].map(({ key, label }) => (
               <label key={key} className="flex items-center gap-2 cursor-pointer">
@@ -1399,6 +1394,74 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           </div>
         </DarkCard>
 
+        {/* Bulk Marks Setter — Checkbox approach */}
+        {quiz.questions.length > 0 && (
+          <DarkCard className="space-y-3">
+            <span className="text-cream/70 text-sm font-semibold">Quick apply to all questions:</span>
+            <div className="flex flex-wrap gap-4">
+              {/* Fix Marks */}
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={bulkMarksEnabled}
+                  className="accent-lime h-4 w-4"
+                  onChange={(e) => {
+                    setBulkMarksEnabled(e.target.checked);
+                    if (e.target.checked) {
+                      setQuiz(q => ({ ...q, questions: q.questions.map(quest => ({ ...quest, marks: bulkMarksValue })) }));
+                    }
+                  }}
+                />
+                <span className="text-cream/80 text-sm">Fix marks:</span>
+                <input
+                  type="number" min={0.5} step={0.5}
+                  value={bulkMarksValue}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setBulkMarksValue(val);
+                    if (bulkMarksEnabled && val > 0) {
+                      setQuiz(q => ({ ...q, questions: q.questions.map(quest => ({ ...quest, marks: val })) }));
+                    }
+                  }}
+                  className="w-16 bg-cream/5 border border-cream/20 rounded-lg px-2 py-1 text-cream text-xs outline-none text-center focus:border-lime/50"
+                />
+                <span className="text-cream/50 text-xs">marks / question</span>
+              </label>
+
+              {/* Fix Negative Marks */}
+              {quiz.negativeMarking && (
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bulkNegEnabled}
+                    className="accent-red-400 h-4 w-4"
+                    onChange={(e) => {
+                      setBulkNegEnabled(e.target.checked);
+                      if (e.target.checked) {
+                        setQuiz(q => ({ ...q, negativeMarkValue: bulkNegValue }));
+                      }
+                    }}
+                  />
+                  <span className="text-cream/80 text-sm">Fix negative mark:</span>
+                  <input
+                    type="number" min={0.25} step={0.25}
+                    value={bulkNegValue}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setBulkNegValue(val);
+                      if (bulkNegEnabled && val > 0) {
+                        setQuiz(q => ({ ...q, negativeMarkValue: val }));
+                      }
+                    }}
+                    className="w-16 bg-cream/5 border border-cream/20 rounded-lg px-2 py-1 text-cream text-xs outline-none text-center focus:border-red-400/50"
+                  />
+                  <span className="text-cream/50 text-xs">marks deducted</span>
+                </label>
+              )}
+            </div>
+          </DarkCard>
+        )}
+
         {/* Questions */}
         <div className="space-y-3">
           {quiz.questions.map((q, i) => (
@@ -1406,7 +1469,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           ))}
         </div>
 
-        <button onClick={() => setQuiz((q) => ({ ...q, questions: [...q.questions, newQuestion(q.questions.length + 1)] }))}
+        <button onClick={() => setQuiz((q) => ({ ...q, questions: [...q.questions, newQuestion(q.questions.length + 1, bulkMarksEnabled ? bulkMarksValue : 1)] }))}
           className="w-full rounded-2xl border-2 border-dashed border-lime/20 hover:border-lime/40 py-5 text-lime/70 hover:text-lime text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
           <LuPlus className="h-4 w-4" /> Add Question
         </button>
@@ -1514,7 +1577,11 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       <div className="flex justify-end">
         <button onClick={() => {
           setEditingQuizId(null);
-          setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: false, negativeMarkValue: 0.25, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+          setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking:true , negativeMarkValue: 1, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+          setBulkMarksEnabled(false);
+          setBulkMarksValue(1);
+          setBulkNegEnabled(false);
+          setBulkNegValue(1);
           setShowBuilder(true);
         }} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
           <LuPlus className="h-4 w-4" /> Create Quiz
@@ -1572,6 +1639,17 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
                         status: q.status || "draft",
                         questions: q.questions || [],
                       });
+                      const hasQuestions = q.questions && q.questions.length > 0;
+                      const allSameMarks = hasQuestions && q.questions.every(quest => quest.marks === q.questions[0].marks);
+                      if (allSameMarks) {
+                        setBulkMarksEnabled(true);
+                        setBulkMarksValue(q.questions[0].marks);
+                      } else {
+                        setBulkMarksEnabled(false);
+                        setBulkMarksValue(1);
+                      }
+                      setBulkNegEnabled(q.negativeMarking ?? false);
+                      setBulkNegValue(q.negativeMarkValue ?? 0);
                       setShowBuilder(true);
                     }}
                     className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
@@ -1589,18 +1667,18 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
                     <LuCopy className="h-3 w-3" /> Reuse
                   </button>
                   <button
-                    onClick={() => handleDownloadQuiz(q, 'json')}
+                    onClick={() => handleDownloadQuiz(q, 'pdf')}
                     className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
-                    title="Download Quiz as JSON"
+                    title="Download Quiz as PDF"
                   >
-                    <LuDownload className="h-3.5 w-3.5" /> JSON
+                    <LuDownload className="h-3.5 w-3.5" /> PDF
                   </button>
                   <button
-                    onClick={() => handleDownloadQuiz(q, 'txt')}
+                    onClick={() => handleDownloadQuiz(q, 'doc')}
                     className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
-                    title="Download Quiz as TXT (Printable)"
+                    title="Download Quiz as Word Doc"
                   >
-                    <LuDownload className="h-3.5 w-3.5" /> TXT
+                    <LuDownload className="h-3.5 w-3.5" /> DOC
                   </button>
                   {q.status === "draft" && (
                     <button onClick={() => handlePublishQuiz(q.id)}
