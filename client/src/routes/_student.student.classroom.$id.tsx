@@ -5,6 +5,11 @@ import {
   Play, Check, X, Clock, Calendar, ChevronRight,
   Trophy, Radio, Lock, ShieldAlert
 } from "lucide-react";
+import {
+  LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
+  LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy
+} from "react-icons/lu";
 import { useVideoProtection } from "@/lib/video-protection";
 import {
   useClassroomStore,
@@ -49,10 +54,10 @@ function fmtDate(iso: string) {
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: "announcements", label: "📢 Announcements" },
-  { key: "live", label: "🎥 Live Classes" },
-  { key: "recordings", label: "⏺ Recordings" },
-  { key: "tests", label: "📝 Tests" },
+  { key: "announcements", label: "Announcements", icon: LuMegaphone },
+  { key: "live", label: "Live Classes", icon: LuVideo },
+  { key: "recordings", label: "Recordings", icon: LuCircleDot },
+  { key: "tests", label: "Tests", icon: LuClipboardList },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -205,7 +210,6 @@ function SecurePlayer({
   const { currentUser, accessToken } = useClassroomStore();
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isDeclarationChecked, setIsDeclarationChecked] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pendingWatchedRef = useRef(0);
   const totalWatchedRef = useRef(0);
@@ -310,12 +314,11 @@ function SecurePlayer({
     };
   }, [currentUser?.id, recording.id, recording.viewStats, sendProgress]);
 
-  // Pause video if locked and reset declaration
+  // Pause video if locked
   useEffect(() => {
     if (isLocked && videoRef.current) {
       videoRef.current.pause();
       setIsPlaying(false);
-      setIsDeclarationChecked(false); // Always require re-declaration on each lock
     }
   }, [isLocked]);
 
@@ -350,10 +353,7 @@ function SecurePlayer({
 
       {/* Video area */}
       <div className="flex flex-1 relative select-none">
-        {/* Video area */}
         <div className="flex-1 bg-linear-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative">
-          
-
 
           {streamUrl ? (
             <video
@@ -400,48 +400,26 @@ function SecurePlayer({
                   <ShieldAlert className="h-12 w-12 text-red-500 animate-bounce" />
                 </div>
               </div>
+
               <h2 className="text-white font-display text-xl font-bold tracking-wider mb-2 uppercase">
                 {lockReason === "shortcut" ? "Security Alert" : "Playback Paused"}
               </h2>
-              <p className="text-slate-400 text-sm max-w-sm text-center mb-6 leading-relaxed">
+
+              <p className="text-slate-400 text-sm max-w-sm text-center mb-8 leading-relaxed">
                 {lockReason === "shortcut"
                   ? "A screenshot, screen-recording shortcut, or Developer Tools attempt was detected."
                   : "Focus was lost — this may indicate a screen recording tool, notification shade, or app switch."}
               </p>
 
-              {/* Security declaration — must be checked before resuming */}
-              <label className="flex items-start gap-3 mb-6 cursor-pointer max-w-sm w-full bg-white/5 border border-white/10 rounded-2xl p-4">
-                <input
-                  type="checkbox"
-                  checked={isDeclarationChecked}
-                  onChange={(e) => setIsDeclarationChecked(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded accent-red-500 shrink-0 cursor-pointer"
-                />
-                <span className="text-xs text-slate-300 leading-relaxed">
-                  I confirm that I am <span className="text-red-400 font-semibold">not screen recording</span>, casting, or capturing this video. I understand that unauthorized recording violates the platform's terms and may result in account suspension.
-                </span>
-              </label>
-
               <button
-                disabled={!isDeclarationChecked}
                 onClick={() => {
-                  if (!isDeclarationChecked) return;
-                  resetLock();
-                  setIsDeclarationChecked(false);
-                  if (videoRef.current) {
-                    videoRef.current.play().catch(() => {});
-                  }
+                  void sendProgress(true);
+                  onClose();
                 }}
-                className={`relative group overflow-hidden rounded-full px-8 py-3 text-sm font-bold shadow-lg transition-all duration-200 ${
-                  isDeclarationChecked
-                    ? "bg-gradient-to-r from-red-600 to-red-500 text-white hover:shadow-red-500/20 hover:scale-105 active:scale-95"
-                    : "bg-white/10 text-white/30 cursor-not-allowed"
-                }`}
+                className="rounded-full px-8 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-gradient-to-r from-red-600 to-red-500 text-white hover:shadow-red-500/20 hover:scale-105 active:scale-95 flex items-center gap-2"
               >
-                <span className="relative z-10">Resume Playback</span>
-                {isDeclarationChecked && (
-                  <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
+                <ArrowLeft className="h-4 w-4" />
+                Back to Recordings
               </button>
             </div>
           )}
@@ -465,27 +443,6 @@ function SecurePlayer({
           </div>
         )}
       </div>
-
-      {/* Progress bar */}
-      {/* <div className="bg-black px-5 py-3">
-        <div className="flex items-center gap-3">
-          <span className="text-white/60 text-xs font-mono">{fmt(position)}</span>
-          <div
-            className="flex-1 h-1.5 bg-white/20 rounded-full cursor-pointer"
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pct = (e.clientX - rect.left) / rect.width;
-              setPosition(Math.floor(pct * recording.duration));
-            }}
-          >
-            <div className="h-full bg-lime rounded-full transition-all" style={{ width: `${pct}%` }} />
-          </div>
-          <span className="text-white/60 text-xs font-mono">{fmt(recording.duration)}</span>
-        </div>
-        <div className="text-center mt-1 text-white/30 text-[10px]">
-          🔒 This video is protected. Downloading, recording, or sharing is prohibited.
-        </div>
-      </div> */}
     </div>
   );
 }
@@ -905,7 +862,6 @@ function TestsTab({ classroomId }: { classroomId: string }) {
         <div className="space-y-3">
           <h3 className="font-display font-bold text-plum-dark">Answer Review</h3>
           {result.answers.map((myAns, i) => {
-            // Try ID match first, then text match, then position fallback
             const quizQ = activeQuiz.questions.find(q => q.id === myAns.questionId)
               || activeQuiz.questions.find(q => q.text === myAns.questionText)
               || activeQuiz.questions[i];
@@ -918,18 +874,15 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                   <p className="text-slate-800 text-sm font-semibold flex-1">Q{i + 1}. {myAns.questionText || quizQ?.text || ""}</p>
                   <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns.marksAwarded} marks</span>
                 </div>
-                {/* Options */}
                 {quizQ && quizQ.options.length > 0 && (
                   <div className="ml-8 space-y-1.5 mb-3">
                     {quizQ.options.map((opt) => {
                       const isSelected = myAns.selectedOptions.includes(opt.label);
                       const isCorrectOpt = myAns.correctOptions.includes(opt.label);
-                      // Styling
                       let optClass = "border-slate-200 bg-white text-slate-600";
                       if (isCorrectOpt && isSelected) optClass = "border-green-500 bg-green-100 text-green-800 font-semibold";
                       else if (isCorrectOpt) optClass = "border-green-400 bg-green-50 text-green-700 font-semibold";
                       else if (isSelected) optClass = "border-red-400 bg-red-100 text-red-700";
-                      // Badge
                       let badge: React.ReactNode = null;
                       if (isCorrectOpt && isSelected) badge = <span className="ml-auto text-green-600 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✓ Your answer (Correct)</span>;
                       else if (isCorrectOpt) badge = <span className="ml-auto text-green-600 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✓ Correct Answer</span>;
@@ -985,7 +938,6 @@ function StudentClassroomDetail() {
       try {
         setLoadError(null);
         const hasCached = classrooms.some((c) => c.id === id);
-        // Skip fetch entirely if data is fresh in cache
         if (hasCached && !isClassroomStale(id)) return;
         if (!hasCached) setIsLoading(true);
         const refreshed = await getClassroomById(id);
@@ -1067,16 +1019,16 @@ function StudentClassroomDetail() {
           </div>
         </div>
       </div>
-  
-  
+
       {/* Tab bar */}
-      <div className="flex gap-1 bg-slate-100 rounded-2xl p-1.5 flex-wrap">
+      <div className="flex gap-1 flex-wrap bg-cream/5 rounded-2xl p-1.5">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2.5 transition-colors ${tab === t.key ? "bg-plum-dark text-cream shadow" : "text-slate-600 hover:text-plum-dark"}`}
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2.5 transition-colors ${tab === t.key ? "bg-plum-dark text-cream shadow" : "text-slate-600 hover:text-plum-dark"}`}
           >
+            <t.icon />
             {t.label}
           </button>
         ))}
