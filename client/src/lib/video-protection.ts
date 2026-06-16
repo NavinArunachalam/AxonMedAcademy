@@ -32,47 +32,27 @@ export function useVideoProtection(isActive: boolean) {
     // Grace period: don't react to focus-loss events right after mounting
     const gracePeriod = setTimeout(() => {
       readyRef.current = true;
-    }, 2000);
+    }, mobile ? 2000 : 300);
 
     // 1. Block Context Menu (Right Click)
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
 
-    // 2. Block Keyboard Shortcuts & Trigger Lock (desktop only — no hardware keyboard on most phones)
+    // 2. Block Keyboard Shortcuts & Trigger Lock
     const handleKeyDown = (e: KeyboardEvent) => {
       let shouldLock = false;
 
-      // Print Screen
-      if (e.key === "PrintScreen") {
+      // Print Screen or DevTools
+      if (e.key === "PrintScreen" || e.key === "Print" || e.key === "F12") {
         shouldLock = true;
       }
-      // Ctrl+P / Cmd+P
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+      // Any modifier key (Control, Meta, Alt) pressed alone
+      else if (["Control", "Meta", "Alt"].includes(e.key)) {
         shouldLock = true;
       }
-      // Ctrl+S / Cmd+S
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        shouldLock = true;
-      }
-      // Ctrl+U / Cmd+Option+U (View Source)
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "u") {
-        shouldLock = true;
-      }
-      // DevTools: F12
-      else if (e.key === "F12") {
-        shouldLock = true;
-      }
-      // DevTools: Ctrl+Shift+I / J / C or Cmd+Option+I (Mac)
-      else if (
-        (e.ctrlKey || e.metaKey) &&
-        (e.shiftKey || e.altKey) &&
-        ["i", "j", "c"].includes(e.key.toLowerCase())
-      ) {
-        shouldLock = true;
-      }
-      // macOS Screenshot shortcuts (Cmd+Shift+3 / 4 / 5)
-      else if (e.metaKey && e.shiftKey && ["3", "4", "5"].includes(e.key)) {
+      // Any shortcut with modifier keys active (Ctrl, Meta, Alt)
+      else if (e.ctrlKey || e.metaKey || e.altKey) {
         shouldLock = true;
       }
 
@@ -85,11 +65,22 @@ export function useVideoProtection(isActive: boolean) {
       }
     };
 
+    // Keyup fallback for PrintScreen and modifier keys (OS level intercepts)
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (
+        e.key === "PrintScreen" ||
+        e.key === "Print" ||
+        ["Control", "Meta", "Alt"].includes(e.key) ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey
+      ) {
+        setIsLocked(true);
+        setLockReason("shortcut");
+      }
+    };
+
     // 3a. Tab Visibility — lock immediately when tab is hidden.
-    //     The 2-second grace period above already handles load-time false
-    //     positives. Debouncing here would let screen-recording attempts
-    //     slip through (user swipes down to start recorder → tab briefly
-    //     hides → comes back → debounce cancels the lock).
     const handleVisibilityChange = () => {
       if (!readyRef.current) return; // still in grace period
       if (document.hidden) {
@@ -98,43 +89,45 @@ export function useVideoProtection(isActive: boolean) {
       }
     };
 
-    // 3b. Window blur — SKIP on mobile.
-    //     On iOS/Android `window blur` fires on every address-bar show,
-    //     keyboard open, scroll bounce, and system-UI animation, making it
-    //     completely unreliable as a screen-recording signal.
+    // 3b. Window blur — now enabled on mobile to detect notification shade / control center swipe
     const handleBlur = () => {
       if (!readyRef.current) return; // still in grace period
-      if (mobile) return;            // not reliable on touch devices
       setIsLocked(true);
       setLockReason("blur");
     };
 
-    // 4. Detect DevTools Opening — desktop only.
-    //    On mobile the window/outer size difference is unrelated to DevTools.
-    let devToolsCheck: ReturnType<typeof setInterval> | null = null;
+    // 4. Detect DevTools Opening & Focus loss (Desktop only)
+    let intervalCheck: ReturnType<typeof setInterval> | null = null;
     if (!mobile) {
-      devToolsCheck = setInterval(() => {
+      intervalCheck = setInterval(() => {
+        // DevTools check
         const threshold = 160;
         const isDevToolsOpen =
           window.outerWidth - window.innerWidth > threshold ||
           window.outerHeight - window.innerHeight > threshold;
-        if (isDevToolsOpen) {
+        
+        // document.hasFocus check
+        const isFocused = document.hasFocus();
+
+        if (isDevToolsOpen || (readyRef.current && !isFocused)) {
           setIsLocked(true);
-          setLockReason("shortcut");
+          setLockReason(isDevToolsOpen ? "shortcut" : "blur");
         }
-      }, 2000);
+      }, 1000);
     }
 
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
 
     return () => {
       clearTimeout(gracePeriod);
-      if (devToolsCheck) clearInterval(devToolsCheck);
+      if (intervalCheck) clearInterval(intervalCheck);
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
     };
