@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/** True when the device is likely a touch-only mobile device */
+const isMobile = () =>
+  typeof window !== "undefined" &&
+  (navigator.maxTouchPoints > 1 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
 
 /**
  * Hook to apply various deterrence measures against screen recording and screenshots.
@@ -14,15 +19,27 @@ export function useVideoProtection(isActive: boolean) {
     setLockReason(null);
   };
 
+  // Track whether the grace period after mount has elapsed.
+  // On mobile, blur/visibility events fire during page load, scroll, and
+  // keyboard-show animations — we ignore them for the first 2 seconds.
+  const readyRef = useRef(false);
+
   useEffect(() => {
     if (!isActive) return;
+
+    const mobile = isMobile();
+
+    // Grace period: don't react to focus-loss events right after mounting
+    const gracePeriod = setTimeout(() => {
+      readyRef.current = true;
+    }, 2000);
 
     // 1. Block Context Menu (Right Click)
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
 
-    // 2. Block Keyboard Shortcuts & Trigger Lock
+    // 2. Block Keyboard Shortcuts & Trigger Lock (desktop only — no hardware keyboard on most phones)
     const handleKeyDown = (e: KeyboardEvent) => {
       let shouldLock = false;
 
@@ -68,31 +85,53 @@ export function useVideoProtection(isActive: boolean) {
       }
     };
 
-    // 3. Tab Visibility & Window Blur (Focus Loss)
+    // 3a. Tab Visibility (debounced on mobile to ignore brief system-UI overlays
+    //     like the notification shade or swipe-up gesture bar).
+    let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
     const handleVisibilityChange = () => {
+      if (!readyRef.current) return; // still in grace period
       if (document.hidden) {
-        setIsLocked(true);
-        setLockReason("blur");
+        // On mobile, debounce by 800 ms — short overlays resolve themselves
+        const delay = mobile ? 800 : 0;
+        visibilityTimer = setTimeout(() => {
+          // Re-check: the tab might be visible again already
+          if (document.hidden) {
+            setIsLocked(true);
+            setLockReason("blur");
+          }
+        }, delay);
+      } else {
+        // Tab became visible again — cancel any pending lock
+        if (visibilityTimer) clearTimeout(visibilityTimer);
       }
     };
 
+    // 3b. Window blur — SKIP on mobile.
+    //     On iOS/Android `window blur` fires on every address-bar show,
+    //     keyboard open, scroll bounce, and system-UI animation, making it
+    //     completely unreliable as a screen-recording signal.
     const handleBlur = () => {
+      if (!readyRef.current) return; // still in grace period
+      if (mobile) return;            // not reliable on touch devices
       setIsLocked(true);
       setLockReason("blur");
     };
 
-    // 4. Detect DevTools Opening (Heuristic & Debugger)
-    const devToolsCheck = setInterval(() => {
-      const threshold = 160;
-      const isDevToolsOpen =
-        window.outerWidth - window.innerWidth > threshold ||
-        window.outerHeight - window.innerHeight > threshold;
-      
-      if (isDevToolsOpen) {
-        setIsLocked(true);
-        setLockReason("shortcut");
-      }
-    }, 2000);
+    // 4. Detect DevTools Opening — desktop only.
+    //    On mobile the window/outer size difference is unrelated to DevTools.
+    let devToolsCheck: ReturnType<typeof setInterval> | null = null;
+    if (!mobile) {
+      devToolsCheck = setInterval(() => {
+        const threshold = 160;
+        const isDevToolsOpen =
+          window.outerWidth - window.innerWidth > threshold ||
+          window.outerHeight - window.innerHeight > threshold;
+        if (isDevToolsOpen) {
+          setIsLocked(true);
+          setLockReason("shortcut");
+        }
+      }, 2000);
+    }
 
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("keydown", handleKeyDown);
@@ -100,11 +139,13 @@ export function useVideoProtection(isActive: boolean) {
     window.addEventListener("blur", handleBlur);
 
     return () => {
+      clearTimeout(gracePeriod);
+      if (visibilityTimer) clearTimeout(visibilityTimer);
+      if (devToolsCheck) clearInterval(devToolsCheck);
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
-      clearInterval(devToolsCheck);
     };
   }, [isActive]);
 
