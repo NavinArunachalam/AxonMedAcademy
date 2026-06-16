@@ -188,6 +188,7 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
   const { currentUser, accessToken } = useClassroomStore();
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isDeclarationChecked, setIsDeclarationChecked] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const { isLocked, lockReason, resetLock } = useVideoProtection(true);
@@ -217,11 +218,12 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
     };
   }, [recording.id]);
 
-  // Pause video if locked
+  // Pause video if locked and reset declaration
   useEffect(() => {
     if (isLocked && videoRef.current) {
       videoRef.current.pause();
       setIsPlaying(false);
+      setIsDeclarationChecked(false); // Always require re-declaration on each lock
     }
   }, [isLocked]);
 
@@ -268,7 +270,11 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
               crossOrigin="use-credentials"
               className="w-full h-[95vh] object-contain bg-black no-select select-none"
               controls
-              controlsList="nodownload"
+              controlsList="nodownload nofullscreen noremoteplayback"
+              disablePictureInPicture
+              disableRemotePlayback
+              // @ts-ignore — non-standard AirPlay attribute for Safari iOS
+              x-webkit-airplay="deny"
               poster="/default-video-thumb.jpg"
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
@@ -295,7 +301,7 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
 
           {/* Security Lock overlay */}
           {isLocked && (
-            <div className="absolute inset-0 backdrop-blur-xl bg-black/90 flex flex-col items-center justify-center z-30 p-6 transition-all duration-300">
+            <div className="absolute inset-0 backdrop-blur-xl bg-black/95 flex flex-col items-center justify-center z-30 p-6 transition-all duration-300">
               <div className="relative mb-6">
                 <div className="absolute inset-0 rounded-full bg-red-500/20 blur-xl animate-pulse" />
                 <div className="relative rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
@@ -305,22 +311,45 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
               <h2 className="text-white font-display text-xl font-bold tracking-wider mb-2 uppercase">
                 {lockReason === "shortcut" ? "Security Alert" : "Playback Paused"}
               </h2>
-              <p className="text-slate-400 text-sm max-w-md text-center mb-6 leading-relaxed">
+              <p className="text-slate-400 text-sm max-w-sm text-center mb-6 leading-relaxed">
                 {lockReason === "shortcut"
-                  ? "A screenshot, screen-recording shortcut, or Developer Tools attempt was detected. For security reasons, playback has been locked."
-                  : "Browser focus was lost (possible application switch, notification shade, or screenshot tool). Please return to this tab to continue."}
+                  ? "A screenshot, screen-recording shortcut, or Developer Tools attempt was detected."
+                  : "Focus was lost — this may indicate a screen recording tool, notification shade, or app switch."}
               </p>
+
+              {/* Security declaration — must be checked before resuming */}
+              <label className="flex items-start gap-3 mb-6 cursor-pointer max-w-sm w-full bg-white/5 border border-white/10 rounded-2xl p-4">
+                <input
+                  type="checkbox"
+                  checked={isDeclarationChecked}
+                  onChange={(e) => setIsDeclarationChecked(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded accent-red-500 shrink-0 cursor-pointer"
+                />
+                <span className="text-xs text-slate-300 leading-relaxed">
+                  I confirm that I am <span className="text-red-400 font-semibold">not screen recording</span>, casting, or capturing this video. I understand that unauthorized recording violates the platform's terms and may result in account suspension.
+                </span>
+              </label>
+
               <button
+                disabled={!isDeclarationChecked}
                 onClick={() => {
+                  if (!isDeclarationChecked) return;
                   resetLock();
+                  setIsDeclarationChecked(false);
                   if (videoRef.current) {
                     videoRef.current.play().catch(() => {});
                   }
                 }}
-                className="relative group overflow-hidden rounded-full bg-linear-to-r from-red-600 to-red-500 text-white px-8 py-3 text-sm font-bold shadow-lg hover:shadow-red-500/20 hover:scale-105 active:scale-95 transition-all duration-200"
+                className={`relative group overflow-hidden rounded-full px-8 py-3 text-sm font-bold shadow-lg transition-all duration-200 ${
+                  isDeclarationChecked
+                    ? "bg-gradient-to-r from-red-600 to-red-500 text-white hover:shadow-red-500/20 hover:scale-105 active:scale-95"
+                    : "bg-white/10 text-white/30 cursor-not-allowed"
+                }`}
               >
                 <span className="relative z-10">Resume Playback</span>
-                <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {isDeclarationChecked && (
+                  <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
               </button>
             </div>
           )}
