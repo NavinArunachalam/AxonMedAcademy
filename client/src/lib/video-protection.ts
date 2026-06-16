@@ -85,24 +85,16 @@ export function useVideoProtection(isActive: boolean) {
       }
     };
 
-    // 3a. Tab Visibility (debounced on mobile to ignore brief system-UI overlays
-    //     like the notification shade or swipe-up gesture bar).
-    let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
+    // 3a. Tab Visibility — lock immediately when tab is hidden.
+    //     The 2-second grace period above already handles load-time false
+    //     positives. Debouncing here would let screen-recording attempts
+    //     slip through (user swipes down to start recorder → tab briefly
+    //     hides → comes back → debounce cancels the lock).
     const handleVisibilityChange = () => {
       if (!readyRef.current) return; // still in grace period
       if (document.hidden) {
-        // On mobile, debounce by 800 ms — short overlays resolve themselves
-        const delay = mobile ? 800 : 0;
-        visibilityTimer = setTimeout(() => {
-          // Re-check: the tab might be visible again already
-          if (document.hidden) {
-            setIsLocked(true);
-            setLockReason("blur");
-          }
-        }, delay);
-      } else {
-        // Tab became visible again — cancel any pending lock
-        if (visibilityTimer) clearTimeout(visibilityTimer);
+        setIsLocked(true);
+        setLockReason("blur");
       }
     };
 
@@ -140,7 +132,6 @@ export function useVideoProtection(isActive: boolean) {
 
     return () => {
       clearTimeout(gracePeriod);
-      if (visibilityTimer) clearTimeout(visibilityTimer);
       if (devToolsCheck) clearInterval(devToolsCheck);
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("keydown", handleKeyDown);
