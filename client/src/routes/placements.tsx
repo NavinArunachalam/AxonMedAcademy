@@ -1,21 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PublicLayout } from "../components/site/Layout";
 import { Building2, TrendingUp, MapPin, Star, Quote } from "lucide-react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/placements")({ component: Placements });
 
-const HOSPITALS = ["Apollo Hospitals", "Fortis Healthcare", "Manipal Hospitals", "Max Healthcare", "Narayana Health", "Medanta", "Aster", "Columbia Asia", "Kokilaben", "AIIMS Delhi", "Tata Memorial", "Lilavati"];
-
-const STORIES = [
-  { name: "Priya Krishnan",  role: "Staff Nurse",      hospital: "Apollo Hospitals", salary: "₹3.6L", city: "Bengaluru" },
-  { name: "Arjun Reddy",     role: "OT Technician",    hospital: "Manipal",          salary: "₹4.2L", city: "Hyderabad" },
-  { name: "Sneha Pillai",    role: "Lab Technician",   hospital: "Fortis",           salary: "₹3.2L", city: "Mumbai" },
-  { name: "Karthik N.",      role: "ICU Tech",         hospital: "Medanta",          salary: "₹4.8L", city: "Gurgaon" },
-  { name: "Aisha Banu",      role: "Radiology Tech",   hospital: "Aster",            salary: "₹4.0L", city: "Kochi" },
-  { name: "Rahul Mehrotra",  role: "Staff Nurse",      hospital: "Max Healthcare",   salary: "₹3.8L", city: "Delhi" },
-];
-
 function Placements() {
+  const [hospitals, setHospitals] = useState<any[]>([]);
+  const [stories, setStories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadPlacements = async () => {
+      try {
+        const res = await api.get("/public/placements");
+        if (res.success) {
+          if (res.partners) {
+            setHospitals(res.partners);
+          }
+          if (res.stories) {
+            setStories(res.stories);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading placements:", err);
+      }
+    };
+    loadPlacements();
+  }, []);
   return (
     <PublicLayout>
       <section className="relative py-20 lg:py-28 overflow-hidden">
@@ -50,12 +62,15 @@ function Placements() {
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— Recruiters</div>
           <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">Hospitals that hire from us.</h2>
           <div className="mt-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {HOSPITALS.map(h => (
-              <div key={h} className="rounded-2xl border border-border bg-card p-6 text-center hover:border-plum-dark/30 transition">
-                <Building2 className="h-7 w-7 mx-auto text-plum" />
-                <div className="mt-3 font-display text-sm font-semibold text-plum-dark">{h}</div>
-              </div>
-            ))}
+            {hospitals.map(h => {
+              const name = typeof h === 'string' ? h : h.name;
+              return (
+                <div key={name} className="rounded-2xl border border-border bg-card p-6 text-center hover:border-plum-dark/30 transition">
+                  <Building2 className="h-7 w-7 mx-auto text-plum" />
+                  <div className="mt-3 font-display text-sm font-semibold text-plum-dark">{name}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -65,11 +80,11 @@ function Placements() {
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— Stories</div>
           <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">Recently placed.</h2>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {STORIES.map(s => (
-              <div key={s.name} className="rounded-3xl bg-card border border-border p-6 hover:-translate-y-1 transition-all">
+            {stories.map(s => (
+              <div key={s._id || s.name} className="rounded-3xl bg-card border border-border p-6 hover:-translate-y-1 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="grid h-14 w-14 place-items-center rounded-2xl bg-plum-dark text-lime font-display font-bold">
-                    {s.name.split(" ").map(n => n[0]).join("")}
+                    {s.name.split(" ").map((n: string) => n[0]).join("")}
                   </div>
                   <div>
                     <div className="font-display font-semibold text-plum-dark">{s.name}</div>

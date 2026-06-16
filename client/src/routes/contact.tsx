@@ -1,12 +1,63 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PublicLayout } from "../components/site/Layout";
 import { MapPin, Mail, Phone, Clock, Send } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/contact")({ component: Contact });
 
 function Contact() {
   const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [contactInfo, setContactInfo] = useState({
+    address: "Plot 21, Medical Campus, Hosur Road, Bengaluru — 560001",
+    phone: "+91 98765 43210",
+    email: "hello@Axon.academy",
+    hours: "Monday – Saturday, 9 AM to 8 PM"
+  });
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    interest: "",
+    message: ""
+  });
+
+  useEffect(() => {
+    async function loadContact() {
+      try {
+        const res = await api.get("/public/contact-details");
+        if (res.success && res.contactDetails) {
+          setContactInfo(res.contactDetails);
+        }
+      } catch (err) {
+        console.error("Failed to load contact info:", err);
+      }
+    }
+    loadContact();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setErrorMsg("");
+    try {
+      const res = await api.post("/public/contact", formData);
+      if (res.success) {
+        setSent(true);
+        setFormData({ name: "", email: "", phone: "", interest: "", message: "" });
+      } else {
+        setErrorMsg(res.message || "Failed to submit inquiry");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "Error submitting inquiry");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <PublicLayout>
       <section className="relative py-20 lg:py-28 overflow-hidden">
@@ -23,10 +74,10 @@ function Contact() {
         <div className="mx-auto max-w-7xl px-5 lg:px-8 grid lg:grid-cols-5 gap-10">
           <div className="lg:col-span-2 space-y-4">
             {[
-              { icon: MapPin, t: "Visit us", v: "Plot 21, Medical Campus, Hosur Road, Bengaluru — 560001" },
-              { icon: Phone, t: "Call us", v: "+91 98765 43210 · Mon–Sat 9am–8pm" },
-              { icon: Mail, t: "Email", v: "hello@Axon.academy" },
-              { icon: Clock, t: "Office", v: "Monday – Saturday, 9 AM to 8 PM" },
+              { icon: MapPin, t: "Visit us", v: contactInfo.address },
+              { icon: Phone, t: "Call us", v: contactInfo.phone },
+              { icon: Mail, t: "Email", v: contactInfo.email },
+              { icon: Clock, t: "Office", v: contactInfo.hours },
             ].map(c => (
               <div key={c.t} className="rounded-2xl border border-border bg-card p-5 flex gap-4">
                 <div className="grid h-11 w-11 place-items-center rounded-xl bg-plum-dark text-lime shrink-0">
@@ -41,23 +92,59 @@ function Contact() {
           </div>
 
           <form
-            onSubmit={(e) => { e.preventDefault(); setSent(true); }}
+            onSubmit={handleSubmit}
             className="lg:col-span-3 rounded-3xl border border-border bg-card p-8 lg:p-10"
           >
             <h2 className="font-display text-2xl font-bold text-plum-dark">Tell us about you.</h2>
             <p className="mt-2 text-sm text-foreground/65">A counsellor will reach out within 24 hours.</p>
             <div className="mt-6 grid sm:grid-cols-2 gap-4">
-              <Field label="Full name" placeholder="Priya Krishnan" required />
-              <Field label="Email" type="email" placeholder="you@example.com" required />
-              <Field label="Phone" placeholder="+91 98xxx xxxxx" />
-              <Field label="Interest" placeholder="Staff Nursing, OT Tech…" />
+              <Field 
+                label="Full name" 
+                placeholder="Priya Krishnan" 
+                required 
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+              />
+              <Field 
+                label="Email" 
+                type="email" 
+                placeholder="you@example.com" 
+                required 
+                value={formData.email}
+                onChange={e => setFormData({ ...formData, email: e.target.value })}
+              />
+              <Field 
+                label="Phone" 
+                placeholder="+91 98xxx xxxxx" 
+                value={formData.phone}
+                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+              />
+              <Field 
+                label="Interest" 
+                placeholder="Staff Nursing, OT Tech…" 
+                value={formData.interest}
+                onChange={e => setFormData({ ...formData, interest: e.target.value })}
+              />
             </div>
             <div className="mt-4">
               <label className="block text-xs font-semibold text-plum-dark mb-1.5">Message</label>
-              <textarea rows={5} placeholder="Anything you'd like us to know…" className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" />
+              <textarea 
+                rows={5} 
+                placeholder="Anything you'd like us to know…" 
+                className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" 
+                value={formData.message}
+                onChange={e => setFormData({ ...formData, message: e.target.value })}
+              />
             </div>
-            <button type="submit" className="mt-6 inline-flex items-center gap-2 rounded-full bg-plum-dark px-7 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition">
-              {sent ? "Sent — we'll be in touch ✓" : <>Send message <Send className="h-4 w-4" /></>}
+            {errorMsg && (
+              <p className="mt-4 text-xs text-red-500 font-medium">{errorMsg}</p>
+            )}
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-plum-dark px-7 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition disabled:opacity-50"
+            >
+              {sent ? "Sent — we'll be in touch ✓" : isSubmitting ? "Sending..." : <>Send message <Send className="h-4 w-4" /></>}
             </button>
           </form>
         </div>
@@ -74,3 +161,4 @@ function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
     </div>
   );
 }
+

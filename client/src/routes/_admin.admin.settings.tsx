@@ -71,12 +71,7 @@ function Settings() {
     vision: "A future where every hospital bedside is supported by a confident, certified, expertly trained paramedical professional.",
     values: "Empathy in care. Rigor in training. Honesty in assessment. Respect for every learner who trusts us with their future."
   });
-  const [milestones, setMilestones] = useState([
-    { id: 1, year: "2018", title: "Academy founded", description: "Started with 32 students in Bengaluru." },
-    { id: 2, year: "2020", title: "Online expansion", description: "Pivoted to hybrid model serving 1,000+ students nationally." },
-    { id: 3, year: "2022", title: "100 hospital partners", description: "Signed flagship MOUs with Apollo, Fortis, Manipal." },
-    { id: 4, year: "2024", title: "Blockchain certificates", description: "First Indian academy with on-chain verifiable credentials." }
-  ]);
+  const [milestones, setMilestones] = useState<any[]>([]);
   const [editingMilestone, setEditingMilestone] = useState<any | null>(null);
   const [isAddingMilestone, setIsAddingMilestone] = useState(false);
 
@@ -104,33 +99,89 @@ function Settings() {
     }
   };
 
-  useEffect(() => {
-    if (activeTab === "Faculty") {
-      fetchFaculty();
-    }
-  }, [activeTab]);
-
   // 5. Placements
-  const [hospitalPartners, setHospitalPartners] = useState([
-    "Apollo Hospitals", "Fortis Healthcare", "Manipal Hospitals", "Max Healthcare", "Narayana Health", "Medanta"
-  ]);
+  const [hospitalPartners, setHospitalPartners] = useState<any[]>([]);
   const [newHospital, setNewHospital] = useState("");
-  const [stories, setStories] = useState([
-    { id: 1, name: "Priya Krishnan", role: "Staff Nurse", hospital: "Apollo Hospitals", salary: "₹3.6L", city: "Bengaluru" },
-    { id: 2, name: "Arjun Reddy", role: "OT Technician", hospital: "Manipal", salary: "₹4.2L", city: "Hyderabad" },
-    { id: 3, name: "Sneha Pillai", role: "Lab Technician", hospital: "Fortis", salary: "₹3.2L", city: "Mumbai" }
-  ]);
+  const [stories, setStories] = useState<any[]>([]);
   const [editingStory, setEditingStory] = useState<any | null>(null);
   const [isAddingStory, setIsAddingStory] = useState(false);
 
   // 6. Blog
-  const [blogPosts, setBlogPosts] = useState([
-    { id: 1, title: "What hospitals look for in a Staff Nurse hire", category: "Career", date: "May 18, 2026", readTime: "6 min", excerpt: "Insights from 50+ HR heads at India's leading hospital chains.", featured: true },
-    { id: 2, title: "ICU monitoring trends every junior tech should master", category: "Clinical", date: "May 12, 2026", readTime: "8 min", excerpt: "Modern bedside monitoring is shifting. Here's the new baseline.", featured: false },
-    { id: 3, title: "How to pass our proctored DMLT exam (without panic)", category: "Exam Prep", date: "May 04, 2026", readTime: "5 min", excerpt: "A study plan from candidates who scored in the top 5.", featured: false }
-  ]);
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [editingPost, setEditingPost] = useState<any | null>(null);
   const [isAddingPost, setIsAddingPost] = useState(false);
+
+  // --- NEW FETCH FUNCTIONS FOR ABOUT, PLACEMENTS, BLOG ---
+  const [isLoadingAbout, setIsLoadingAbout] = useState(false);
+  const fetchAbout = async () => {
+    setIsLoadingAbout(true);
+    try {
+      const res = await api.get("/public/about");
+      if (res.success) {
+        if (res.about) {
+          setAboutText({
+            mission: res.about.mission || "",
+            vision: res.about.vision || "",
+            values: res.about.values || ""
+          });
+        }
+        setMilestones(res.milestones || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch about:", err);
+      showToast("Error loading About details");
+    } finally {
+      setIsLoadingAbout(false);
+    }
+  };
+
+  const [isLoadingPlacement, setIsLoadingPlacement] = useState(false);
+  const fetchPlacement = async () => {
+    setIsLoadingPlacement(true);
+    try {
+      const res = await api.get("/public/placements");
+      if (res.success) {
+        setHospitalPartners(res.partners || []);
+        setStories(res.stories || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch placements:", err);
+      showToast("Error loading placement details");
+    } finally {
+      setIsLoadingPlacement(false);
+    }
+  };
+
+  const [isLoadingBlog, setIsLoadingBlog] = useState(false);
+  const fetchBlog = async () => {
+    setIsLoadingBlog(true);
+    try {
+      const res = await api.get("/admin/blogs");
+      if (res.success) {
+        setBlogPosts(res.blogs || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch blogs:", err);
+      showToast("Error loading blog posts");
+    } finally {
+      setIsLoadingBlog(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "Faculty") {
+      fetchFaculty();
+    } else if (activeTab === "About") {
+      fetchAbout();
+    } else if (activeTab === "Placement") {
+      fetchPlacement();
+    } else if (activeTab === "Blog") {
+      fetchBlog();
+    } else if (activeTab === "Contact") {
+      fetchContactDetails();
+      fetchInquiries();
+    }
+  }, [activeTab]);
 
   // 7. Contact Info & Submissions
   const [contactMeta, setContactMeta] = useState({
@@ -139,10 +190,57 @@ function Settings() {
     email: "hello@axon.academy",
     hours: "Monday – Saturday, 9 AM to 8 PM"
   });
-  const [inquiries, setInquiries] = useState([
-    { id: 1, name: "Ramesh Kumar", email: "ramesh@gmail.com", phone: "+91 99887 76655", interest: "Cardiac Care", message: "Hi, I want to know about the batch starting date and fees installment options.", resolved: false, date: "June 12, 2026" },
-    { id: 2, name: "Sunitha Rao", email: "sunitha@outlook.com", phone: "+91 98765 00112", interest: "OT Tech", message: "Is placement assistance provided after graduation?", resolved: true, date: "June 10, 2026" }
-  ]);
+  const [inquiries, setInquiries] = useState<any[]>([]);
+
+  const [isLoadingContact, setIsLoadingContact] = useState(false);
+  const fetchContactDetails = async () => {
+    setIsLoadingContact(true);
+    try {
+      const res = await api.get("/public/contact-details");
+      if (res.success && res.contactDetails) {
+        setContactMeta({
+          address: res.contactDetails.address || "",
+          phone: res.contactDetails.phone || "",
+          email: res.contactDetails.email || "",
+          hours: res.contactDetails.hours || ""
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch contact details:", err);
+      showToast("Error loading contact details");
+    } finally {
+      setIsLoadingContact(false);
+    }
+  };
+
+  const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
+  const fetchInquiries = async () => {
+    setIsLoadingInquiries(true);
+    try {
+      const res = await api.get("/admin/inquiries");
+      if (res.success) {
+        setInquiries(res.inquiries || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch inquiries:", err);
+      showToast("Error loading inquiries");
+    } finally {
+      setIsLoadingInquiries(false);
+    }
+  };
+
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return "";
+    try {
+      return new Date(isoString).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
 
   // --- ACTIONS ---
 
@@ -151,14 +249,29 @@ function Settings() {
     showToast("Organization settings saved successfully!");
   };
 
-  const handleSaveAbout = (e: React.FormEvent) => {
+  const handleSaveAbout = async (e: React.FormEvent) => {
     e.preventDefault();
-    showToast("About content saved successfully!");
+    try {
+      const res = await api.put("/admin/about", aboutText);
+      if (res.success) {
+        showToast("About content saved successfully!");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to save core statements");
+    }
   };
 
-  const handleSaveContact = (e: React.FormEvent) => {
+  const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    showToast("Contact information saved successfully!");
+    try {
+      const res = await api.put("/admin/contact-details", contactMeta);
+      if (res.success) {
+        showToast("Contact information saved successfully!");
+        fetchContactDetails();
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to save contact details");
+    }
   };
 
   return (
@@ -416,18 +529,27 @@ function Settings() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           if (!editingMilestone.year || !editingMilestone.title) {
                             alert("Please fill year and title");
                             return;
                           }
-                          if (isAddingMilestone) {
-                            const newId = milestones.length ? Math.max(...milestones.map(m => m.id)) + 1 : 1;
-                            setMilestones([...milestones, { ...editingMilestone, id: newId }]);
-                            showToast("Academy milestone added!");
-                          } else {
-                            setMilestones(milestones.map(m => m.id === editingMilestone.id ? editingMilestone : m));
-                            showToast("Milestone updated!");
+                          try {
+                            if (isAddingMilestone) {
+                              const res = await api.post("/admin/milestones", editingMilestone);
+                              if (res.success) {
+                                showToast("Academy milestone added!");
+                                fetchAbout();
+                              }
+                            } else {
+                              const res = await api.put(`/admin/milestones/${editingMilestone._id || editingMilestone.id}`, editingMilestone);
+                              if (res.success) {
+                                showToast("Milestone updated!");
+                                fetchAbout();
+                              }
+                            }
+                          } catch (err: any) {
+                            alert(err.message || "Failed to save milestone");
                           }
                           setEditingMilestone(null);
                           setIsAddingMilestone(false);
@@ -441,7 +563,7 @@ function Settings() {
                 ) : (
                   <div className="divide-y divide-cream/5 mt-3">
                     {milestones.map((m) => (
-                      <div key={m.id} className="py-3 flex justify-between gap-4 items-start group">
+                      <div key={m._id || m.id} className="py-3 flex justify-between gap-4 items-start group">
                         <div className="flex gap-4">
                           <span className="font-mono text-lime font-bold text-sm bg-cream/5 rounded px-2.5 py-1 h-fit shrink-0">{m.year}</span>
                           <div>
@@ -457,10 +579,17 @@ function Settings() {
                             <Edit2 className="h-3 w-3" />
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (confirm("Delete this milestone?")) {
-                                setMilestones(milestones.filter(x => x.id !== m.id));
-                                showToast("Milestone deleted");
+                                try {
+                                  const res = await api.delete(`/admin/milestones/${m._id || m.id}`);
+                                  if (res.success) {
+                                    showToast("Milestone deleted");
+                                    fetchAbout();
+                                  }
+                                } catch (err: any) {
+                                  alert(err.message || "Failed to delete milestone");
+                                }
                               }
                             }}
                             className="p-1 hover:bg-red-500/20 rounded text-red-400"
@@ -765,12 +894,22 @@ function Settings() {
 
                 <div className="flex flex-wrap gap-2 mb-4 p-3 rounded-xl bg-cream/5 border border-cream/10">
                   {hospitalPartners.map(h => (
-                    <span key={h} className="inline-flex items-center gap-1.5 px-3 py-1 bg-plum-dark border border-cream/15 text-cream rounded-full text-xs font-semibold">
-                      {h}
+                    <span key={h._id || h.name} className="inline-flex items-center gap-1.5 px-3 py-1 bg-plum-dark border border-cream/15 text-cream rounded-full text-xs font-semibold">
+                      {h.name}
                       <button
-                        onClick={() => {
-                          setHospitalPartners(hospitalPartners.filter(x => x !== h));
-                          showToast("Partner hospital removed");
+                        onClick={async () => {
+                          if (h._id) {
+                            try {
+                              await api.delete(`/admin/placements/partners/${h._id}`);
+                              showToast("Partner hospital removed");
+                              fetchPlacement();
+                            } catch (err: any) {
+                              alert(err.message || "Failed to remove partner");
+                            }
+                          } else {
+                            setHospitalPartners(hospitalPartners.filter(x => x.name !== h.name));
+                            showToast("Partner hospital removed");
+                          }
                         }}
                         className="text-cream/50 hover:text-red-400 font-bold ml-0.5"
                       >
@@ -789,15 +928,22 @@ function Settings() {
                     className="flex-1 bg-cream/5 border border-cream/10 rounded-xl px-4 py-2 text-xs outline-none focus:border-lime"
                   />
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (!newHospital.trim()) return;
-                      if (hospitalPartners.includes(newHospital.trim())) {
+                      if (hospitalPartners.some(x => x.name.toLowerCase() === newHospital.trim().toLowerCase())) {
                         alert("Hospital already added");
                         return;
                       }
-                      setHospitalPartners([...hospitalPartners, newHospital.trim()]);
-                      setNewHospital("");
-                      showToast("Hospital partner listed!");
+                      try {
+                        const res = await api.post("/admin/placements/partners", { name: newHospital.trim() });
+                        if (res.success) {
+                          showToast("Hospital partner listed!");
+                          setNewHospital("");
+                          fetchPlacement();
+                        }
+                      } catch (err: any) {
+                        alert(err.message || "Failed to add partner");
+                      }
                     }}
                     className="inline-flex items-center gap-1 bg-lime text-plum-dark px-3 py-2 text-xs font-bold rounded-xl"
                   >
@@ -895,18 +1041,27 @@ function Settings() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           if (!editingStory.name || !editingStory.hospital) {
                             alert("Please fill name and hospital");
                             return;
                           }
-                          if (isAddingStory) {
-                            const newId = stories.length ? Math.max(...stories.map(s => s.id)) + 1 : 1;
-                            setStories([...stories, { ...editingStory, id: newId }]);
-                            showToast("New success story added!");
-                          } else {
-                            setStories(stories.map(s => s.id === editingStory.id ? editingStory : s));
-                            showToast("Success story updated!");
+                          try {
+                            if (isAddingStory) {
+                              const res = await api.post("/admin/placements/stories", editingStory);
+                              if (res.success) {
+                                showToast("New success story added!");
+                                fetchPlacement();
+                              }
+                            } else {
+                              const res = await api.put(`/admin/placements/stories/${editingStory._id || editingStory.id}`, editingStory);
+                              if (res.success) {
+                                showToast("Success story updated!");
+                                fetchPlacement();
+                              }
+                            }
+                          } catch (err: any) {
+                            alert(err.message || "Failed to save story");
                           }
                           setEditingStory(null);
                           setIsAddingStory(false);
@@ -932,7 +1087,7 @@ function Settings() {
                       </thead>
                       <tbody className="divide-y divide-cream/5">
                         {stories.map(story => (
-                          <tr key={story.id} className="group hover:bg-cream/[0.02]">
+                          <tr key={story._id || story.id} className="group hover:bg-cream/[0.02]">
                             <td className="py-2.5 font-medium text-cream">{story.name}</td>
                             <td className="py-2.5 text-cream/70">{story.role}</td>
                             <td className="py-2.5 text-cream/70 font-semibold">{story.hospital}</td>
@@ -947,10 +1102,17 @@ function Settings() {
                                   <Edit2 className="h-3 w-3" />
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (confirm("Delete this story?")) {
-                                      setStories(stories.filter(x => x.id !== story.id));
-                                      showToast("Placement story removed");
+                                      try {
+                                        const res = await api.delete(`/admin/placements/stories/${story._id || story.id}`);
+                                        if (res.success) {
+                                          showToast("Placement story removed");
+                                          fetchPlacement();
+                                        }
+                                      } catch (err: any) {
+                                        alert(err.message || "Failed to remove story");
+                                      }
                                     }
                                   }}
                                   className="p-1 hover:bg-red-500/20 rounded text-red-400"
@@ -1071,25 +1233,27 @@ function Settings() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (!editingPost.title || !editingPost.excerpt) {
                           alert("Please fill title and excerpt content");
                           return;
                         }
-
-                        let updatedPosts = [...blogPosts];
-                        if (editingPost.featured) {
-                          // Unfeature all others since there can be only one featured hero
-                          updatedPosts = updatedPosts.map(p => ({ ...p, featured: false }));
-                        }
-
-                        if (isAddingPost) {
-                          const newId = blogPosts.length ? Math.max(...blogPosts.map(p => p.id)) + 1 : 1;
-                          setBlogPosts([...updatedPosts, { ...editingPost, id: newId }]);
-                          showToast("New blog post published!");
-                        } else {
-                          setBlogPosts(updatedPosts.map(p => p.id === editingPost.id ? editingPost : p));
-                          showToast("Blog post saved!");
+                        try {
+                          if (isAddingPost) {
+                            const res = await api.post("/admin/blogs", editingPost);
+                            if (res.success) {
+                              showToast("New blog post published!");
+                              fetchBlog();
+                            }
+                          } else {
+                            const res = await api.put(`/admin/blogs/${editingPost._id || editingPost.id}`, editingPost);
+                            if (res.success) {
+                              showToast("Blog post saved!");
+                              fetchBlog();
+                            }
+                          }
+                        } catch (err: any) {
+                          alert(err.message || "Failed to publish article");
                         }
                         setEditingPost(null);
                         setIsAddingPost(false);
@@ -1103,7 +1267,7 @@ function Settings() {
               ) : (
                 <div className="mt-4 divide-y divide-cream/5">
                   {blogPosts.map(post => (
-                    <div key={post.id} className="py-4 flex items-start justify-between gap-4 group">
+                    <div key={post._id || post.id} className="py-4 flex items-start justify-between gap-4 group">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
                           <span className="text-[9px] font-bold uppercase tracking-wider text-lime bg-lime/10 px-2 py-0.5 rounded">
@@ -1127,10 +1291,17 @@ function Settings() {
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (confirm("Delete this blog post?")) {
-                              setBlogPosts(blogPosts.filter(x => x.id !== post.id));
-                              showToast("Blog post deleted");
+                              try {
+                                const res = await api.delete(`/admin/blogs/${post._id || post.id}`);
+                                if (res.success) {
+                                  showToast("Blog post deleted");
+                                  fetchBlog();
+                                }
+                              } catch (err: any) {
+                                alert(err.message || "Failed to delete blog post");
+                              }
                             }
                           }}
                           className="p-1 hover:bg-red-500/20 rounded text-red-400"
@@ -1218,63 +1389,83 @@ function Settings() {
                 </div>
 
                 <div className="space-y-4 mt-3">
-                  {inquiries.map((inq) => (
-                    <div
-                      key={inq.id}
-                      className={`p-4 rounded-2xl border transition ${inq.resolved
-                          ? "bg-cream/[0.01] border-cream/5 opacity-60"
-                          : "bg-cream/5 border-cream/10"
-                        }`}
-                    >
-                      <div className="flex justify-between items-start gap-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm text-cream">{inq.name}</span>
-                            <span className="text-[10px] text-cream/40">{inq.date}</span>
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${inq.resolved ? "bg-cream/10 text-cream/65" : "bg-lime/20 text-lime"
-                              }`}>
-                              {inq.resolved ? "Resolved" : "Active inquiry"}
-                            </span>
+                  {isLoadingInquiries ? (
+                    <div className="text-center py-6 text-sm text-cream/50">Loading counselling inquiries...</div>
+                  ) : inquiries.length === 0 ? (
+                    <div className="text-center py-6 text-sm text-cream/50">No counselling inquiries found.</div>
+                  ) : (
+                    inquiries.map((inq) => (
+                      <div
+                        key={inq._id || inq.id}
+                        className={`p-4 rounded-2xl border transition ${inq.resolved
+                            ? "bg-cream/[0.01] border-cream/5 opacity-60"
+                            : "bg-cream/5 border-cream/10"
+                          }`}
+                      >
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm text-cream">{inq.name}</span>
+                              <span className="text-[10px] text-cream/40">{inq.createdAt ? formatDate(inq.createdAt) : inq.date}</span>
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${inq.resolved ? "bg-cream/10 text-cream/65" : "bg-lime/20 text-lime"
+                                }`}>
+                                {inq.resolved ? "Resolved" : "Active inquiry"}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 text-xs text-cream/75 font-mono">
+                              <span>Phone: {inq.phone || 'N/A'}</span>
+                              <span className="mx-2">|</span>
+                              <span>Email: {inq.email}</span>
+                              <span className="mx-2">|</span>
+                              <span className="text-lime">Interest: {inq.interest || 'N/A'}</span>
+                            </div>
+                            <p className="mt-3 text-xs bg-plum-dark/40 p-2.5 rounded-lg border border-cream/5 text-cream/80">
+                              {inq.message}
+                            </p>
                           </div>
-                          <div className="mt-1.5 text-xs text-cream/75 font-mono">
-                            <span>Phone: {inq.phone}</span>
-                            <span className="mx-2">|</span>
-                            <span>Email: {inq.email}</span>
-                            <span className="mx-2">|</span>
-                            <span className="text-lime">Interest: {inq.interest}</span>
-                          </div>
-                          <p className="mt-3 text-xs bg-plum-dark/40 p-2.5 rounded-lg border border-cream/5 text-cream/80">
-                            {inq.message}
-                          </p>
-                        </div>
 
-                        <div className="flex gap-1 shrink-0">
-                          {!inq.resolved && (
+                          <div className="flex gap-1 shrink-0">
+                            {!inq.resolved && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const res = await api.put(`/admin/inquiries/${inq._id || inq.id}/resolve`);
+                                    if (res.success) {
+                                      showToast("Inquiry marked as resolved");
+                                      fetchInquiries();
+                                    }
+                                  } catch (err: any) {
+                                    alert(err.message || "Failed to resolve inquiry");
+                                  }
+                                }}
+                                className="px-2.5 py-1 bg-lime hover:bg-lime/90 text-plum-dark rounded text-[10px] font-bold flex items-center gap-1"
+                              >
+                                <Check className="h-3 w-3" /> Resolve
+                              </button>
+                            )}
                             <button
-                              onClick={() => {
-                                setInquiries(inquiries.map(i => i.id === inq.id ? { ...i, resolved: true } : i));
-                                showToast("Inquiry marked as resolved");
+                              onClick={async () => {
+                                if (confirm("Delete this inquiry record?")) {
+                                  try {
+                                    const res = await api.delete(`/admin/inquiries/${inq._id || inq.id}`);
+                                    if (res.success) {
+                                      showToast("Inquiry record deleted");
+                                      fetchInquiries();
+                                    }
+                                  } catch (err: any) {
+                                    alert(err.message || "Failed to delete inquiry");
+                                  }
+                                }
                               }}
-                              className="px-2.5 py-1 bg-lime hover:bg-lime/90 text-plum-dark rounded text-[10px] font-bold flex items-center gap-1"
+                              className="p-1 hover:bg-red-500/20 text-cream/50 hover:text-red-400 rounded"
                             >
-                              <Check className="h-3 w-3" /> Resolve
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              if (confirm("Delete this inquiry record?")) {
-                                setInquiries(inquiries.filter(i => i.id !== inq.id));
-                                showToast("Inquiry record deleted");
-                              }
-                            }}
-                            className="p-1 hover:bg-red-500/20 text-cream/50 hover:text-red-400 rounded"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </DarkCard>
             </div>

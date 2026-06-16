@@ -3,6 +3,13 @@ const router = express.Router();
 const User = require('../models/User');
 const StudentProfile = require('../models/StudentProfile');
 const FacultyMember = require('../models/FacultyMember');
+const AboutDetail = require('../models/AboutDetail');
+const Milestone = require('../models/Milestone');
+const HospitalPartner = require('../models/HospitalPartner');
+const PlacementStory = require('../models/PlacementStory');
+const BlogPost = require('../models/BlogPost');
+const ContactDetail = require('../models/ContactDetail');
+const Inquiry = require('../models/Inquiry');
 const { sendWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo } = require('../middleware/auth');
 const multer = require('multer');
@@ -366,6 +373,315 @@ router.delete('/faculty/:id', protect, restrictTo('admin', 'superadmin'), async 
 
     await faculty.deleteOne();
     res.json({ success: true, message: 'Faculty member deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// ABOUT SETTINGS CRUD
+// ==========================================
+
+// PUT /about → Save core statements
+router.put('/about', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { mission, vision, values } = req.body;
+    let about = await AboutDetail.findOne();
+    if (about) {
+      about.mission = mission;
+      about.vision = vision;
+      about.values = values;
+      await about.save();
+    } else {
+      about = await AboutDetail.create({ mission, vision, values });
+    }
+    res.json({ success: true, message: 'About core statements saved successfully', about });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /milestones → Get all milestones (admin view)
+router.get('/milestones', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const milestones = await Milestone.find().sort({ year: 1 });
+    res.json({ success: true, milestones });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /milestones → Create a milestone
+router.post('/milestones', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { year, title, description } = req.body;
+    if (!year || !title) {
+      return res.status(400).json({ success: false, message: 'Year and Title are required' });
+    }
+    const milestone = await Milestone.create({ year, title, description });
+    res.status(201).json({ success: true, message: 'Milestone added successfully', milestone });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /milestones/:id → Update a milestone
+router.put('/milestones/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { year, title, description } = req.body;
+    const milestone = await Milestone.findByIdAndUpdate(
+      req.params.id,
+      { year, title, description },
+      { new: true, runValidators: true }
+    );
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: 'Milestone not found' });
+    }
+    res.json({ success: true, message: 'Milestone updated successfully', milestone });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /milestones/:id → Delete a milestone
+router.delete('/milestones/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const milestone = await Milestone.findByIdAndDelete(req.params.id);
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: 'Milestone not found' });
+    }
+    res.json({ success: true, message: 'Milestone deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// PLACEMENT SETTINGS CRUD
+// ==========================================
+
+// GET /placements/partners → Get all partners
+router.get('/placements/partners', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const partners = await HospitalPartner.find().sort({ name: 1 });
+    res.json({ success: true, partners });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /placements/partners → Add a partner
+router.post('/placements/partners', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Hospital partner name is required' });
+    }
+    const partner = await HospitalPartner.create({ name });
+    res.status(201).json({ success: true, message: 'Hospital partner added successfully', partner });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /placements/partners/:id → Delete a partner
+router.delete('/placements/partners/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const partner = await HospitalPartner.findByIdAndDelete(req.params.id);
+    if (!partner) {
+      return res.status(404).json({ success: false, message: 'Hospital partner not found' });
+    }
+    res.json({ success: true, message: 'Hospital partner deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /placements/stories → Get all placement stories
+router.get('/placements/stories', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const stories = await PlacementStory.find().sort({ createdAt: -1 });
+    res.json({ success: true, stories });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /placements/stories → Create placement story
+router.post('/placements/stories', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { name, role, hospital, salary, city } = req.body;
+    if (!name || !role || !hospital) {
+      return res.status(400).json({ success: false, message: 'Name, Role, and Hospital are required' });
+    }
+    const story = await PlacementStory.create({ name, role, hospital, salary, city });
+    res.status(201).json({ success: true, message: 'Placement story added successfully', story });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /placements/stories/:id → Update placement story
+router.put('/placements/stories/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { name, role, hospital, salary, city } = req.body;
+    const story = await PlacementStory.findByIdAndUpdate(
+      req.params.id,
+      { name, role, hospital, salary, city },
+      { new: true, runValidators: true }
+    );
+    if (!story) {
+      return res.status(404).json({ success: false, message: 'Placement story not found' });
+    }
+    res.json({ success: true, message: 'Placement story updated successfully', story });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /placements/stories/:id → Delete placement story
+router.delete('/placements/stories/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const story = await PlacementStory.findByIdAndDelete(req.params.id);
+    if (!story) {
+      return res.status(404).json({ success: false, message: 'Placement story not found' });
+    }
+    res.json({ success: true, message: 'Placement story deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// BLOG POSTS CRUD
+// ==========================================
+
+// GET /blogs → Get all blog posts
+router.get('/blogs', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const blogs = await BlogPost.find().sort({ createdAt: -1 });
+    res.json({ success: true, blogs });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /blogs → Create blog post
+router.post('/blogs', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { title, category, date, readTime, excerpt, featured } = req.body;
+    if (!title || !excerpt) {
+      return res.status(400).json({ success: false, message: 'Title and excerpt are required' });
+    }
+
+    if (featured) {
+      // Set all other posts to featured: false
+      await BlogPost.updateMany({}, { featured: false });
+    }
+
+    const blog = await BlogPost.create({ title, category, date, readTime, excerpt, featured });
+    res.status(201).json({ success: true, message: 'Blog post created successfully', blog });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /blogs/:id → Update blog post
+router.put('/blogs/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { title, category, date, readTime, excerpt, featured } = req.body;
+
+    if (featured) {
+      // Set all other posts to featured: false
+      await BlogPost.updateMany({}, { featured: false });
+    }
+
+    const blog = await BlogPost.findByIdAndUpdate(
+      req.params.id,
+      { title, category, date, readTime, excerpt, featured },
+      { new: true, runValidators: true }
+    );
+    if (!blog) {
+      return res.status(404).json({ success: false, message: 'Blog post not found' });
+    }
+    res.json({ success: true, message: 'Blog post updated successfully', blog });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /blogs/:id → Delete blog post
+router.delete('/blogs/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const blog = await BlogPost.findByIdAndDelete(req.params.id);
+    if (!blog) {
+      return res.status(404).json({ success: false, message: 'Blog post not found' });
+    }
+    res.json({ success: true, message: 'Blog post deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// CONTACT INFO & INQUIRIES CRUD
+// ==========================================
+
+// PUT /contact-details → Update contact details
+router.put('/contact-details', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { address, phone, email, hours } = req.body;
+    let contactDetails = await ContactDetail.findOne();
+    if (contactDetails) {
+      contactDetails.address = address;
+      contactDetails.phone = phone;
+      contactDetails.email = email;
+      contactDetails.hours = hours;
+      await contactDetails.save();
+    } else {
+      contactDetails = await ContactDetail.create({ address, phone, email, hours });
+    }
+    res.json({ success: true, message: 'Contact details saved successfully', contactDetails });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /inquiries → Get all inquiries
+router.get('/inquiries', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const inquiries = await Inquiry.find().sort({ createdAt: -1 });
+    res.json({ success: true, inquiries });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /inquiries/:id/resolve → Mark inquiry as resolved
+router.put('/inquiries/:id/resolve', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const inquiry = await Inquiry.findByIdAndUpdate(
+      req.params.id,
+      { resolved: true },
+      { new: true }
+    );
+    if (!inquiry) {
+      return res.status(404).json({ success: false, message: 'Inquiry not found' });
+    }
+    res.json({ success: true, message: 'Inquiry resolved successfully', inquiry });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /inquiries/:id → Delete inquiry
+router.delete('/inquiries/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const inquiry = await Inquiry.findByIdAndDelete(req.params.id);
+    if (!inquiry) {
+      return res.status(404).json({ success: false, message: 'Inquiry not found' });
+    }
+    res.json({ success: true, message: 'Inquiry deleted successfully' });
   } catch (error) {
     next(error);
   }

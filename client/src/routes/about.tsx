@@ -1,24 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PublicLayout } from "../components/site/Layout";
 import { Target, Eye, Heart, Award, Users, Building2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/about")({ component: About });
 
-const VALUES = [
-  { icon: Target, t: "Mission", d: "To make world-class paramedical education accessible to every aspirant in India — regardless of background or budget." },
-  { icon: Eye, t: "Vision", d: "A future where every hospital bedside is supported by a confident, certified, expertly trained paramedical professional." },
-  { icon: Heart, t: "Values", d: "Empathy in care. Rigor in training. Honesty in assessment. Respect for every learner who trusts us with their future." },
-];
-
-const MILESTONES = [
-  { year: "2018", t: "Academy founded", d: "Started with 32 students in Bengaluru." },
-  { year: "2020", t: "Online expansion", d: "Pivoted to hybrid model serving 1,000+ students nationally." },
-  { year: "2022", t: "100 hospital partners", d: "Signed flagship MOUs with Apollo, Fortis, Manipal." },
-  { year: "2024", t: "Blockchain certificates", d: "First Indian academy with on-chain verifiable credentials." },
-  { year: "2026", t: "5,000+ alumni", d: "95% placement rate · 200+ partner hospitals · 28 states covered." },
-];
-
 function About() {
+  const [aboutDetail, setAboutDetail] = useState({
+    mission: "",
+    vision: "",
+    values: ""
+  });
+  const [milestones, setMilestones] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadAbout = async () => {
+      try {
+        const res = await api.get("/public/about");
+        if (res.success) {
+          if (res.about) {
+            setAboutDetail({
+              mission: res.about.mission || "",
+              vision: res.about.vision || "",
+              values: res.about.values || ""
+            });
+          }
+          if (res.milestones) {
+            setMilestones(res.milestones);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching about page content:", err);
+      }
+    };
+    loadAbout();
+  }, []);
+
+  const valuesData = [
+    { icon: Target, t: "Mission", d: aboutDetail.mission },
+    { icon: Eye, t: "Vision", d: aboutDetail.vision },
+    { icon: Heart, t: "Values", d: aboutDetail.values },
+  ];
   return (
     <PublicLayout>
       {/* Hero */}
@@ -60,7 +83,7 @@ function About() {
       <section className="py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-3">
-            {VALUES.map((v, i) => (
+            {valuesData.map((v, i) => (
               <div key={v.t} className={`rounded-3xl p-8 ${i === 1 ? "bg-plum-dark text-cream" : "bg-card border border-border"}`}>
                 <div className={`grid h-12 w-12 place-items-center rounded-xl ${i === 1 ? "bg-lime text-plum-dark" : "bg-secondary text-plum-dark"}`}>
                   <v.icon className="h-5 w-5" />
@@ -81,14 +104,14 @@ function About() {
 
           <div className="mt-14 relative">
             <div className="absolute left-[27px] top-2 bottom-2 w-px bg-plum/30" />
-            {MILESTONES.map((m) => (
-              <div key={m.year} className="relative flex gap-6 pb-10 last:pb-0">
+            {milestones.map((m) => (
+              <div key={m._id || m.year} className="relative flex gap-6 pb-10 last:pb-0">
                 <div className="relative z-10 grid h-14 w-14 shrink-0 place-items-center rounded-full bg-plum-dark text-lime font-mono text-xs font-bold">
                   {m.year}
                 </div>
                 <div className="pt-3">
-                  <h3 className="font-display text-lg font-semibold text-plum-dark">{m.t}</h3>
-                  <p className="mt-1 text-sm text-foreground/70">{m.d}</p>
+                  <h3 className="font-display text-lg font-semibold text-plum-dark">{m.t || m.title}</h3>
+                  <p className="mt-1 text-sm text-foreground/70">{m.d || m.description}</p>
                 </div>
               </div>
             ))}

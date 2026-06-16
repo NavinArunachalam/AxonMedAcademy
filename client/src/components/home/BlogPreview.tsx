@@ -1,13 +1,27 @@
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
-const posts = [
-  { cat: "Career", date: "May 18, 2026", title: "What hospitals actually look for in a Staff Nurse hire", excerpt: "Insights from 50+ HR heads at India's leading hospital chains.", tint: "from-plum to-plum-dark" },
-  { cat: "Clinical", date: "May 12, 2026", title: "ICU monitoring trends every junior tech should master", excerpt: "Modern bedside monitoring is shifting. Here's the new baseline.", tint: "from-plum-dark to-plum" },
-  { cat: "Exam Prep", date: "May 04, 2026", title: "How to pass our proctored DMLT exam (without panic)", excerpt: "A study plan from candidates who scored in the top 5%.", tint: "from-plum to-plum-dark" },
-];
+
 
 export function BlogPreview() {
+  const [posts, setPosts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadBlogs = async () => {
+      try {
+        const res = await api.get("/public/blogs");
+        if (res.success && res.blogs) {
+          setPosts(res.blogs.slice(0, 3));
+        }
+      } catch (err) {
+        console.error("Error fetching homepage preview blogs:", err);
+      }
+    };
+    loadBlogs();
+  }, []);
+
   return (
     <section className="py-10 lg:py-16">
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
@@ -25,14 +39,16 @@ export function BlogPreview() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          {posts.map((p) => (
-            <article key={p.title} className="group rounded-3xl overflow-hidden bg-card border border-border hover:-translate-y-1 transition-all">
-              <div className={`relative aspect-[16/10] bg-gradient-to-br ${p.tint} overflow-hidden`}>
-                <div className="absolute inset-0 bg-noise opacity-30" />
-                <span className="absolute top-4 left-4 rounded-full bg-cream/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plum-dark">
-                  {p.cat}
-                </span>
-              </div>
+          {posts.map((p, index) => {
+            const tint = index % 2 === 0 ? "from-plum to-plum-dark" : "from-plum-dark to-plum";
+            return (
+              <article key={p.title} className="group rounded-3xl overflow-hidden bg-card border border-border hover:-translate-y-1 transition-all">
+                <div className={`relative aspect-[16/10] bg-gradient-to-br ${tint} overflow-hidden`}>
+                  <div className="absolute inset-0 bg-noise opacity-30" />
+                  <span className="absolute top-4 left-4 rounded-full bg-cream/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-plum-dark">
+                    {p.cat || p.category}
+                  </span>
+                </div>
               <div className="p-6">
                 <div className="text-xs text-foreground/55 font-mono">{p.date}</div>
                 <h3 className="mt-3 font-display text-lg font-semibold text-plum-dark group-hover:text-plum transition leading-snug">
@@ -44,7 +60,8 @@ export function BlogPreview() {
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
