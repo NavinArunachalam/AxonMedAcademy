@@ -1,14 +1,14 @@
 import { r as reactExports, j as jsxRuntimeExports } from "./react.mjs";
 import { c as composeEventHandlers } from "./radix-ui__primitive.mjs";
 import { u as useComposedRefs } from "./radix-ui__react-compose-refs.mjs";
-import { a as createContextScope, c as createContext2 } from "./radix-ui__react-context.mjs";
+import { b as createContextScope, c as createContext2 } from "./radix-ui__react-context.mjs";
 import { u as useId } from "./radix-ui__react-id.mjs";
 import { u as useControllableState } from "./@radix-ui/react-use-controllable-state+[...].mjs";
 import { D as DismissableLayer } from "./@radix-ui/react-dismissable-layer+[...].mjs";
 import { F as FocusScope } from "./radix-ui__react-focus-scope.mjs";
 import { P as Portal$1 } from "./radix-ui__react-portal.mjs";
 import { P as Presence } from "./radix-ui__react-presence.mjs";
-import { P as Primitive } from "./radix-ui__react-primitive.mjs";
+import { a as Primitive } from "./radix-ui__react-primitive.mjs";
 import { u as useFocusGuards } from "./radix-ui__react-focus-guards.mjs";
 import { R as ReactRemoveScroll } from "./react-remove-scroll.mjs";
 import { h as hideOthers } from "./aria-hidden.mjs";

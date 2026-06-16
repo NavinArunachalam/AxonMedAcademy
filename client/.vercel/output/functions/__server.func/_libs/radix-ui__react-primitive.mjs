@@ -1,6 +1,38 @@
 import { r as reactExports, j as jsxRuntimeExports } from "./react.mjs";
 import { r as reactDomExports } from "./react-dom.mjs";
 import { c as createSlot, a as createSlot$1 } from "./radix-ui__react-slot.mjs";
+var NODES$2 = [
+  "a",
+  "button",
+  "div",
+  "form",
+  "h2",
+  "h3",
+  "img",
+  "input",
+  "label",
+  "li",
+  "nav",
+  "ol",
+  "p",
+  "select",
+  "span",
+  "svg",
+  "ul"
+];
+var Primitive$2 = NODES$2.reduce((primitive, node) => {
+  const Slot = createSlot(`Primitive.${node}`);
+  const Node = reactExports.forwardRef((props, forwardedRef) => {
+    const { asChild, ...primitiveProps } = props;
+    const Comp = asChild ? Slot : node;
+    if (typeof window !== "undefined") {
+      window[/* @__PURE__ */ Symbol.for("radix-ui")] = true;
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(Comp, { ...primitiveProps, ref: forwardedRef });
+  });
+  Node.displayName = `Primitive.${node}`;
+  return { ...primitive, [node]: Node };
+}, {});
 var NODES$1 = [
   "a",
   "button",
@@ -21,7 +53,7 @@ var NODES$1 = [
   "ul"
 ];
 var Primitive$1 = NODES$1.reduce((primitive, node) => {
-  const Slot = createSlot(`Primitive.${node}`);
+  const Slot = createSlot$1(`Primitive.${node}`);
   const Node = reactExports.forwardRef((props, forwardedRef) => {
     const { asChild, ...primitiveProps } = props;
     const Comp = asChild ? Slot : node;
@@ -56,7 +88,7 @@ var NODES = [
   "ul"
 ];
 var Primitive = NODES.reduce((primitive, node) => {
-  const Slot = createSlot$1(`Primitive.${node}`);
+  const Slot = createSlot(`Primitive.${node}`);
   const Node = reactExports.forwardRef((props, forwardedRef) => {
     const { asChild, ...primitiveProps } = props;
     const Comp = asChild ? Slot : node;
@@ -69,7 +101,8 @@ var Primitive = NODES.reduce((primitive, node) => {
   return { ...primitive, [node]: Node };
 }, {});
 export {
-  Primitive$1 as P,
-  Primitive as a,
+  Primitive$2 as P,
+  Primitive$1 as a,
+  Primitive as b,
   dispatchDiscreteCustomEvent as d
 };

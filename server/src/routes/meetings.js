@@ -6,6 +6,7 @@ const User = require('../models/User');
 const LiveMeeting = require('../models/LiveMeeting');
 const Classroom = require('../models/Classroom');
 const Notification = require('../models/Notification');
+const Attendance = require('../models/Attendance');
 const { protect, restrictTo } = require('../middleware/auth');
 
 // Socket notification helper
@@ -40,6 +41,44 @@ const resolveClassroom = async (classroomIdentifier) => {
     });
   }
   return classroom;
+};
+
+const verifyMeetingAccess = async (meeting, user) => {
+  const classroom = await Classroom.findById(meeting.classroom);
+  const isAdmin = ['admin', 'superadmin'].includes(user.role);
+  const isEnrolled = classroom
+    ? classroom.students.some(s => s.student.toString() === user._id.toString() && s.status === 'active')
+    : false;
+
+  return { classroom, isAdmin, isEnrolled, allowed: isAdmin || isEnrolled };
+};
+
+const upsertMeetingAttendance = async (meeting, userId, markedBy = 'auto') => {
+  const attendee = meeting.attendees.find(a => a.student.toString() === userId.toString() && !a.leftAt)
+    || meeting.attendees.filter(a => a.student.toString() === userId.toString()).at(-1);
+
+  if (!attendee) return null;
+
+  const leftAt = attendee.leftAt || new Date();
+  const duration = Math.max(0, Math.round((leftAt - attendee.joinedAt) / 60000));
+  attendee.duration = duration;
+
+  const scheduledDate = meeting.scheduledAt || attendee.joinedAt || new Date();
+  return Attendance.findOneAndUpdate(
+    { meeting: meeting._id, student: userId },
+    {
+      $set: {
+        classroom: meeting.classroom,
+        date: scheduledDate,
+        status: duration >= 1 ? 'present' : 'late',
+        markedBy,
+        joinedAt: attendee.joinedAt,
+        leftAt: attendee.leftAt || null,
+        duration
+      }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 };
 
 // GET /classroom/:classroomId → Get all meetings for a classroom (accessible to enrolled students/admins)
@@ -140,8 +179,9 @@ router.post('/room/:roomId/join', protect, async (req, res, next) => {
         student: req.user._id,
         joinedAt: new Date()
       });
-      await meeting.save();
     }
+    await meeting.save();
+    await upsertMeetingAttendance(meeting, req.user._id);
 
     res.json({
       success: true,
@@ -155,6 +195,62 @@ router.post('/room/:roomId/join', protect, async (req, res, next) => {
         status: meeting.status
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /room/:roomId/heartbeat → keep live-class attendance duration fresh
+router.post('/room/:roomId/heartbeat', protect, async (req, res, next) => {
+  try {
+    const meeting = await LiveMeeting.findOne({ roomId: req.params.roomId });
+    if (!meeting) {
+      return res.status(404).json({ success: false, message: 'Meeting not found' });
+    }
+
+    const access = await verifyMeetingAccess(meeting, req.user);
+    if (!access.allowed) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to update this meeting attendance' });
+    }
+
+    let attendee = meeting.attendees.find(a => a.student.toString() === req.user._id.toString() && !a.leftAt);
+    if (!attendee) {
+      meeting.attendees.push({ student: req.user._id, joinedAt: new Date() });
+      attendee = meeting.attendees[meeting.attendees.length - 1];
+    }
+
+    attendee.duration = Math.max(0, Math.round((Date.now() - attendee.joinedAt.getTime()) / 60000));
+    await meeting.save();
+    const attendance = await upsertMeetingAttendance(meeting, req.user._id);
+
+    res.json({ success: true, duration: attendee.duration, attendance });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /room/:roomId/leave → finalize live-class attendance duration by roomId
+router.post('/room/:roomId/leave', protect, async (req, res, next) => {
+  try {
+    const meeting = await LiveMeeting.findOne({ roomId: req.params.roomId });
+    if (!meeting) {
+      return res.status(404).json({ success: false, message: 'Meeting not found' });
+    }
+
+    const access = await verifyMeetingAccess(meeting, req.user);
+    if (!access.allowed) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to update this meeting attendance' });
+    }
+
+    const attendee = meeting.attendees.find(a => a.student.toString() === req.user._id.toString() && !a.leftAt);
+    if (attendee) {
+      attendee.leftAt = new Date();
+      attendee.duration = Math.max(0, Math.round((attendee.leftAt - attendee.joinedAt) / 60000));
+      await meeting.save();
+      await upsertMeetingAttendance(meeting, req.user._id);
+    }
+
+    res.json({ success: true, message: 'Successfully left meeting room' });
   } catch (error) {
     next(error);
   }
@@ -234,8 +330,9 @@ router.post('/:id/join', protect, async (req, res, next) => {
         student: req.user._id,
         joinedAt: new Date()
       });
-      await meeting.save();
     }
+    await meeting.save();
+    await upsertMeetingAttendance(meeting, req.user._id);
 
     res.json({
       success: true,
@@ -268,6 +365,7 @@ router.post('/:id/leave', protect, async (req, res, next) => {
       const diffMs = attendee.leftAt - attendee.joinedAt;
       attendee.duration = Math.round(diffMs / 60000); // duration in minutes
       await meeting.save();
+      await upsertMeetingAttendance(meeting, req.user._id);
     }
 
     res.json({ success: true, message: 'Successfully left meeting room' });
@@ -493,6 +591,7 @@ router.post('/:id/end', async (req, res, next) => {
     });
 
     await meeting.save();
+    await Promise.all(meeting.attendees.map((attendee) => upsertMeetingAttendance(meeting, attendee.student)));
 
     // Emit ended socket alert
     try {

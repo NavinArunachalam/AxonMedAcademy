@@ -604,6 +604,10 @@ router.post('/:id/progress', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
+    const safePosition = Math.max(0, Number(position) || 0);
+    const safeWatchedSec = Math.min(300, Math.max(0, Number(watchedSec) || 0));
+    const isCompleted = !!completed || (recording.duration > 0 && safePosition >= recording.duration * 0.9);
+
     let userStatsIndex = recording.viewStats.findIndex(
       (v) => v.student.toString() === req.user._id.toString()
     );
@@ -611,33 +615,38 @@ router.post('/:id/progress', protect, async (req, res, next) => {
     if (userStatsIndex === -1) {
       recording.viewStats.push({
         student: req.user._id,
-        totalWatchedSec: watchedSec || 0,
-        lastPosition: position || 0,
-        rewatchCount: completed ? 1 : 0,
-        completedAt: completed ? new Date() : null,
+        totalWatchedSec: safeWatchedSec,
+        lastPosition: safePosition,
+        rewatchCount: isCompleted ? 1 : 0,
+        completedAt: isCompleted ? new Date() : null,
         sessions: [{
-          startedAt: new Date(Date.now() - (watchedSec || 0) * 1000),
+          startedAt: new Date(Date.now() - safeWatchedSec * 1000),
           endedAt: new Date(),
-          watchedSec: watchedSec || 0
+          watchedSec: safeWatchedSec
         }]
       });
+      userStatsIndex = recording.viewStats.length - 1;
     } else {
       const stats = recording.viewStats[userStatsIndex];
-      stats.lastPosition = position || 0;
-      stats.totalWatchedSec += watchedSec || 0;
-      if (completed && !stats.completedAt) {
+      stats.lastPosition = safePosition;
+      stats.totalWatchedSec += safeWatchedSec;
+      if (isCompleted && !stats.completedAt) {
         stats.completedAt = new Date();
         stats.rewatchCount += 1;
       }
       stats.sessions.push({
-        startedAt: new Date(Date.now() - (watchedSec || 0) * 1000),
+        startedAt: new Date(Date.now() - safeWatchedSec * 1000),
         endedAt: new Date(),
-        watchedSec: watchedSec || 0
+        watchedSec: safeWatchedSec
       });
     }
 
     await recording.save();
-    res.json({ success: true, message: 'Watch progress updated' });
+    res.json({
+      success: true,
+      message: 'Watch progress updated',
+      progress: recording.viewStats[userStatsIndex]
+    });
   } catch (error) {
     next(error);
   }

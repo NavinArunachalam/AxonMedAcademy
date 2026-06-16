@@ -5,7 +5,8 @@ import {
 import { Card, StatTile } from "@/components/portal/PortalShell";
 import { useClassroomStore } from "@/lib/classroomStore";
 import { useQuery } from "@tanstack/react-query";
-import { getMyMeetings, getMyNotifications, type PortalNotification } from "@/lib/api";
+import { getMyMeetings, getMyNotifications, getDetailedProgress, type PortalNotification } from "@/lib/api";
+import ProgressStats from "@/components/portal/ProgressStats";
 
 interface MeetingsResponse {
   success: boolean;
@@ -40,6 +41,16 @@ function Dashboard() {
   
   const enrolledClassrooms = classrooms.filter(c => c.students.some(s => s.id === studentId && s.status === 'active'));
   const activeCoursesCount = enrolledClassrooms.length;
+
+  // Fetch progress for the first active classroom for the dashboard summary
+  const firstClassroomId = enrolledClassrooms[0]?.id;
+  const { data: progressStats, isLoading: progressLoading } = useQuery({
+    queryKey: ['detailedProgress', firstClassroomId],
+    queryFn: () => getDetailedProgress(firstClassroomId!),
+    enabled: !!firstClassroomId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
   const backendMeetings = data?.meetings ?? [];
   const remoteMeetings = backendMeetings.map((m: any) => ({
     id: m._id,
@@ -120,6 +131,19 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Detailed Progress Section */}
+      {progressStats && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-2xl font-bold text-plum-dark">Learning Analysis</h2>
+            {enrolledClassrooms.length > 1 && (
+              <span className="text-xs text-muted-foreground italic">Showing progress for: {enrolledClassrooms[0].name}</span>
+            )}
+          </div>
+          <ProgressStats stats={progressStats} />
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

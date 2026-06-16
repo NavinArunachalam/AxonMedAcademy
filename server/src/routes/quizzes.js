@@ -270,6 +270,7 @@ router.post('/:id/attempt/submit', protect, async (req, res, next) => {
 
     attempt.status = 'submitted';
     attempt.submittedAt = new Date();
+    attempt.totalTimeTakenSec = Math.max(0, Math.round((attempt.submittedAt - attempt.startedAt) / 1000));
     attempt.score = {
       rawMarks: finalMarks,
       totalMarks: quiz.totalMarks,
@@ -322,6 +323,7 @@ router.get('/:id/attempt/my-result', protect, async (req, res, next) => {
     res.json({
       success: true,
       score: attempt.score,
+      totalTimeTakenSec: attempt.totalTimeTakenSec,
       submittedAt: attempt.submittedAt,
       attemptNo: attempt.attemptNo,
       answers: answersWithExplanations

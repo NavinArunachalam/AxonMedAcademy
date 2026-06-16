@@ -22,6 +22,7 @@ import {
   saveQuizAnswer,
   startQuizAttempt,
   submitQuizAttempt,
+  trackRecordingProgress,
 } from "@/lib/api";
 
 export const Route = createFileRoute("/_student/student/classroom/$id")({
@@ -184,12 +185,32 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
 
 // ─── Recordings Tab ───────────────────────────────────────────────────────────
 
-function SecurePlayer({ recording, onClose }: { recording: { id: string; title: string; duration: number; chapters: { id: string; title: string; startTimeSec: number }[]; storageProvider?: string; cloudflareUrl?: string }; onClose: () => void }) {
+function SecurePlayer({
+  classroomId,
+  recording,
+  onClose,
+}: {
+  classroomId: string;
+  recording: {
+    id: string;
+    title: string;
+    duration: number;
+    chapters: { id: string; title: string; startTimeSec: number }[];
+    storageProvider?: string;
+    cloudflareUrl?: string;
+    viewStats?: { studentId: string; studentName: string; watchedPercent: number; totalWatchedSec?: number; lastPosition: number }[];
+  };
+  onClose: () => void;
+}) {
   const { currentUser, accessToken } = useClassroomStore();
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isDeclarationChecked, setIsDeclarationChecked] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const pendingWatchedRef = useRef(0);
+  const totalWatchedRef = useRef(0);
+  const lastVideoTimeRef = useRef(0);
+  const lastSentAtRef = useRef(0);
 
   const { isLocked, lockReason, resetLock } = useVideoProtection(true);
 
@@ -198,25 +219,96 @@ function SecurePlayer({ recording, onClose }: { recording: { id: string; title: 
     : recording.cloudflareUrl;
 
   useEffect(() => {
+    totalWatchedRef.current = recording.viewStats?.find((v) => v.studentId === currentUser?.id)?.totalWatchedSec || 0;
+  }, [currentUser?.id, recording.id]);
+
+  const sendProgress = useCallback(async (force = false) => {
+    const video = videoRef.current;
+    if (!video || !currentUser?.id) return;
+
+    const watchedSec = Math.floor(pendingWatchedRef.current);
+    const currentPosition = Math.floor(video.currentTime || 0);
+    const completed = recording.duration > 0 && currentPosition >= recording.duration * 0.9;
+    const now = Date.now();
+
+    if (!force && (watchedSec < 10 || now - lastSentAtRef.current < 10_000)) return;
+    if (watchedSec <= 0 && !completed) return;
+
+    pendingWatchedRef.current = 0;
+    lastSentAtRef.current = now;
+
+    try {
+      await trackRecordingProgress(recording.id, {
+        position: currentPosition,
+        watchedSec,
+        completed,
+      });
+      totalWatchedRef.current += watchedSec;
+      const watchedPercent = recording.duration > 0
+        ? Math.min(100, Math.round((totalWatchedRef.current / recording.duration) * 100))
+        : 0;
+      classroomActions.updateViewStat(classroomId, recording.id, currentUser.id, currentUser.name, watchedPercent, currentPosition);
+    } catch {
+      pendingWatchedRef.current += watchedSec;
+    }
+  }, [classroomId, currentUser?.id, currentUser?.name, recording.duration, recording.id, recording.viewStats]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handleTimeUpdate = () => {
-      setPosition(Math.floor(video.currentTime));
+      const currentTime = video.currentTime || 0;
+      const delta = currentTime - lastVideoTimeRef.current;
+      if (!video.paused && delta > 0 && delta <= 5) {
+        pendingWatchedRef.current += delta;
+      }
+      lastVideoTimeRef.current = currentTime;
+      setPosition(Math.floor(currentTime));
     };
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handleLoadedMetadata = () => {
+      const savedPosition = recording.viewStats?.find((v) => v.studentId === currentUser?.id)?.lastPosition || 0;
+      if (savedPosition > 0 && savedPosition < video.duration - 5) {
+        video.currentTime = savedPosition;
+        lastVideoTimeRef.current = savedPosition;
+        setPosition(Math.floor(savedPosition));
+      }
+    };
+    const handlePlay = () => {
+      lastVideoTimeRef.current = video.currentTime || 0;
+      setIsPlaying(true);
+    };
+    const handlePause = () => {
+      setIsPlaying(false);
+      void sendProgress(true);
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      void sendProgress(true);
+    };
+    const handleBeforeUnload = () => {
+      void sendProgress(true);
+    };
 
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
+    video.addEventListener('ended', handleEnded);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    const interval = window.setInterval(() => void sendProgress(), 15_000);
 
     return () => {
+      window.clearInterval(interval);
+      void sendProgress(true);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
+      video.removeEventListener('ended', handleEnded);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [recording.id]);
+  }, [currentUser?.id, recording.id, recording.viewStats, sendProgress]);
 
   // Pause video if locked and reset declaration
   useEffect(() => {
@@ -410,7 +502,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
   return (
     <>
       {activeRec && activeRecording && (
-        <SecurePlayer recording={activeRecording} onClose={() => setActiveRec(null)} />
+        <SecurePlayer classroomId={classroomId} recording={activeRecording} onClose={() => setActiveRec(null)} />
       )}
 
       <div className="space-y-3">

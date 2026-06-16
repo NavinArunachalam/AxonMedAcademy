@@ -53,6 +53,56 @@ function normalizeBackendClassroom(raw: any) {
     return status || 'scheduled';
   };
 
+  const computeStudentMetrics = (studentId: string) => {
+    const meetings = Array.isArray(raw.meetings) ? raw.meetings : [];
+    const countableMeetings = meetings.filter((m: any) => ['live', 'ended'].includes(normalizeMeetingStatus(m.status)));
+    const attendedMeetings = countableMeetings.filter((m: any) =>
+      Array.isArray(m.attendees) && m.attendees.some((a: any) => {
+        const attendeeId = String(a.student?._id || a.student || a);
+        return attendeeId === studentId && (a.joinedAt || (a.duration ?? 0) > 0);
+      })
+    );
+    const attendance = countableMeetings.length
+      ? Math.round((attendedMeetings.length / countableMeetings.length) * 100)
+      : 0;
+
+    const recordings = Array.isArray(raw.recordings) ? raw.recordings : [];
+    const publishedRecordings = recordings.filter((r: any) => r.isPublished);
+    const recordingPercents = publishedRecordings.map((r: any) => {
+      const stats = Array.isArray(r.viewStats)
+        ? r.viewStats.find((v: any) => String(v.student?._id || v.student) === studentId)
+        : null;
+      const duration = Number(r.duration || 0);
+      return stats && duration > 0 ? Math.min(100, Math.round(((stats.totalWatchedSec || 0) / duration) * 100)) : 0;
+    });
+    const recordingProgress = recordingPercents.length
+      ? Math.round(recordingPercents.reduce((sum: number, pct: number) => sum + pct, 0) / recordingPercents.length)
+      : 0;
+
+    const quizzes = Array.isArray(raw.quizzes) ? raw.quizzes : [];
+    const publishedQuizzes = quizzes.filter((q: any) => ['published', 'closed'].includes(q.status));
+    const submittedAttempts = publishedQuizzes.flatMap((q: any) =>
+      Array.isArray(q.attempts)
+        ? q.attempts.filter((a: any) => String(a.student?._id || a.student) === studentId && a.status === 'submitted')
+        : []
+    );
+    const quizAvg = submittedAttempts.length
+      ? Math.round(submittedAttempts.reduce((sum: number, att: any) => sum + (att.score?.percentage || 0), 0) / submittedAttempts.length)
+      : 0;
+    const quizProgress = publishedQuizzes.length
+      ? Math.round((new Set(submittedAttempts.map((att: any) => String(att.quiz?._id || att.quiz))).size / publishedQuizzes.length) * 100)
+      : 0;
+
+    const progressParts = [];
+    if (publishedRecordings.length) progressParts.push(recordingProgress);
+    if (publishedQuizzes.length) progressParts.push(quizProgress);
+    const progress = progressParts.length
+      ? Math.round(progressParts.reduce((sum, pct) => sum + pct, 0) / progressParts.length)
+      : 0;
+
+    return { attendance, quizAvg, progress };
+  };
+
   return {
     id: raw._id || raw.id,
     name: raw.name || '',
@@ -64,15 +114,21 @@ function normalizeBackendClassroom(raw: any) {
     createdAt: raw.createdAt || new Date().toISOString(),
     students: Array.isArray(raw.students)
       ? raw.students.map((s: any) => ({
-        id: String(s.student?._id || s.student || `student-${Date.now()}`),
-        name: s.student?.fullName || s.student?.email || 'Student',
-        email: s.student?.email || '',
-        enrollmentId: s.enrollmentId || '',
-        progress: 0,
-        attendance: 0,
-        quizAvg: 0,
-        status: s.status || 'active',
-        addedAt: s.addedAt ? new Date(s.addedAt).toISOString() : new Date().toISOString(),
+        ...(() => {
+          const id = String(s.student?._id || s.student || `student-${Date.now()}`);
+          const metrics = computeStudentMetrics(id);
+          return {
+            id,
+            name: s.student?.fullName || s.student?.email || 'Student',
+            email: s.student?.email || '',
+            enrollmentId: s.enrollmentId || '',
+            progress: metrics.progress,
+            attendance: metrics.attendance,
+            quizAvg: metrics.quizAvg,
+            status: s.status || 'active',
+            addedAt: s.addedAt ? new Date(s.addedAt).toISOString() : new Date().toISOString(),
+          };
+        })()
       }))
       : [],
     announcements: Array.isArray(raw.announcements)
@@ -109,6 +165,7 @@ function normalizeBackendClassroom(raw: any) {
             studentName: v.student ? v.student.fullName || 'Student' : 'Student',
             watchedPercent: r.duration > 0 ? Math.round((v.totalWatchedSec / r.duration) * 100) : 0,
             totalWatchedSec: v.totalWatchedSec || 0,
+            lastPosition: v.lastPosition || 0,
           }))
           : [],
       }))
@@ -150,6 +207,7 @@ function normalizeBackendClassroom(raw: any) {
           status: att.status || 'submitted',
           startedAt: att.startedAt,
           submittedAt: att.submittedAt,
+          totalTimeTakenSec: att.totalTimeTakenSec || 0,
           answers: Array.isArray(att.answers) ? att.answers.map((ans: any) => ({
             questionId: String(ans.questionId),
             selectedOptions: ans.selectedOptions || [],
@@ -210,6 +268,7 @@ function normalizeBackendQuiz(raw: any) {
       status: att.status || 'submitted',
       startedAt: att.startedAt,
       submittedAt: att.submittedAt,
+      totalTimeTakenSec: att.totalTimeTakenSec || 0,
       answers: Array.isArray(att.answers) ? att.answers.map((ans: any) => ({
         questionId: String(ans.questionId),
         selectedOptions: ans.selectedOptions || [],
@@ -352,6 +411,7 @@ function normalizeBackendQuizAttempt(att: any) {
     status: att.status || 'submitted',
     startedAt: att.startedAt,
     submittedAt: att.submittedAt,
+    totalTimeTakenSec: att.totalTimeTakenSec || 0,
     answers: Array.isArray(att.answers) ? att.answers.map((ans: any) => ({
       questionId: String(ans.questionId),
       selectedOptions: ans.selectedOptions || [],
@@ -835,6 +895,18 @@ export async function createMeeting(payload: {
   });
 }
 
+export async function startMeeting(meetingId: string) {
+  return fetchJson(`/meetings/${encodeURIComponent(meetingId)}/start`, {
+    method: 'POST',
+  });
+}
+
+export async function endMeeting(meetingId: string) {
+  return fetchJson(`/meetings/${encodeURIComponent(meetingId)}/end`, {
+    method: 'POST',
+  });
+}
+
 export async function deleteMeeting(meetingId: string) {
   return fetchJson(`/meetings/${encodeURIComponent(meetingId)}`, {
     method: 'DELETE',
@@ -863,6 +935,16 @@ export async function markNotificationRead(notificationId: string) {
 
 export function getRecordingStreamUrl(recordingId: string): string {
   return `${API_BASE}/recordings/classroom/${recordingId}/stream`;
+}
+
+export async function trackRecordingProgress(
+  recordingId: string,
+  data: { position: number; watchedSec: number; completed?: boolean },
+) {
+  return fetchJson(`/recordings/classroom/${encodeURIComponent(recordingId)}/progress`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
 export function getAssetUrl(path: string | null | undefined): string {
@@ -902,6 +984,11 @@ export async function reuseClassroomRecording(payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export async function getDetailedProgress(classroomId: string) {
+  const payload = await fetchJson(`/enrollments/classroom/${encodeURIComponent(classroomId)}/progress`);
+  return payload.stats;
 }
 
 export async function logoutUser() {
@@ -1112,4 +1199,23 @@ export const api = {
 export async function getMeetingByRoomId(roomId: string) {
   const payload = await fetchJson(`/meetings/room/${encodeURIComponent(roomId)}`);
   return payload.meeting;
+}
+
+export async function joinMeetingByRoomId(roomId: string) {
+  const payload = await fetchJson(`/meetings/room/${encodeURIComponent(roomId)}/join`, {
+    method: 'POST',
+  });
+  return payload.meeting;
+}
+
+export async function heartbeatMeetingByRoomId(roomId: string) {
+  return fetchJson(`/meetings/room/${encodeURIComponent(roomId)}/heartbeat`, {
+    method: 'POST',
+  });
+}
+
+export async function leaveMeetingByRoomId(roomId: string) {
+  return fetchJson(`/meetings/room/${encodeURIComponent(roomId)}/leave`, {
+    method: 'POST',
+  });
 }

@@ -1,6 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { getMeetingByRoomId } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getMeetingByRoomId,
+  heartbeatMeetingByRoomId,
+  joinMeetingByRoomId,
+  leaveMeetingByRoomId,
+} from "@/lib/api";
 import { X, Video } from "lucide-react";
 
 export const Route = createFileRoute("/_student/student/webex/$roomId")({
@@ -13,12 +18,20 @@ function WebexRoom() {
   const [meeting, setMeeting] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const hasLeftRef = useRef(false);
+
+  const leaveMeeting = useCallback(() => {
+    if (hasLeftRef.current) return;
+    hasLeftRef.current = true;
+    void leaveMeetingByRoomId(roomId).catch(() => {});
+  }, [roomId]);
 
   useEffect(() => {
     const fetchMeeting = async () => {
       try {
         const meetingData = await getMeetingByRoomId(roomId);
         setMeeting(meetingData);
+        await joinMeetingByRoomId(roomId);
       } catch (err: any) {
         setError(err.message || "Failed to load meeting");
       } finally {
@@ -29,7 +42,24 @@ function WebexRoom() {
     fetchMeeting();
   }, [roomId]);
 
+  useEffect(() => {
+    if (!meeting) return;
+
+    const interval = window.setInterval(() => {
+      void heartbeatMeetingByRoomId(roomId).catch(() => {});
+    }, 30_000);
+    const onBeforeUnload = () => leaveMeeting();
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      leaveMeeting();
+    };
+  }, [leaveMeeting, meeting, roomId]);
+
   const handleClose = () => {
+    leaveMeeting();
     navigate({ to: "/student/dashboard" });
   };
 

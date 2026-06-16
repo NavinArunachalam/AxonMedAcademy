@@ -8,6 +8,7 @@ const quizAttemptSchema = new mongoose.Schema({
   status:     { type: String, enum: ['in_progress','submitted','auto_submitted'], default: 'in_progress' },
   startedAt:  { type: Date, default: Date.now },
   submittedAt:{ type: Date },
+  totalTimeTakenSec: { type: Number, default: 0 },
   
   // Student answers
   answers: [{

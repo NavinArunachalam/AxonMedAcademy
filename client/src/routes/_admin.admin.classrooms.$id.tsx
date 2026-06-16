@@ -21,7 +21,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -219,6 +219,26 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
     }
   };
 
+  const handleStartMeeting = async (meetingId: string) => {
+    setError("");
+    try {
+      await apiStartMeeting(meetingId);
+      classroomActions.startMeeting(classroomId, meetingId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start meeting");
+    }
+  };
+
+  const handleEndMeeting = async (meetingId: string) => {
+    setError("");
+    try {
+      await apiEndMeeting(meetingId);
+      classroomActions.endMeeting(classroomId, meetingId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not end meeting");
+    }
+  };
+
   const handleSchedule = (e: React.FormEvent) => {
     if (!form.title || !form.scheduledAt) return;
     setError("");
@@ -346,7 +366,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {m.status === "scheduled" && (
-                    <button onClick={() => classroomActions.startMeeting(classroomId, m.id)}
+                    <button onClick={() => void handleStartMeeting(m.id)}
                       className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold flex items-center gap-1">
                       <LuPlay className="h-3 w-3" /> Start
                     </button>
@@ -357,13 +377,13 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
                         className="rounded-full bg-red-500/20 text-red-300 px-4 py-2 text-xs font-bold flex items-center gap-1">
                         <LuRadio className="h-3 w-3" /> Rejoin
                       </button>
-                      <button onClick={() => classroomActions.endMeeting(classroomId, m.id)}
+                      <button onClick={() => void handleEndMeeting(m.id)}
                         className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 text-xs">
                         End
                       </button>
                     </>
                   )}
-                  <button onClick={() => classroomActions.deleteMeeting(classroomId, m.id)}
+                  <button onClick={() => void handleDeleteMeeting(m.id)}
                     disabled={deletingMeetingId === m.id}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2 text-xs disabled:opacity-50">
                     <LuTrash2 className="h-3.5 w-3.5" />

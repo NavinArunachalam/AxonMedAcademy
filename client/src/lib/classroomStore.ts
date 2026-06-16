@@ -54,6 +54,7 @@ export interface QuizAttempt {
   status: "in_progress" | "submitted";
   startedAt: string;
   submittedAt?: string;
+  totalTimeTakenSec?: number;
   answers: Answer[];
   score: {
     rawMarks: number;
