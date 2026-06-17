@@ -521,6 +521,10 @@ const Sparkles = createLucideIcon("Sparkles", [
   ["path", { d: "M4 17v2", key: "vumght" }],
   ["path", { d: "M5 18H3", key: "zchphs" }]
 ]);
+const SquareCheckBig = createLucideIcon("SquareCheckBig", [
+  ["path", { d: "M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.5", key: "1uzm8b" }],
+  ["path", { d: "m9 11 3 3L22 4", key: "1pflzl" }]
+]);
 const Star = createLucideIcon("Star", [
   [
     "path",
@@ -655,19 +659,20 @@ export {
   ShieldCheck as ab,
   SlidersHorizontal as ac,
   Sparkles as ad,
-  Star as ae,
-  Stethoscope as af,
-  Target as ag,
-  Trash2 as ah,
-  TrendingUp as ai,
-  TriangleAlert as aj,
-  Trophy as ak,
-  Upload as al,
-  User as am,
-  Users as an,
-  Video as ao,
-  X as ap,
-  Youtube as aq,
+  SquareCheckBig as ae,
+  Star as af,
+  Stethoscope as ag,
+  Target as ah,
+  Trash2 as ai,
+  TrendingUp as aj,
+  TriangleAlert as ak,
+  Trophy as al,
+  Upload as am,
+  User as an,
+  Users as ao,
+  Video as ap,
+  X as aq,
+  Youtube as ar,
   ArrowDownRight as b,
   ArrowLeft as c,
   ArrowRight as d,

@@ -4,7 +4,7 @@ const certificateSchema = new mongoose.Schema({
   student:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   program:     { type: mongoose.Schema.Types.ObjectId, ref: 'Program', required: true },
   enrollment:  { type: mongoose.Schema.Types.ObjectId, ref: 'Enrollment', required: true },
-  certNo:      { type: String, unique: true }, // e.g. HTA-CERT-2024-001
+  certNo:      { type: String, unique: true }, // CERT-2024-001
   issuedAt:    { type: Date, default: Date.now },
   validUntil:  { type: Date },
   pdfUrl:      { type: String }, // PDF on S3

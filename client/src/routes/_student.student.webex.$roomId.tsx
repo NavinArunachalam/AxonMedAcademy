@@ -109,6 +109,27 @@ function WebexRoom() {
     );
   }
 
+  // If meeting has ended
+  if (meeting.status === "ended") {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white p-6 text-center">
+        <div className="max-w-md">
+          <div className="h-20 w-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <Video className="h-10 w-10 text-white/20" />
+          </div>
+          <h1 className="text-3xl font-bold mb-4">Class Ended</h1>
+          <p className="text-gray-400 mb-8">This session has been completed by the instructor.</p>
+          <button 
+            onClick={handleClose}
+            className="rounded-full bg-white text-black px-8 py-3 font-bold hover:bg-white/90 transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="absolute inset-0 z-50 bg-[#060606] overflow-hidden flex flex-col items-center justify-center p-6 text-white font-sans">
       {/* Background Glow */}

@@ -65,7 +65,7 @@ function Dashboard() {
   }));
   const localMeetings = enrolledClassrooms.flatMap(c => c.meetings.map(m => ({ ...m, classroomName: c.name })));
   const allMeetings = remoteMeetings.length > 0 ? remoteMeetings : localMeetings;
-  const nextLiveMeeting = allMeetings.filter(m => m.status === 'scheduled').sort((a,b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+  const nextLiveMeeting = allMeetings.filter(m => m.status === 'scheduled' || m.status === 'live').sort((a,b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
   
   const totalQuizzes = enrolledClassrooms.reduce((s, c) => s + c.quizzes.filter(q => q.status === 'published').length, 0);
   const totalSubmissions = enrolledClassrooms.reduce((s, c) => s + c.quizzes.reduce((ss, q) => ss + q.attempts.filter(a => a.studentId === studentId && a.status === 'submitted').length, 0), 0);
@@ -91,7 +91,21 @@ function Dashboard() {
   });
 
   const notifications = notificationPayload ?? [];
-  const joinableNotifications = notifications.filter((n) => n.actionUrl && n.type === 'live_session');
+  const joinableNotifications = notifications.filter((n) => {
+    if (n.read) return false;
+    if (n.type !== 'live_session') return false;
+    if (!n.actionUrl) return false;
+    
+    // Cross-check with allMeetings to see if the session is still active/scheduled
+    const meetingId = n.metadata?.meetingId;
+    if (meetingId) {
+      const meeting = allMeetings.find(m => m.id === meetingId);
+      if (meeting && (meeting.status === 'ended' || meeting.status === 'cancelled')) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">

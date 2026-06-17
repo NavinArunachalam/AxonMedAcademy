@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 const NAV = [
   { label: "Overview", to: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Classrooms", to: "/admin/classrooms", icon: School },
+  { label: "Attendance", to: "/admin/classes", icon: School },
   { label: "Courses", to: "/admin/courses", icon: BookOpen },
   { label: "Students", to: "/admin/students", icon: Users },
   // { label: "Faculty", to: "/admin/faculty", icon: GraduationCap },

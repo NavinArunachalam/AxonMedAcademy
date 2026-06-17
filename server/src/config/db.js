@@ -89,7 +89,7 @@ const seedDefaultFaculty = async () => {
 
 const connectDB = async () => {
   try {
-    const connStr = process.env.MONGODB_URI || 'mongodb://localhost:27017/hta_db';
+    const connStr = process.env.MONGODB_URI;
     console.log(`[Database] Attempting connection to MongoDB...`);
     
     const conn = await mongoose.connect(connStr, {
@@ -98,6 +98,20 @@ const connectDB = async () => {
 
     console.log(`[Database] MongoDB Connected successfully to host: ${conn.connection.host}`);
     
+    // Drop old index if it exists to allow reconstruction with partial filter
+    try {
+      const attendancesCollection = mongoose.connection.collection('attendances');
+      const indexes = await attendancesCollection.indexes();
+      const hasOldIndex = indexes.some(idx => idx.name === 'meeting_1_student_1');
+      if (hasOldIndex) {
+        console.log('[Database] Found index meeting_1_student_1. Dropping to apply new partial settings...');
+        await attendancesCollection.dropIndex('meeting_1_student_1');
+        console.log('[Database] Dropped index meeting_1_student_1 successfully.');
+      }
+    } catch (indexError) {
+      console.log('[Database] Safe-check: index meeting_1_student_1 drop skipped or not found:', indexError.message);
+    }
+
     // Seed default login users
     await seedDefaultUsers();
     // Seed default faculty members

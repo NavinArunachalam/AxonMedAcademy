@@ -21,6 +21,7 @@ const publicRoutes = require('./public');
 
 // Priority features sub-routers
 const classroomRoutes = require('./classrooms');
+const classesRoutes = require('./classes');
 const meetingRoutes = require('./meetings');
 const studentRequestRoutes = require('./requests');
 const quizRoutes = require('./quizzes');
@@ -46,6 +47,7 @@ router.use('/public', publicRoutes);
 
 // Priority features mounted routes
 router.use('/classrooms', classroomRoutes);
+router.use('/classes', classesRoutes);
 router.use('/meetings', meetingRoutes);
 router.use('/requests', studentRequestRoutes);
 router.use('/quizzes', quizRoutes);

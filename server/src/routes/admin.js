@@ -89,7 +89,7 @@ router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, re
     if (user.role === 'student') {
       const year = new Date().getFullYear();
       const count = await StudentProfile.countDocuments();
-      const enrollmentNo = `HTA-${year}-${(count + 1).toString().padStart(4, '0')}`;
+      const enrollmentNo = `AXON-${year}-${(count + 1).toString().padStart(4, '0')}`;
 
       await StudentProfile.create({
         user: user._id,

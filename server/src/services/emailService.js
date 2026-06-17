@@ -11,20 +11,20 @@ const transporter = nodemailer.createTransport({
 
 exports.sendWelcomeEmail = async (user, password) => {
   const mailOptions = {
-    from: `"Axon Academy" <${process.env.EMAIL_FROM || 'noreply@hta.com'}>`,
+    from: `"Axon Academy" <${process.env.EMAIL_FROM || 'noreply@Axon.com'}>`,
     to: user.email,
     subject: 'Welcome to Axon Academy!',
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
         <div style="background-color: #1A0F33; color: #fff; padding: 20px; text-align: center;">
-          <h1 style="margin: 0;">Welcome to HTA</h1>
+          <h1 style="margin: 0;">Welcome to AxonAcademy</h1>
         </div>
         <div style="padding: 20px;">
           <p>Dear ${user.fullName},</p>
           <p>Congratulations! You have been successfully registered as a student at <strong>Hospital Training Academy</strong>.</p>
           <p>You can now access your learning portal using the credentials below:</p>
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>Portal URL:</strong> <a href="${process.env.CLIENT_URL || 'https://hta-portal.com'}">${process.env.CLIENT_URL || 'https://hta-portal.com'}</a></p>
+            <p style="margin: 5px 0;"><strong>Portal URL:</strong> <a href="${process.env.CLIENT_URL || 'https://axon-portal.com'}">${process.env.CLIENT_URL || 'https://axon-portal.com'}</a></p>
             <p style="margin: 5px 0;"><strong>Email:</strong> ${user.email}</p>
             <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
           </div>
@@ -36,11 +36,11 @@ exports.sendWelcomeEmail = async (user, password) => {
             <li>Communicate with faculty and admins.</li>
           </ul>
           <p>Please change your password after your first login for security reasons.</p>
-          <p>If you have any questions, feel free to contact us at support@hta.com.</p>
-          <p>Best Regards,<br><strong>HTA Admin Team</strong></p>
+          <p>If you have any questions, feel free to contact us at support@axonacademy.com.</p>
+          <p>Best Regards,<br><strong>AxonAcademy Admin Team</strong></p>
         </div>
         <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #777;">
-          &copy; ${new Date().getFullYear()} Hospital Training Academy. All rights reserved.
+          &copy; ${new Date().getFullYear()} AxonAcademy. All rights reserved.
         </div>
       </div>
     `,

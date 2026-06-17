@@ -1219,3 +1219,37 @@ export async function leaveMeetingByRoomId(roomId: string) {
     method: 'POST',
   });
 }
+
+export async function getClassStudents(classId: string) {
+  return fetchJson(`/classes/${encodeURIComponent(classId)}/students`);
+}
+
+export async function getClassAttendance(classId: string, date?: string, subject?: string, meetingId?: string) {
+  const params = new URLSearchParams();
+  if (date) params.append('date', date);
+  if (subject) params.append('subject', subject);
+  if (meetingId) params.append('meetingId', meetingId);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return fetchJson(`/attendance/class/${encodeURIComponent(classId)}${query}`);
+}
+
+export async function saveAttendance(data: { 
+  classId: string; 
+  date: string; 
+  subject?: string; 
+  meetingId?: string;
+  records: Array<{ studentId: string; status: string }> 
+}) {
+  return fetchJson('/attendance', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getStudentAttendanceDetails(studentId: string) {
+  return fetchJson(`/attendance/student/${encodeURIComponent(studentId)}`);
+}
+
+export async function getClassAttendanceReport(classId: string) {
+  return fetchJson(`/attendance/report/class/${encodeURIComponent(classId)}`);
+}

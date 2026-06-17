@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const examSchema = new mongoose.Schema({
   title:       { type: String, required: true },
-  examId:      { type: String, unique: true }, // e.g. HTA-2024-MED-042
+  examId:      { type: String, unique: true }, // e.g. 2024-MED-042
   program:     { type: mongoose.Schema.Types.ObjectId, ref: 'Program' },
   batch:       { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
   createdBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

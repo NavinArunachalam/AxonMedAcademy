@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const studentProfileSchema = new mongoose.Schema({
   user:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  enrollmentNo:  { type: String, unique: true }, // e.g. HTA-2024-0001
+  enrollmentNo:  { type: String, unique: true }, // e.g.-2024-0001
   program:       { type: mongoose.Schema.Types.ObjectId, ref: 'Program' },
   batch:         { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
   dob:           { type: Date },

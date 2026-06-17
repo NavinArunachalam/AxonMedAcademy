@@ -189,7 +189,7 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
 
 // ─── Live Classes Tab ─────────────────────────────────────────────────────────
 
-function LiveClassesTab({ classroomId }: { classroomId: string }) {
+function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string; refreshClassroom: () => Promise<Classroom> }) {
   const { classrooms } = useClassroomStore();
   const cls = classrooms.find((c) => c.id === classroomId)!;
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
@@ -211,7 +211,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
     setDeletingMeetingId(meetingId);
     try {
       await deleteMeeting(meetingId);
-      classroomActions.deleteMeeting(classroomId, meetingId);
+      await refreshClassroom();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete meeting");
     } finally {
@@ -223,7 +223,7 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
     setError("");
     try {
       await apiStartMeeting(meetingId);
-      classroomActions.startMeeting(classroomId, meetingId);
+      await refreshClassroom();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start meeting");
     }
@@ -233,13 +233,14 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
     setError("");
     try {
       await apiEndMeeting(meetingId);
-      classroomActions.endMeeting(classroomId, meetingId);
+      await refreshClassroom();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not end meeting");
     }
   };
 
   const handleSchedule = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!form.title || !form.scheduledAt) return;
     setError("");
     setSaving(true);
@@ -252,18 +253,8 @@ function LiveClassesTab({ classroomId }: { classroomId: string }) {
       sendPortalNotification: notifyStudents,
       sendWhatsApp: false,
     })
-      .then((res) => {
-        const meeting = res.meeting;
-        classroomActions.addMeeting(classroomId, {
-          id: meeting._id || meeting.id,
-          title: meeting.title,
-          description: meeting.description,
-          scheduledAt: meeting.scheduledAt,
-          duration: meeting.duration,
-          status: meeting.status,
-          roomId: meeting.roomId,
-          attendees: [],
-        });
+      .then(async () => {
+        await refreshClassroom();
         setForm({ title: "", description: "", scheduledAt: "", duration: 60 });
         setShowForm(false);
         alert("Webex meeting scheduled successfully!");
@@ -2085,7 +2076,7 @@ function AdminClassroomDetail() {
 
       {/* Tab content */}
       {tab === "announcements" && <AnnouncementsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "live" && <LiveClassesTab classroomId={classroom.id} />}
+      {tab === "live" && <LiveClassesTab classroomId={classroom.id} refreshClassroom={refreshClassroom} />}
       {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "tests" && <TestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "students" && <StudentsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
