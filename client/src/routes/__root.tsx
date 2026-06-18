@@ -107,7 +107,7 @@ function RootComponent() {
       .then(([payload, classrooms]) => {
         const backendUser = payload.user;
         const accessToken = payload.accessToken || null;
-        const role = backendUser.role === "student" ? "student" : "admin";
+        const role = backendUser.role === "student" ? "student" : backendUser.role;
         const currentUser: User = {
           id: backendUser._id,
           name: backendUser.fullName || backendUser.email,

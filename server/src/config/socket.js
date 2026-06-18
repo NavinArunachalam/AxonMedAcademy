@@ -58,6 +58,47 @@ const initSocket = (server) => {
       socket.to(data.roomId).emit('proctor_flag_alert', data);
     });
 
+    // Join user personal room for private messaging
+    socket.on('join_user_room', (userId) => {
+      if (!userId) return;
+      socket.join(userId);
+      console.log(`[Socket.io] Socket ${socket.id} joined user room ${userId}`);
+    });
+
+    // Send private message via Socket.IO
+    socket.on('send_private_message', async (data) => {
+      try {
+        if (!data?.receiverId || !data?.message || !data?.senderId) return;
+
+        const Message = require('../models/Message');
+        const newMessage = await Message.create({
+          senderId: data.senderId,
+          receiverId: data.receiverId,
+          message: data.message
+        });
+
+        await newMessage.populate('senderId', 'fullName email role');
+        await newMessage.populate('receiverId', 'fullName email role');
+
+        const messageData = {
+          _id: newMessage._id,
+          senderId: newMessage.senderId,
+          receiverId: newMessage.receiverId,
+          message: newMessage.message,
+          createdAt: newMessage.createdAt,
+          updatedAt: newMessage.updatedAt
+        };
+
+        // Emit to receiver's room
+        socket.to(data.receiverId).emit('receive_private_message', messageData);
+
+        // Also emit back to sender for confirmation/UI update
+        socket.emit('receive_private_message', messageData);
+      } catch (error) {
+        console.error('[Socket.io] Error sending private message:', error);
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}`);
     });

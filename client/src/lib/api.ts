@@ -1301,3 +1301,42 @@ export async function getStudentAttendanceDetails(studentId: string) {
 export async function getClassAttendanceReport(classId: string) {
   return fetchJson(`/attendance/report/class/${encodeURIComponent(classId)}`);
 }
+
+// ─── Chat / Messaging ─────────────────────────────────────────────────────────
+
+export interface ChatUser {
+  _id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  avatar: string | null;
+  lastMessage: string;
+  lastMessageTime: string | null;
+}
+
+export interface ChatMessage {
+  _id: string;
+  senderId: { _id: string; fullName: string; email: string; role: string };
+  receiverId: { _id: string; fullName: string; email: string; role: string };
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getChatUsers(): Promise<ChatUser[]> {
+  const payload = await fetchJson('/messages/users');
+  return payload.data;
+}
+
+export async function getConversation(userId: string): Promise<ChatMessage[]> {
+  const payload = await fetchJson(`/messages/conversation/${encodeURIComponent(userId)}`);
+  return payload.data;
+}
+
+export async function sendMessage(receiverId: string, message: string): Promise<ChatMessage> {
+  const payload = await fetchJson('/messages/send', {
+    method: 'POST',
+    body: JSON.stringify({ receiverId, message }),
+  });
+  return payload.data;
+}

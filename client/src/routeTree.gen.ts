@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlacementsRouteImport } from './routes/placements'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as FacultyRouteImport } from './routes/faculty'
 import { Route as EnrollRouteImport } from './routes/enroll'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -30,6 +29,7 @@ import { Route as StudentStudentCertificatesRouteImport } from './routes/_studen
 import { Route as AdminAdminStudentsRouteImport } from './routes/_admin.admin.students'
 import { Route as AdminAdminSettingsRouteImport } from './routes/_admin.admin.settings'
 import { Route as AdminAdminPlacementsRouteImport } from './routes/_admin.admin.placements'
+import { Route as AdminAdminMessagesRouteImport } from './routes/_admin.admin.messages'
 import { Route as AdminAdminFinanceRouteImport } from './routes/_admin.admin.finance'
 import { Route as AdminAdminFacultyRouteImport } from './routes/_admin.admin.faculty'
 import { Route as AdminAdminExamsRouteImport } from './routes/_admin.admin.exams'
@@ -55,11 +55,6 @@ const PlacementsRoute = PlacementsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FacultyRoute = FacultyRouteImport.update({
-  id: '/faculty',
-  path: '/faculty',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EnrollRoute = EnrollRouteImport.update({
@@ -149,6 +144,11 @@ const AdminAdminSettingsRoute = AdminAdminSettingsRouteImport.update({
 const AdminAdminPlacementsRoute = AdminAdminPlacementsRouteImport.update({
   id: '/admin/placements',
   path: '/admin/placements',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAdminMessagesRoute = AdminAdminMessagesRouteImport.update({
+  id: '/admin/messages',
+  path: '/admin/messages',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAdminFinanceRoute = AdminAdminFinanceRouteImport.update({
@@ -246,7 +246,6 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
   '/enroll': typeof EnrollRoute
-  '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
@@ -255,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/admin/exams': typeof AdminAdminExamsRoute
   '/admin/faculty': typeof AdminAdminFacultyRoute
   '/admin/finance': typeof AdminAdminFinanceRoute
+  '/admin/messages': typeof AdminAdminMessagesRoute
   '/admin/placements': typeof AdminAdminPlacementsRoute
   '/admin/settings': typeof AdminAdminSettingsRoute
   '/admin/students': typeof AdminAdminStudentsRoute
@@ -283,7 +283,6 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
   '/enroll': typeof EnrollRoute
-  '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
@@ -292,6 +291,7 @@ export interface FileRoutesByTo {
   '/admin/exams': typeof AdminAdminExamsRoute
   '/admin/faculty': typeof AdminAdminFacultyRoute
   '/admin/finance': typeof AdminAdminFinanceRoute
+  '/admin/messages': typeof AdminAdminMessagesRoute
   '/admin/placements': typeof AdminAdminPlacementsRoute
   '/admin/settings': typeof AdminAdminSettingsRoute
   '/admin/students': typeof AdminAdminStudentsRoute
@@ -323,7 +323,6 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/courses': typeof CoursesRoute
   '/enroll': typeof EnrollRoute
-  '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
   '/_admin/admin/analytics': typeof AdminAdminAnalyticsRoute
@@ -332,6 +331,7 @@ export interface FileRoutesById {
   '/_admin/admin/exams': typeof AdminAdminExamsRoute
   '/_admin/admin/faculty': typeof AdminAdminFacultyRoute
   '/_admin/admin/finance': typeof AdminAdminFinanceRoute
+  '/_admin/admin/messages': typeof AdminAdminMessagesRoute
   '/_admin/admin/placements': typeof AdminAdminPlacementsRoute
   '/_admin/admin/settings': typeof AdminAdminSettingsRoute
   '/_admin/admin/students': typeof AdminAdminStudentsRoute
@@ -362,7 +362,6 @@ export interface FileRouteTypes {
     | '/contact'
     | '/courses'
     | '/enroll'
-    | '/faculty'
     | '/login'
     | '/placements'
     | '/admin/analytics'
@@ -371,6 +370,7 @@ export interface FileRouteTypes {
     | '/admin/exams'
     | '/admin/faculty'
     | '/admin/finance'
+    | '/admin/messages'
     | '/admin/placements'
     | '/admin/settings'
     | '/admin/students'
@@ -399,7 +399,6 @@ export interface FileRouteTypes {
     | '/contact'
     | '/courses'
     | '/enroll'
-    | '/faculty'
     | '/login'
     | '/placements'
     | '/admin/analytics'
@@ -408,6 +407,7 @@ export interface FileRouteTypes {
     | '/admin/exams'
     | '/admin/faculty'
     | '/admin/finance'
+    | '/admin/messages'
     | '/admin/placements'
     | '/admin/settings'
     | '/admin/students'
@@ -438,7 +438,6 @@ export interface FileRouteTypes {
     | '/contact'
     | '/courses'
     | '/enroll'
-    | '/faculty'
     | '/login'
     | '/placements'
     | '/_admin/admin/analytics'
@@ -447,6 +446,7 @@ export interface FileRouteTypes {
     | '/_admin/admin/exams'
     | '/_admin/admin/faculty'
     | '/_admin/admin/finance'
+    | '/_admin/admin/messages'
     | '/_admin/admin/placements'
     | '/_admin/admin/settings'
     | '/_admin/admin/students'
@@ -478,7 +478,6 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   CoursesRoute: typeof CoursesRoute
   EnrollRoute: typeof EnrollRoute
-  FacultyRoute: typeof FacultyRoute
   LoginRoute: typeof LoginRoute
   PlacementsRoute: typeof PlacementsRoute
 }
@@ -497,13 +496,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/faculty': {
-      id: '/faculty'
-      path: '/faculty'
-      fullPath: '/faculty'
-      preLoaderRoute: typeof FacultyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/enroll': {
@@ -632,6 +624,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminPlacementsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/admin/messages': {
+      id: '/_admin/admin/messages'
+      path: '/admin/messages'
+      fullPath: '/admin/messages'
+      preLoaderRoute: typeof AdminAdminMessagesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/admin/finance': {
       id: '/_admin/admin/finance'
       path: '/admin/finance'
@@ -754,6 +753,7 @@ interface AdminRouteChildren {
   AdminAdminExamsRoute: typeof AdminAdminExamsRoute
   AdminAdminFacultyRoute: typeof AdminAdminFacultyRoute
   AdminAdminFinanceRoute: typeof AdminAdminFinanceRoute
+  AdminAdminMessagesRoute: typeof AdminAdminMessagesRoute
   AdminAdminPlacementsRoute: typeof AdminAdminPlacementsRoute
   AdminAdminSettingsRoute: typeof AdminAdminSettingsRoute
   AdminAdminStudentsRoute: typeof AdminAdminStudentsRoute
@@ -771,6 +771,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminExamsRoute: AdminAdminExamsRoute,
   AdminAdminFacultyRoute: AdminAdminFacultyRoute,
   AdminAdminFinanceRoute: AdminAdminFinanceRoute,
+  AdminAdminMessagesRoute: AdminAdminMessagesRoute,
   AdminAdminPlacementsRoute: AdminAdminPlacementsRoute,
   AdminAdminSettingsRoute: AdminAdminSettingsRoute,
   AdminAdminStudentsRoute: AdminAdminStudentsRoute,
@@ -826,7 +827,6 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   CoursesRoute: CoursesRoute,
   EnrollRoute: EnrollRoute,
-  FacultyRoute: FacultyRoute,
   LoginRoute: LoginRoute,
   PlacementsRoute: PlacementsRoute,
 }

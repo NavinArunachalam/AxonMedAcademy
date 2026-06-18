@@ -26,6 +26,7 @@ const meetingRoutes = require('./meetings');
 const studentRequestRoutes = require('./requests');
 const quizRoutes = require('./quizzes');
 const classroomRecordingRoutes = require('./classroomRecordings');
+const messageRoutes = require('./messageRoutes');
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -52,6 +53,7 @@ router.use('/meetings', meetingRoutes);
 router.use('/requests', studentRequestRoutes);
 router.use('/quizzes', quizRoutes);
 router.use('/recordings/classroom', classroomRecordingRoutes);
+router.use('/messages', messageRoutes);
 
 module.exports = router;
 

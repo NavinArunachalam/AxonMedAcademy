@@ -8,7 +8,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: "student" | "admin";
+  role: "student" | "admin" | "faculty";
   password?: string;
   phone?: string;
 }
@@ -426,7 +426,10 @@ export const classroomActions = {
 
   // Announcements
   addAnnouncement: (classroomId: string, content: string) => {
-    const ann: Announcement = { id: `ann-${Date.now()}`, content, createdAt: new Date().toISOString(), author: "Admin" };
+    const ann: Announcement = {
+      id: `ann-${Date.now()}`, content, createdAt: new Date().toISOString(), author: "Admin",
+      attachments: undefined
+    };
     classroomStore.setState((s) => ({
       classrooms: s.classrooms.map((c) =>
         c.id === classroomId ? { ...c, announcements: [ann, ...c.announcements] } : c,
