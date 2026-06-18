@@ -12,6 +12,11 @@ const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const { protect, restrictTo } = require('../middleware/auth');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const https = require('https');
+const urlModule = require('url');
+const { cloudinary, announcementStorage } = require('../config/cloudinary');
+const upload = multer({ storage: announcementStorage });
 
 const slugify = (value) => String(value || '')
   .trim()
@@ -234,6 +239,142 @@ const getStudentRefId = (studentRef) => {
   if (studentRef._id) return studentRef._id.toString();
   return studentRef.toString();
 };
+
+// GET /files → Public: proxy file from Cloudinary using signed URL (no auth needed)
+// Cloudinary's CDN returns 401 for raw files when secured delivery is enabled.
+// This proxy signs the URL using the server's API credentials, fetches the signed
+// URL via Cloudinary's SDK, and streams the file to the client — bypassing the 401.
+router.get('/files', async (req, res, next) => {
+  try {
+    const { url } = req.query;
+    if (!url) {
+      return res.status(400).json({ success: false, message: 'Missing ?url= parameter' });
+    }
+
+    const decodedUrl = decodeURIComponent(url);
+
+    // Only allow proxying from Cloudinary for security
+    if (!decodedUrl.includes('res.cloudinary.com/')) {
+      return res.status(403).json({ success: false, message: 'Only Cloudinary URLs are allowed' });
+    }
+
+    // Extract the public_id from the Cloudinary URL
+    // URL format: https://res.cloudinary.com/<cloud>/raw/upload/v<timestamp>/<folder>/<public_id>
+    const urlMatch = decodedUrl.match(/\/v\d+\/(.+?)(?:\?|$)/);
+    let publicId = urlMatch ? urlMatch[1] : null;
+
+    if (!publicId) {
+      // Fallback: extract everything after /upload/
+      const uploadMatch = decodedUrl.match(/\/upload\/(.+?)(?:\?|$)/);
+      publicId = uploadMatch ? uploadMatch[1] : null;
+    }
+
+    if (publicId) {
+      // Generate a signed URL using Cloudinary SDK (1-hour expiry)
+      const signedUrl = cloudinary.url(publicId, {
+        resource_type: 'raw',
+        type: 'upload',
+        sign_url: true,
+        expires_at: Math.floor(Date.now() / 1000) + 3600 // 1 hour
+      });
+
+      // Fetch from the signed URL
+      https.get(signedUrl, (cloudinaryRes) => {
+        if (cloudinaryRes.statusCode === 401 || cloudinaryRes.statusCode === 403) {
+          // If signed URL still fails, try direct download via Cloudinary API
+          console.log('[File Proxy] Signed URL also returned', cloudinaryRes.statusCode, '- falling back to raw URL');
+          https.get(decodedUrl, (fallbackRes) => {
+            if (fallbackRes.headers['content-type']) {
+              res.setHeader('Content-Type', fallbackRes.headers['content-type']);
+            }
+            if (fallbackRes.headers['content-length']) {
+              res.setHeader('Content-Length', fallbackRes.headers['content-length']);
+            }
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            if (fallbackRes.headers['content-type'] === 'application/pdf') {
+              res.setHeader('Content-Disposition', 'inline');
+            }
+            fallbackRes.pipe(res);
+          }).on('error', (err) => {
+            console.error('[File Proxy] Fallback also failed:', err.message);
+            res.status(502).json({ success: false, message: 'Failed to fetch file from Cloudinary' });
+          });
+          return;
+        }
+
+        if (cloudinaryRes.headers['content-type']) {
+          res.setHeader('Content-Type', cloudinaryRes.headers['content-type']);
+        }
+        if (cloudinaryRes.headers['content-length']) {
+          res.setHeader('Content-Length', cloudinaryRes.headers['content-length']);
+        }
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        if (cloudinaryRes.headers['content-type'] === 'application/pdf') {
+          res.setHeader('Content-Disposition', 'inline');
+        }
+        cloudinaryRes.pipe(res);
+      }).on('error', (err) => {
+        console.error('[File Proxy] Error fetching signed URL:', err.message);
+        res.status(502).json({ success: false, message: 'Failed to fetch file from Cloudinary' });
+      });
+    } else {
+      // Can't extract public_id — just proxy the raw URL directly
+      https.get(decodedUrl, (cloudinaryRes) => {
+        if (cloudinaryRes.headers['content-type']) {
+          res.setHeader('Content-Type', cloudinaryRes.headers['content-type']);
+        }
+        if (cloudinaryRes.headers['content-length']) {
+          res.setHeader('Content-Length', cloudinaryRes.headers['content-length']);
+        }
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        if (cloudinaryRes.headers['content-type'] === 'application/pdf') {
+          res.setHeader('Content-Disposition', 'inline');
+        }
+        cloudinaryRes.pipe(res);
+      }).on('error', (err) => {
+        console.error('[File Proxy] Error:', err.message);
+        res.status(502).json({ success: false, message: 'Failed to fetch file' });
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /upload-asset → Admin: Upload a classroom asset to Cloudinary
+router.post('/upload-asset', protect, restrictTo('admin', 'superadmin'), upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // For raw resources, ensure the URL uses the correct format
+    // Cloudinary raw URLs: /raw/upload/ instead of /image/upload/
+    let url = req.file.path;
+    
+    // If the URL uses /image/upload/ for a non-image file, convert to /raw/upload/
+    const isImage = req.file.mimetype?.startsWith('image/');
+    if (!isImage && url.includes('/image/upload/')) {
+      url = url.replace('/image/upload/', '/raw/upload/');
+    }
+
+    console.log('[Upload Asset] Raw Cloudinary URL:', url);
+
+    // Use proxy URL instead of direct Cloudinary URL to avoid 401 errors
+    // Cloudinary raw URLs return 401 when secured delivery is enabled.
+    // The proxy route signs the URL and streams the file to the client.
+    const proxyUrl = `/api/v1/classrooms/files?url=${encodeURIComponent(url)}`;
+    console.log('[Upload Asset] Proxy URL returned:', proxyUrl);
+
+    res.json({
+      success: true,
+      url: proxyUrl,
+      publicId: req.file.filename
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /my → Student: get classrooms I'm enrolled in
 router.get('/my', protect, async (req, res, next) => {
