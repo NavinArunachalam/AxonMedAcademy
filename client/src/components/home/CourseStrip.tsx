@@ -70,9 +70,10 @@ export function CourseStrip() {
                         <div className="text-xs text-foreground/50">Starting at</div>
                         <div className="font-display text-xl font-bold text-plum-dark">₹{c.price.toLocaleString()}</div>
                       </div>
-                      <Link to="/courses" className="rounded-full bg-plum-dark px-4 py-2 text-xs font-semibold text-cream hover:bg-plum transition">
+                      <Link to="/enroll" className="rounded-full bg-plum-dark px-4 py-2 text-xs font-semibold text-cream hover:bg-plum transition">
                         Enroll →
                       </Link>
+                      
                     </div>
                   </div>
                 </div>

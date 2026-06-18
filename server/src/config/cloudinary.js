@@ -22,7 +22,20 @@ const storage = new CloudinaryStorage({
   }
 });
 
+const announcementStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'announcements',
+    resource_type: 'auto',
+    public_id: (req, file) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      return 'announcement-' + uniqueSuffix;
+    }
+  }
+});
+
 module.exports = {
   cloudinary,
-  storage
+  storage,
+  announcementStorage
 };

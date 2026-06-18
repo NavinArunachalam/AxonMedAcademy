@@ -21,7 +21,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -87,19 +87,34 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
   const [isPosting, setIsPosting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handlePost = async () => {
     if (!text.trim() || isPosting) return;
     setError("");
     setIsPosting(true);
     try {
-      await createClassroomAnnouncement(classroom.id, text.trim());
+      let attachments: any[] = [];
+      if (pdfFile) {
+        setUploadProgress(0);
+        const url = await uploadClassroomFileToCloudinary({
+          file: pdfFile,
+          onProgress: (pct) => setUploadProgress(pct),
+        });
+        attachments.push({ name: pdfFile.name, url, type: 'pdf' });
+      }
+      await createClassroomAnnouncement(classroom.id, text.trim(), attachments);
       setText("");
+      setPdfFile(null);
+      setUploadProgress(null);
       await refreshClassroom();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not post announcement");
     } finally {
       setIsPosting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -138,7 +153,45 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
           disabled={isPosting}
           className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-3 text-cream text-sm outline-none focus:border-lime/50 resize-none disabled:opacity-50"
         />
-        <div className="flex justify-end mt-3">
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center gap-3">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
+              accept=".pdf"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isPosting}
+              className="inline-flex items-center gap-2 text-xs font-bold text-cream/60 hover:text-lime transition-colors disabled:opacity-50"
+            >
+              <LuUpload className="h-3.5 w-3.5" /> {pdfFile ? "Change PDF" : "Attach PDF"}
+            </button>
+
+            {pdfFile && (
+              <div className="flex items-center gap-2 bg-lime/10 border border-lime/20 rounded-full px-3 py-1">
+                <span className="text-[10px] font-bold text-lime truncate max-w-[120px]">
+                  {pdfFile.name}
+                </span>
+                <button
+                  onClick={() => setPdfFile(null)}
+                  disabled={isPosting}
+                  className="text-lime/60 hover:text-lime"
+                >
+                  <LuX className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
+            {uploadProgress !== null && (
+              <span className="text-[10px] font-bold text-lime animate-pulse">
+                Uploading {uploadProgress}%...
+              </span>
+            )}
+          </div>
+
           <button
             onClick={handlePost}
             disabled={!text.trim() || isPosting}
@@ -170,6 +223,28 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
                     <span className="text-cream/50 text-xs">{timeAgo(ann.createdAt)}</span>
                   </div>
                   <p className="text-cream/80 text-sm leading-relaxed">{ann.content}</p>
+                  {ann.attachments && ann.attachments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {ann.attachments.map((at: any, i: number) => {
+                        // Use proxy for Cloudinary URLs to bypass 401 errors
+                        const proxyUrl = at.url?.includes('res.cloudinary.com')
+                          ? `/api/v1/classrooms/files?url=${encodeURIComponent(at.url)}`
+                          : at.url;
+                        return (
+                          <a
+                            key={i}
+                            href={proxyUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download={at.name}
+                            className="inline-flex items-center gap-2 bg-cream/5 border border-cream/10 rounded-lg px-3 py-2 text-xs font-semibold text-cream/70 hover:bg-cream/10 hover:text-lime transition-all"
+                          >
+                            <LuDownload className="h-3.5 w-3.5" /> {at.name || "Attachment"}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
               <button

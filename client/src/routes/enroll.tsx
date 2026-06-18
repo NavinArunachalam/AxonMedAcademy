@@ -10,7 +10,6 @@ function Enroll() {
     fullName: "",
     email: "",
     phone: "",
-    password: "",
     qualification: "",
     address: "",
     program: "",
@@ -42,8 +41,8 @@ function Enroll() {
     setError("");
     setIsSubmitting(true);
 
-    if (!formData.fullName || !formData.email || !formData.password) {
-      setError("Please fill in all required fields (Full Name, Email, Password)");
+    if (!formData.fullName || !formData.email ) {
+      setError("Please fill in all required fields (Full Name, Email)");
       setIsSubmitting(false);
       return;
     }
@@ -196,20 +195,6 @@ function Enroll() {
                   className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Create Password *</label>
-              <input
-                required
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                type="password"
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
-              />
-              <p className="text-[10px] text-foreground/40 italic">This will be used for your student portal access once approved.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

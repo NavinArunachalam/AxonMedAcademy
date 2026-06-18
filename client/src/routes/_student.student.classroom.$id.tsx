@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Megaphone, Video, BookOpen, ClipboardList,
   Play, Check, X, Clock, Calendar, ChevronRight,
-  Trophy, Radio, Lock, ShieldAlert
+  Trophy, Radio, Lock, ShieldAlert, Download
 } from "lucide-react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
@@ -87,6 +87,29 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
                 <span className="text-slate-400 text-xs">{timeAgo(ann.createdAt)}</span>
               </div>
               <p className="text-slate-700 text-sm leading-relaxed">{ann.content}</p>
+              {ann.attachments && ann.attachments.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {ann.attachments.map((at: any, i: number) => {
+                    // Use proxy for Cloudinary URLs to bypass 401 errors
+                    const proxyUrl = at.url?.includes('res.cloudinary.com')
+                      ? `/api/v1/classrooms/files?url=${encodeURIComponent(at.url)}`
+                      : at.url;
+                    console.log('[Attachment] Stored URL:', at.url, '→ Rendered URL:', proxyUrl);
+                    return (
+                      <a
+                        key={i}
+                        href={proxyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-plum-dark transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5 text-plum-dark" />
+                        {at.name || "Attachment"}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

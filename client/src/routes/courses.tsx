@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PublicLayout } from "../components/site/Layout";
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "@tanstack/react-router";
 import { Search, SlidersHorizontal, Star, Clock, Users, X } from "lucide-react";
 
 export const Route = createFileRoute("/courses")({ component: CoursesPage });
@@ -178,7 +179,7 @@ function CourseCard({ c }: { c: ProgramCourse }) {
             <div className="text-xs text-foreground/50 line-through">₹{Math.round(c.price * 1.2).toLocaleString()}</div>
             <div className="font-display text-xl font-bold text-plum-dark">₹{c.price.toLocaleString()}</div>
           </div>
-          <button className="rounded-full bg-plum-dark px-4 py-2 text-xs font-semibold text-cream hover:bg-plum transition">Enroll →</button>
+          <Link to={"/enroll"} className="rounded-full bg-plum-dark px-4 py-2 text-xs font-semibold text-cream hover:bg-plum transition">Enroll →</Link>
         </div>
       </div>
     </div>

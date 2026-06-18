@@ -228,6 +228,7 @@ function normalizeBackendAnnouncement(raw: any) {
     content: raw.content || '',
     createdAt: raw.createdAt || new Date().toISOString(),
     author: author?.fullName || author?.email || author?.role || 'Admin',
+    attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
   };
 }
 
@@ -359,10 +360,10 @@ export async function getClassroomById(id: string) {
   return normalizeBackendClassroom(payload.classroom);
 }
 
-export async function createClassroomAnnouncement(classroomId: string, content: string) {
+export async function createClassroomAnnouncement(classroomId: string, content: string, attachments: any[] = []) {
   const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/announcements`, {
     method: 'POST',
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, attachments }),
   });
   return normalizeBackendAnnouncement(payload.announcement);
 }
@@ -571,6 +572,54 @@ async function uploadPartToR2(
     );
 
     xhr.send(chunk);
+  });
+}
+
+/**
+ * Upload a general file (like PDF) to Cloudinary for classroom assets.
+ */
+export async function uploadClassroomFileToCloudinary({
+  file,
+  onProgress,
+}: {
+  file: File;
+  onProgress?: (percentage: number) => void;
+}) {
+  const accessToken = classroomStore.getState().accessToken;
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return new Promise<string>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/classrooms/upload-asset`);
+    
+    if (accessToken) {
+      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    }
+    // Note: Do NOT set Content-Type header for FormData, browser does it with boundary
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percentage = Math.round((e.loaded / e.total) * 100);
+        onProgress?.(percentage);
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const resp = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && resp.success) {
+          resolve(resp.url);
+        } else {
+          reject(new Error(resp.message || `Upload failed: ${xhr.statusText}`));
+        }
+      } catch (err) {
+        reject(new Error('Failed to parse upload response'));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.send(formData);
   });
 }
 
@@ -1099,7 +1148,6 @@ export interface RegisterStudentData {
   fullName: string;
   email: string;
   phone?: string;
-  password: string;
   qualification?: string;
   address?: string;
   program?: string;

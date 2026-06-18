@@ -125,6 +125,7 @@ export interface Meeting {
 }
 
 export interface Announcement {
+  attachments: any;
   id: string;
   content: string;
   createdAt: string;

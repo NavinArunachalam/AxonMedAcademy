@@ -42,7 +42,7 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
       console.error("Logout error:", err);
     } finally {
       classroomStore.setState(() => ({ currentUser: null, accessToken: null }));
-      navigate({ to: "/login" });
+      navigate({ to: "/" });
     }
   };
 
