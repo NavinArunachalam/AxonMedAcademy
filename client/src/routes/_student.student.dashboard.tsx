@@ -295,25 +295,18 @@ function Dashboard() {
                 <div className="text-sm font-semibold text-plum-dark line-clamp-2">{a.content}</div>
                 {a.attachments && a.attachments.length > 0 && (
                   <div className="mt-2 flex gap-1.5">
-                    {a.attachments.map((at: any, i: number) => {
-                      // Use proxy for Cloudinary URLs to bypass 401 errors
-                      const proxyUrl = at.url?.includes('res.cloudinary.com')
-                        ? `/api/v1/classrooms/files?url=${encodeURIComponent(at.url)}`
-                        : at.url;
-                      console.log('[Dashboard Attachment] Stored URL:', at.url, '→ Rendered URL:', proxyUrl);
-                      return (
-                        <a
-                          key={i}
-                          href={proxyUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-white/50 px-2 py-1 text-[10px] font-bold text-plum hover:bg-white transition-colors"
-                        >
-                          <Download className="h-2.5 w-2.5" />
-                          PDF
-                        </a>
-                      );
-                    })}
+                  {a.attachments.map((at: any, i: number) => (
+                    <a
+                      key={i}
+                      href={at.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/50 px-2 py-1 text-[10px] font-bold text-plum hover:bg-white transition-colors"
+                    >
+                      <Download className="h-2.5 w-2.5" />
+                      PDF
+                    </a>
+                  ))}
                   </div>
                 )}
               </li>

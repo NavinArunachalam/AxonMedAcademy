@@ -15,8 +15,13 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const https = require('https');
 const urlModule = require('url');
-const { cloudinary, announcementStorage } = require('../config/cloudinary');
-const upload = multer({ storage: announcementStorage });
+const { cloudinary } = require('../config/cloudinary');
+
+// Multer for R2 uploads: keep file in memory so we can pass it to S3 SDK
+const r2Upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for PDFs
+});
 
 const slugify = (value) => String(value || '')
   .trim()
@@ -240,138 +245,204 @@ const getStudentRefId = (studentRef) => {
   return studentRef.toString();
 };
 
-// GET /files → Public: proxy file from Cloudinary using signed URL (no auth needed)
-// Cloudinary's CDN returns 401 for raw files when secured delivery is enabled.
-// This proxy signs the URL using the server's API credentials, fetches the signed
-// URL via Cloudinary's SDK, and streams the file to the client — bypassing the 401.
+// GET /files → Proxy file from Cloudinary using Admin API
+// Bypasses secured delivery by authenticating with API key/secret server-side
+// GET /r2-proxy → Proxy download from R2 with server-side auth (key passed as query param)
+router.get('/r2-proxy', async (req, res, next) => {
+  try {
+    const { key } = req.query;
+    if (!key) {
+      return res.status(400).json({ success: false, message: 'Missing key parameter' });
+    }
+
+    const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+    
+    const s3Client = new S3Client({
+      endpoint: process.env.S3_API,
+      region: 'auto',
+      credentials: {
+        accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+      },
+    });
+
+    const bucket = process.env.CLOUDFLARE_R2_BUCKET;
+
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    });
+
+    const response = await s3Client.send(command);
+    
+    // Set appropriate headers
+    const contentType = response.ContentType || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    if (response.ContentLength) {
+      res.setHeader('Content-Length', response.ContentLength);
+    }
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (contentType === 'application/pdf') {
+      res.setHeader('Content-Disposition', 'inline');
+    }
+
+    // Pipe the file stream to response
+    response.Body.pipe(res);
+  } catch (error) {
+    console.error('[R2 Proxy] Error:', error);
+    if (error.name === 'NoSuchKey') {
+      return res.status(404).json({ success: false, message: 'File not found' });
+    }
+    next(error);
+  }
+});
+
+// Legacy /files route - now redirects to R2 proxy for backward compatibility
 router.get('/files', async (req, res, next) => {
   try {
     const { url } = req.query;
+    console.log('[File Proxy] Received request for:', url);
+    
     if (!url) {
       return res.status(400).json({ success: false, message: 'Missing ?url= parameter' });
     }
 
     const decodedUrl = decodeURIComponent(url);
+    console.log('[File Proxy] Decoded URL:', decodedUrl);
 
     // Only allow proxying from Cloudinary for security
     if (!decodedUrl.includes('res.cloudinary.com/')) {
       return res.status(403).json({ success: false, message: 'Only Cloudinary URLs are allowed' });
     }
 
-    // Extract the public_id from the Cloudinary URL
-    // URL format: https://res.cloudinary.com/<cloud>/raw/upload/v<timestamp>/<folder>/<public_id>
+    // Extract public_id from the Cloudinary URL
     const urlMatch = decodedUrl.match(/\/v\d+\/(.+?)(?:\?|$)/);
     let publicId = urlMatch ? urlMatch[1] : null;
-
     if (!publicId) {
-      // Fallback: extract everything after /upload/
       const uploadMatch = decodedUrl.match(/\/upload\/(.+?)(?:\?|$)/);
       publicId = uploadMatch ? uploadMatch[1] : null;
     }
 
-    if (publicId) {
-      // Generate a signed URL using Cloudinary SDK (1-hour expiry)
-      const signedUrl = cloudinary.url(publicId, {
-        resource_type: 'raw',
-        type: 'upload',
-        sign_url: true,
-        expires_at: Math.floor(Date.now() / 1000) + 3600 // 1 hour
-      });
+    console.log('[File Proxy] Extracted publicId:', publicId);
 
-      // Fetch from the signed URL
-      https.get(signedUrl, (cloudinaryRes) => {
-        if (cloudinaryRes.statusCode === 401 || cloudinaryRes.statusCode === 403) {
-          // If signed URL still fails, try direct download via Cloudinary API
-          console.log('[File Proxy] Signed URL also returned', cloudinaryRes.statusCode, '- falling back to raw URL');
-          https.get(decodedUrl, (fallbackRes) => {
-            if (fallbackRes.headers['content-type']) {
-              res.setHeader('Content-Type', fallbackRes.headers['content-type']);
-            }
-            if (fallbackRes.headers['content-length']) {
-              res.setHeader('Content-Length', fallbackRes.headers['content-length']);
-            }
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            if (fallbackRes.headers['content-type'] === 'application/pdf') {
-              res.setHeader('Content-Disposition', 'inline');
-            }
-            fallbackRes.pipe(res);
-          }).on('error', (err) => {
-            console.error('[File Proxy] Fallback also failed:', err.message);
-            res.status(502).json({ success: false, message: 'Failed to fetch file from Cloudinary' });
-          });
-          return;
-        }
-
-        if (cloudinaryRes.headers['content-type']) {
-          res.setHeader('Content-Type', cloudinaryRes.headers['content-type']);
-        }
-        if (cloudinaryRes.headers['content-length']) {
-          res.setHeader('Content-Length', cloudinaryRes.headers['content-length']);
-        }
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        if (cloudinaryRes.headers['content-type'] === 'application/pdf') {
-          res.setHeader('Content-Disposition', 'inline');
-        }
-        cloudinaryRes.pipe(res);
-      }).on('error', (err) => {
-        console.error('[File Proxy] Error fetching signed URL:', err.message);
-        res.status(502).json({ success: false, message: 'Failed to fetch file from Cloudinary' });
-      });
-    } else {
-      // Can't extract public_id — just proxy the raw URL directly
-      https.get(decodedUrl, (cloudinaryRes) => {
-        if (cloudinaryRes.headers['content-type']) {
-          res.setHeader('Content-Type', cloudinaryRes.headers['content-type']);
-        }
-        if (cloudinaryRes.headers['content-length']) {
-          res.setHeader('Content-Length', cloudinaryRes.headers['content-length']);
-        }
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        if (cloudinaryRes.headers['content-type'] === 'application/pdf') {
-          res.setHeader('Content-Disposition', 'inline');
-        }
-        cloudinaryRes.pipe(res);
-      }).on('error', (err) => {
-        console.error('[File Proxy] Error:', err.message);
-        res.status(502).json({ success: false, message: 'Failed to fetch file' });
-      });
+    if (!publicId) {
+      return res.status(400).json({ success: false, message: 'Could not extract file ID from URL' });
     }
+
+    // Use Cloudinary SDK's download_stream which authenticates server-side
+    console.log('[File Proxy] Requesting download stream from Cloudinary...');
+    const downloadStream = cloudinary.uploader.download_stream(publicId, {
+      resource_type: 'raw'
+    });
+
+    // Wait for stream to start before setting headers
+    downloadStream.on('response', (streamRes) => {
+      console.log('[File Proxy] Cloudinary responded with status:', streamRes.statusCode);
+      
+      const contentType = streamRes.headers['content-type'] || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+      if (streamRes.headers['content-length']) {
+        res.setHeader('Content-Length', streamRes.headers['content-length']);
+      }
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      if (contentType === 'application/pdf') {
+        res.setHeader('Content-Disposition', 'inline');
+      }
+      
+      streamRes.pipe(res);
+    });
+
+    downloadStream.on('error', (err) => {
+      console.error('[File Proxy] Download error:', err.message);
+      console.error('[File Proxy] Error code:', err.code);
+      console.error('[File Proxy] Full error:', err);
+      if (!res.headersSent) {
+        res.status(502).json({
+          success: false,
+          message: 'Failed to download file from Cloudinary: ' + err.message
+        });
+      }
+    });
+
+    downloadStream.on('end', () => {
+      console.log('[File Proxy] Stream ended successfully');
+    });
   } catch (error) {
+    console.error('[File Proxy] Error:', error);
     next(error);
   }
 });
 
-// POST /upload-asset → Admin: Upload a classroom asset to Cloudinary
-router.post('/upload-asset', protect, restrictTo('admin', 'superadmin'), upload.single('file'), async (req, res, next) => {
+function pipeFileResponse(sourceRes, targetRes) {
+  const contentType = sourceRes.headers['content-type'] || 'application/octet-stream';
+  targetRes.setHeader('Content-Type', contentType);
+  if (sourceRes.headers['content-length']) {
+    targetRes.setHeader('Content-Length', sourceRes.headers['content-length']);
+  }
+  targetRes.setHeader('Access-Control-Allow-Origin', '*');
+  if (contentType === 'application/pdf') {
+    targetRes.setHeader('Content-Disposition', 'inline');
+  }
+  sourceRes.pipe(targetRes);
+}
+
+// POST /upload-asset → Admin: Upload a classroom asset (PDF) to Cloudflare R2
+router.post('/upload-asset', protect, restrictTo('admin', 'superadmin'), r2Upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    // For raw resources, ensure the URL uses the correct format
-    // Cloudinary raw URLs: /raw/upload/ instead of /image/upload/
-    let url = req.file.path;
+    // Upload to Cloudflare R2 using AWS SDK v3 S3Client
+    const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+    const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
     
-    // If the URL uses /image/upload/ for a non-image file, convert to /raw/upload/
-    const isImage = req.file.mimetype?.startsWith('image/');
-    if (!isImage && url.includes('/image/upload/')) {
-      url = url.replace('/image/upload/', '/raw/upload/');
-    }
+    // R2 is S3-compatible
+    const s3Client = new S3Client({
+      endpoint: process.env.S3_API,
+      region: 'auto',
+      credentials: {
+        accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+      },
+    });
 
-    console.log('[Upload Asset] Raw Cloudinary URL:', url);
+    const bucket = process.env.CLOUDFLARE_R2_BUCKET;
+    const objectKey = `classroom-assets/${Date.now()}-${req.file.originalname}`;
+    
+    // Upload to R2 using PutObjectCommand
+    await s3Client.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+      ACL: 'public-read',
+    }));
 
-    // Use proxy URL instead of direct Cloudinary URL to avoid 401 errors
-    // Cloudinary raw URLs return 401 when secured delivery is enabled.
-    // The proxy route signs the URL and streams the file to the client.
-    const proxyUrl = `/api/v1/classrooms/files?url=${encodeURIComponent(url)}`;
-    console.log('[Upload Asset] Proxy URL returned:', proxyUrl);
+    // Generate presigned download URL (valid for 7 days)
+    // R2 buckets don't have public-read by default, so we use presigned URLs
+    const downloadUrl = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+      }),
+      { expiresIn: 7 * 24 * 60 * 60 } // 7 days
+    );
+
+// Return R2 proxy URL (frontend will use /api/v1/classrooms/r2-proxy?key=...)
+    const proxyUrl = `/api/v1/classrooms/r2-proxy?key=${encodeURIComponent(objectKey)}`;
+    
+    console.log('[Upload Asset] Uploaded to R2, objectKey:', objectKey);
+    console.log('[Upload Asset] Proxy URL:', proxyUrl);
 
     res.json({
       success: true,
       url: proxyUrl,
-      publicId: req.file.filename
+      publicId: objectKey
     });
   } catch (error) {
+    console.error('[Upload Asset] Error:', error);
     next(error);
   }
 });

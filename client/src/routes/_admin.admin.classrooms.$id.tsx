@@ -225,15 +225,10 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
                   <p className="text-cream/80 text-sm leading-relaxed">{ann.content}</p>
                   {ann.attachments && ann.attachments.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {ann.attachments.map((at: any, i: number) => {
-                        // Use proxy for Cloudinary URLs to bypass 401 errors
-                        const proxyUrl = at.url?.includes('res.cloudinary.com')
-                          ? `/api/v1/classrooms/files?url=${encodeURIComponent(at.url)}`
-                          : at.url;
-                        return (
+                        {ann.attachments.map((at: any, i: number) => (
                           <a
                             key={i}
-                            href={proxyUrl}
+                            href={at.url}
                             target="_blank"
                             rel="noreferrer"
                             download={at.name}
@@ -241,8 +236,7 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
                           >
                             <LuDownload className="h-3.5 w-3.5" /> {at.name || "Attachment"}
                           </a>
-                        );
-                      })}
+                        ))}
                     </div>
                   )}
                 </div>

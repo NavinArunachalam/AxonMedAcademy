@@ -90,15 +90,10 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
               {ann.attachments && ann.attachments.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {ann.attachments.map((at: any, i: number) => {
-                    // Use proxy for Cloudinary URLs to bypass 401 errors
-                    const proxyUrl = at.url?.includes('res.cloudinary.com')
-                      ? `/api/v1/classrooms/files?url=${encodeURIComponent(at.url)}`
-                      : at.url;
-                    console.log('[Attachment] Stored URL:', at.url, '→ Rendered URL:', proxyUrl);
                     return (
                       <a
                         key={i}
-                        href={proxyUrl}
+                        href={at.url}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-plum-dark transition-colors"
