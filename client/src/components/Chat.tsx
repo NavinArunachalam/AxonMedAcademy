@@ -158,7 +158,7 @@ export default function Chat({ currentUserRole }: ChatProps) {
   }
 
   return (
-    <div className="rounded-3xl bg-white border border-border overflow-hidden h-[calc(100vh-180px)] flex flex-col md:flex-row">
+    <div className="rounded-3xl bg-white border border-border overflow-hidden h-[calc(100vh-80px)] flex flex-col md:flex-row">
       {/* Sidebar - User List */}
       <aside className="border-r border-border flex flex-col w-full md:w-[320px] shrink-0 bg-slate-50/50">
         <div className="p-4 border-b border-border bg-white">
