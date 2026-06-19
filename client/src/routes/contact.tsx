@@ -3,7 +3,7 @@ import { PublicLayout } from "../components/site/Layout";
 import { MapPin, Mail, Phone, Clock, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-
+import { submitToGoogleSheet } from "@/lib/googleSheets.ts";
 export const Route = createFileRoute("/contact")({ component: Contact });
 
 function Contact() {
@@ -39,25 +39,44 @@ function Contact() {
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setErrorMsg("");
-    try {
-      const res = await api.post("/public/contact", formData);
-      if (res.success) {
-        setSent(true);
-        setFormData({ name: "", email: "", phone: "", interest: "", message: "" });
-      } else {
-        setErrorMsg(res.message || "Failed to submit inquiry");
-      }
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || "Error submitting inquiry");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  e.preventDefault();
 
+  setIsSubmitting(true);
+  setErrorMsg("");
+
+  try {
+    const result = await submitToGoogleSheet(
+      "Contact Inquiries",
+      {
+        Timestamp: new Date().toISOString(),
+        Name: formData.name,
+        Email: formData.email,
+        Phone: formData.phone,
+        Interest: formData.interest,
+        Message: formData.message,
+      }
+    );
+
+    if (result.success) {
+      setSent(true);
+
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        interest: "",
+        message: "",
+      });
+    } else {
+      setErrorMsg(result.message);
+    }
+  } catch (error) {
+    console.error(error);
+    setErrorMsg("Failed to submit inquiry");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   return (
     <PublicLayout>
       <section className="relative py-20 lg:py-28 overflow-hidden">

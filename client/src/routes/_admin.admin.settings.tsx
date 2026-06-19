@@ -54,16 +54,7 @@ function Settings() {
   });
 
   // 2. Courses
-  const [courses, setCourses] = useState([
-    { id: 1, title: "Advanced Cardiac Care", specialty: "ICU Care", duration: "6 Months", mode: "Hybrid", fee: 45000, original: 60000, rating: 4.9, enrolled: 1240, tag: "Bestseller" },
-    { id: 2, title: "Staff Nursing Diploma", specialty: "Nursing", duration: "1 Year", mode: "Offline", fee: 68000, original: 85000, rating: 4.8, enrolled: 2100 },
-    { id: 3, title: "OT Technician Program", specialty: "OT Tech", duration: "3 Months", mode: "Hybrid", fee: 32000, original: 42000, rating: 4.7, enrolled: 820 },
-    { id: 4, title: "Lab Technician (DMLT)", specialty: "Lab Tech", duration: "1 Year", mode: "Hybrid", fee: 54000, original: 70000, rating: 4.8, enrolled: 1530 },
-    { id: 5, title: "Radiology & Imaging", specialty: "Radiology", duration: "6 Months", mode: "Hybrid", fee: 49000, original: 65000, rating: 4.6, enrolled: 690 },
-    { id: 6, title: "ICU & Critical Care", specialty: "ICU Care", duration: "6 Months", mode: "Offline", fee: 52000, original: 70000, rating: 4.9, enrolled: 1010 }
-  ]);
-  const [editingCourse, setEditingCourse] = useState<any | null>(null);
-  const [isAddingCourse, setIsAddingCourse] = useState(false);
+  
 
   // 3. About Us
   const [aboutText, setAboutText] = useState({
@@ -110,6 +101,9 @@ function Settings() {
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [editingPost, setEditingPost] = useState<any | null>(null);
   const [isAddingPost, setIsAddingPost] = useState(false);
+  const [blogImageFile, setBlogImageFile] = useState<File | null>(null);
+  const [blogImagePreview, setBlogImagePreview] = useState<string | null>(null);
+  const blogImageRef = useRef<HTMLInputElement>(null);
 
   // --- NEW FETCH FUNCTIONS FOR ABOUT, PLACEMENTS, BLOG ---
   const [isLoadingAbout, setIsLoadingAbout] = useState(false);
@@ -286,15 +280,13 @@ function Settings() {
 
         {/* Navigation sidebar */}
         <aside className="space-y-1">
-          {["Organization", "Course", "About", "Faculty", "Placement", "Blog", "Contact"].map((tab) => {
+          {["Organization", "About", "Faculty", "Placement", "Blog", "Contact"].map((tab) => {
             const isSelected = activeTab === tab;
             return (
               <button
                 key={tab}
                 onClick={() => {
                   setActiveTab(tab as any);
-                  setEditingCourse(null);
-                  setIsAddingCourse(false);
                   setEditingMilestone(null);
                   setIsAddingMilestone(false);
                   setEditingFaculty(null);
@@ -1155,6 +1147,60 @@ function Settings() {
               {(editingPost || isAddingPost) ? (
                 <div className="space-y-4 border-t border-cream/10 pt-4">
                   <h4 className="font-semibold text-sm text-lime">{isAddingPost ? "Compose Article" : "Edit Article summary"}</h4>
+
+                  {/* ── Image picker ── */}
+                  <div className="flex items-center gap-5">
+                    <div className="relative shrink-0">
+                      <div className="h-24 w-40 overflow-hidden rounded-2xl bg-cream/5 border-2 border-dashed border-cream/10 grid place-items-center">
+                        {blogImagePreview ? (
+                          <img src={blogImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                        ) : editingPost?.image ? (
+                          <img src={getAssetUrl(editingPost.image)} alt="Current" className="h-full w-full object-cover" />
+                        ) : (
+                          <FileText className="h-8 w-8 text-cream/10" />
+                        )}
+                      </div>
+                      {(blogImagePreview || editingPost?.image) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBlogImageFile(null);
+                            setBlogImagePreview(null);
+                            setEditingPost((f: any) => ({ ...f, image: null, removeImage: true }));
+                            if (blogImageRef.current) blogImageRef.current.value = "";
+                          }}
+                          className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-red-500 text-white grid place-items-center shadow"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => blogImageRef.current?.click()}
+                        className="inline-flex items-center gap-2 rounded-full bg-cream/10 hover:bg-cream/20 text-cream border border-cream/10 px-4 py-2 text-xs font-bold transition-colors"
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        {blogImagePreview || editingPost?.image ? "Change Image" : "Upload Image"}
+                      </button>
+                      <p className="text-[10px] text-cream/30 uppercase tracking-[0.15em]">JPG, PNG or WebP · Max 2MB</p>
+                      <input
+                        ref={blogImageRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setBlogImageFile(file);
+                            setBlogImagePreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
                       <label className="text-[10px] uppercase tracking-widest text-cream/60">Article Title</label>
@@ -1226,6 +1272,9 @@ function Settings() {
                       onClick={() => {
                         setEditingPost(null);
                         setIsAddingPost(false);
+                        setBlogImageFile(null);
+                        setBlogImagePreview(null);
+                        if (blogImageRef.current) blogImageRef.current.value = "";
                       }}
                       className="px-4 py-2 bg-cream/10 hover:bg-cream/20 text-xs font-semibold rounded-full"
                     >
@@ -1239,14 +1288,27 @@ function Settings() {
                           return;
                         }
                         try {
+                          const fd = new FormData();
+                          fd.append("title", editingPost.title);
+                          fd.append("category", editingPost.category || "Career");
+                          fd.append("date", editingPost.date || "");
+                          fd.append("readTime", editingPost.readTime || "5 min");
+                          fd.append("excerpt", editingPost.excerpt);
+                          fd.append("featured", editingPost.featured ? "true" : "false");
+                          if (blogImageFile) {
+                            fd.append("image", blogImageFile);
+                          } else if (editingPost.removeImage) {
+                            fd.append("removeImage", "true");
+                          }
+
                           if (isAddingPost) {
-                            const res = await api.post("/admin/blogs", editingPost);
+                            const res = await api.multipart("/admin/blogs", "POST", fd);
                             if (res.success) {
                               showToast("New blog post published!");
                               fetchBlog();
                             }
                           } else {
-                            const res = await api.put(`/admin/blogs/${editingPost._id || editingPost.id}`, editingPost);
+                            const res = await api.multipart(`/admin/blogs/${editingPost._id || editingPost.id}`, "PUT", fd);
                             if (res.success) {
                               showToast("Blog post saved!");
                               fetchBlog();
@@ -1257,6 +1319,9 @@ function Settings() {
                         }
                         setEditingPost(null);
                         setIsAddingPost(false);
+                        setBlogImageFile(null);
+                        setBlogImagePreview(null);
+                        if (blogImageRef.current) blogImageRef.current.value = "";
                       }}
                       className="px-4 py-2 bg-lime text-plum-dark text-xs font-bold rounded-full"
                     >
@@ -1268,24 +1333,35 @@ function Settings() {
                 <div className="mt-4 divide-y divide-cream/5">
                   {blogPosts.map(post => (
                     <div key={post._id || post.id} className="py-4 flex items-start justify-between gap-4 group">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-lime bg-lime/10 px-2 py-0.5 rounded">
-                            {post.category}
-                          </span>
-                          {post.featured && (
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-plum-dark bg-lime px-2 py-0.5 rounded">
-                              Featured
+                      <div className="flex gap-3">
+                        {post.image && (
+                          <div className="shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-cream/5">
+                            <img src={getAssetUrl(post.image)} alt="" className="h-full w-full object-cover" />
+                          </div>
+                        )}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-lime bg-lime/10 px-2 py-0.5 rounded">
+                              {post.category}
                             </span>
-                          )}
-                          <span className="text-[10px] text-cream/55 font-mono">{post.date} · {post.readTime} read</span>
+                            {post.featured && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-plum-dark bg-lime px-2 py-0.5 rounded">
+                                Featured
+                              </span>
+                            )}
+                            <span className="text-[10px] text-cream/55 font-mono">{post.date} · {post.readTime} read</span>
+                          </div>
+                          <h4 className="font-semibold text-sm text-cream">{post.title}</h4>
+                          <p className="text-xs text-cream/60 line-clamp-1">{post.excerpt}</p>
                         </div>
-                        <h4 className="font-semibold text-sm text-cream">{post.title}</h4>
-                        <p className="text-xs text-cream/60 line-clamp-1">{post.excerpt}</p>
                       </div>
                       <div className="flex gap-1 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => setEditingPost(post)}
+                          onClick={() => {
+                            setEditingPost(post);
+                            setBlogImageFile(null);
+                            setBlogImagePreview(null);
+                          }}
                           className="p-1 hover:bg-cream/10 rounded text-cream"
                         >
                           <Edit2 className="h-3.5 w-3.5" />

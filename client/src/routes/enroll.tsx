@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Stethoscope, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { registerStudent, getAdminPrograms, type RegisterStudentData, type ProgramCourse } from "@/lib/api";
-
+import {  getAdminPrograms, type RegisterStudentData, type ProgramCourse } from "@/lib/api";
+import { submitToGoogleSheet } from "@/lib/googleSheets";
 export const Route = createFileRoute("/enroll")({ component: Enroll });
 
 function Enroll() {
@@ -36,27 +36,56 @@ function Enroll() {
     fetchPrograms();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsSubmitting(true);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!formData.fullName || !formData.email ) {
-      setError("Please fill in all required fields (Full Name, Email)");
-      setIsSubmitting(false);
-      return;
-    }
+  setError("");
+  setIsSubmitting(true);
 
-    try {
-      await registerStudent(formData);
+  if (!formData.fullName || !formData.email) {
+    setError(
+      "Please fill in all required fields (Full Name, Email)"
+    );
+    setIsSubmitting(false);
+    return;
+  }
+
+  try {
+    const selectedProgram = programs.find(
+      (p) => p.id === formData.program
+    );
+
+    const result = await submitToGoogleSheet(
+      "Enrollment Registrations",
+      {
+        Timestamp: new Date().toISOString(),
+        FullName: formData.fullName,
+        Email: formData.email,
+        Phone: formData.phone,
+        Qualification: formData.qualification,
+        Address: formData.address,
+        Program: selectedProgram?.title || formData.program,
+        Message: formData.message,
+      }
+    );
+
+    if (result.success) {
       setSuccess(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      setError(result.message);
     }
-  };
+  } catch (error) {
+    console.error(error);
 
+    setError(
+      error instanceof Error
+        ? error.message
+        : "Registration failed"
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));

@@ -21,7 +21,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET /admin-list → Admin: list all programs
-router.get('/admin-all', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+router.get('/admin-all', async (req, res, next) => {
   try {
     const programs = await Program.find().sort({ title: 1 });
     res.json({ success: true, programs });

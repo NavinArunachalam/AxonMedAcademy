@@ -6,7 +6,8 @@ const blogPostSchema = new mongoose.Schema({
   date:     { type: String, required: true },
   readTime: { type: String, required: true },
   excerpt:  { type: String, required: true },
-  featured: { type: Boolean, default: false }
+  featured: { type: Boolean, default: false },
+  image:    { type: String, default: null }
 }, {
   timestamps: true
 });

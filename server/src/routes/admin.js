@@ -13,9 +13,10 @@ const Inquiry = require('../models/Inquiry');
 const { sendWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo } = require('../middleware/auth');
 const multer = require('multer');
-const { storage, cloudinary } = require('../config/cloudinary');
+const { storage, cloudinary, blogStorage } = require('../config/cloudinary');
 
 const upload = multer({ storage });
+const uploadBlogImage = multer({ storage: blogStorage });
 
 // GET /stats → Command center stats: sessions, exams, incidents, users
 router.get('/stats', (req, res) => {
@@ -566,39 +567,53 @@ router.get('/blogs', protect, restrictTo('admin', 'superadmin'), async (req, res
   }
 });
 
-// POST /blogs → Create blog post
-router.post('/blogs', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// POST /blogs → Create blog post (accepts multipart with image)
+router.post('/blogs', protect, restrictTo('admin', 'superadmin'), uploadBlogImage.single('image'), async (req, res, next) => {
   try {
-    const { title, category, date, readTime, excerpt, featured } = req.body;
+    const { title, category, date, readTime, excerpt } = req.body;
     if (!title || !excerpt) {
       return res.status(400).json({ success: false, message: 'Title and excerpt are required' });
     }
 
+    // FormData sends everything as strings — normalise featured
+    const featured = req.body.featured === 'true' || req.body.featured === true;
+
     if (featured) {
-      // Set all other posts to featured: false
       await BlogPost.updateMany({}, { featured: false });
     }
 
-    const blog = await BlogPost.create({ title, category, date, readTime, excerpt, featured });
+    const image = req.file ? req.file.path : undefined;
+
+    const blog = await BlogPost.create({ title, category, date, readTime, excerpt, featured, image });
     res.status(201).json({ success: true, message: 'Blog post created successfully', blog });
   } catch (error) {
     next(error);
   }
 });
 
-// PUT /blogs/:id → Update blog post
-router.put('/blogs/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// PUT /blogs/:id → Update blog post (accepts multipart with image)
+router.put('/blogs/:id', protect, restrictTo('admin', 'superadmin'), uploadBlogImage.single('image'), async (req, res, next) => {
   try {
-    const { title, category, date, readTime, excerpt, featured } = req.body;
+    const { title, category, date, readTime, excerpt, removeImage } = req.body;
+
+    // FormData sends everything as strings — normalise featured
+    const featured = req.body.featured === 'true' || req.body.featured === true;
 
     if (featured) {
-      // Set all other posts to featured: false
       await BlogPost.updateMany({}, { featured: false });
+    }
+
+    const updateData = { title, category, date, readTime, excerpt, featured };
+
+    if (req.file) {
+      updateData.image = req.file.path;
+    } else if (removeImage === 'true' || removeImage === true) {
+      updateData.image = null;
     }
 
     const blog = await BlogPost.findByIdAndUpdate(
       req.params.id,
-      { title, category, date, readTime, excerpt, featured },
+      updateData,
       { new: true, runValidators: true }
     );
     if (!blog) {

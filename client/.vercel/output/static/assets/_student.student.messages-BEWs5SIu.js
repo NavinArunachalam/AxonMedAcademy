@@ -1,0 +1,1 @@
+import{a8 as t}from"./index-CbWqQdQu.js";import{C as r}from"./Chat-DgVilW2G.js";import"./index-DElUTK9t.js";import"./message-square-BNcyVSqV.js";import"./createLucideIcon-DTxavgyX.js";import"./search-DgRtcQOv.js";import"./send-BDYIPZsf.js";function a(){return t.jsx(r,{currentUserRole:"student"})}export{a as component};

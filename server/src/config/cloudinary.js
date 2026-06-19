@@ -34,8 +34,21 @@ const announcementStorage = new CloudinaryStorage({
   }
 });
 
+const blogStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'blogs',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    public_id: (req, file) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      return 'blog-' + uniqueSuffix;
+    }
+  }
+});
+
 module.exports = {
   cloudinary,
   storage,
-  announcementStorage
+  announcementStorage,
+  blogStorage
 };
