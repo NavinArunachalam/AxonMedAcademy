@@ -35,11 +35,47 @@ function cleanupSocket(socket, roomId) {
   }
 }
 
+// ── Build the same allowed-origins list that app.js uses ─────────────────────
+function buildAllowedOrigins() {
+  const rawOrigins = process.env.CLIENT_URL || '';
+  const origins = rawOrigins
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+
+  if (process.env.NODE_ENV !== 'production') {
+    ['http://localhost:3000', 'http://localhost:5173',
+     'http://localhost:8080', 'http://localhost:8081'].forEach(o => {
+      if (!origins.includes(o)) origins.push(o);
+    });
+  }
+  return origins;
+}
+
+function socketCorsOrigin(origin, callback) {
+  // Allow server-to-server / Postman (no origin header)
+  if (!origin) return callback(null, true);
+
+  const allowed = buildAllowedOrigins();
+
+  // Exact match
+  if (allowed.includes(origin)) return callback(null, true);
+
+  // Allow all *.vercel.app preview and production deployments
+  if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin) ||
+      /^https:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+\.vercel\.app$/.test(origin)) {
+    return callback(null, true);
+  }
+
+  console.error(`[Socket.io CORS] BLOCKED: ${origin}`);
+  return callback(new Error(`Origin ${origin} is not allowed`));
+}
+
 const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
-      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      origin: socketCorsOrigin,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       credentials: true
     },
     pingTimeout: 60000
