@@ -1,5 +1,5 @@
 import { r as reactExports } from "./react.mjs";
-import { c as RoomEvent, T as Track, P as ParticipantEvent, b as Room, M as MediaDeviceFailure, a as RemoteTrackPublication, R as RemoteAudioTrack } from "./livekit-client.mjs";
+import { c as RoomEvent, P as ParticipantEvent, T as Track, b as Room, M as MediaDeviceFailure, a as RemoteTrackPublication, R as RemoteAudioTrack } from "./livekit-client.mjs";
 var os = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {};
 function Yr(e) {
   return e && e.__esModule && Object.prototype.hasOwnProperty.call(e, "default") ? e.default : e;
@@ -367,7 +367,7 @@ var it = yt(function(e) {
   `) : "", this.name = "UnsubscriptionError", this.errors = n;
   };
 });
-function Ve(e, t) {
+function Ve$1(e, t) {
   if (e) {
     var n = e.indexOf(t);
     0 <= n && e.splice(n, 1);
@@ -453,10 +453,10 @@ var Le = (function() {
     this._parentage = Array.isArray(n) ? (n.push(t), n) : n ? [n, t] : t;
   }, e.prototype._removeParent = function(t) {
     var n = this._parentage;
-    n === t ? this._parentage = null : Array.isArray(n) && Ve(n, t);
+    n === t ? this._parentage = null : Array.isArray(n) && Ve$1(n, t);
   }, e.prototype.remove = function(t) {
     var n = this._finalizers;
-    n && Ve(n, t), t instanceof e && t._removeParent(this);
+    n && Ve$1(n, t), t instanceof e && t._removeParent(this);
   }, e.EMPTY = (function() {
     var t = new e();
     return t.closed = true, t;
@@ -785,7 +785,7 @@ var ui = (function(e) {
   }, t.prototype._innerSubscribe = function(n) {
     var r = this, i = this, o = i.hasError, s = i.isStopped, a = i.observers;
     return o || s ? fn : (this.currentObservers = null, a.push(n), new Le(function() {
-      r.currentObservers = null, Ve(a, n);
+      r.currentObservers = null, Ve$1(a, n);
     }));
   }, t.prototype._checkFinalizedStatuses = function(n) {
     var r = this, i = r.hasError, o = r.thrownError, s = r.isStopped;
@@ -901,7 +901,7 @@ var fi = {
   }, t.prototype.unsubscribe = function() {
     if (!this.closed) {
       var n = this, r = n.id, i = n.scheduler, o = i.actions;
-      this.work = this.state = this.scheduler = null, this.pending = false, Ve(o, this), r != null && (this.id = this.recycleAsyncId(i, r, null)), this.delay = null, e.prototype.unsubscribe.call(this);
+      this.work = this.state = this.scheduler = null, this.pending = false, Ve$1(o, this), r != null && (this.id = this.recycleAsyncId(i, r, null)), this.delay = null, e.prototype.unsubscribe.call(this);
     }
   }, t;
 })(di), Ut = (function() {
@@ -1686,6 +1686,32 @@ const W = /* @__PURE__ */ reactExports.forwardRef(function(e, t) {
   const { room: o, htmlProps: r } = $(e);
   return /* @__PURE__ */ reactExports.createElement("div", { ref: t, ...r }, o && /* @__PURE__ */ reactExports.createElement(zn.Provider, { value: o }, /* @__PURE__ */ reactExports.createElement(rs.Provider, { value: e.featureFlags }, e.children)));
 });
+function Ve(e = {}) {
+  const n = va(e.room), [t, o] = reactExports.useState(n.localParticipant), [s, a] = reactExports.useState(
+    t.isMicrophoneEnabled
+  ), [i, u] = reactExports.useState(t.isCameraEnabled), [l, h] = reactExports.useState(
+    t.isScreenShareEnabled
+  ), [m, d] = reactExports.useState(
+    t.lastMicrophoneError
+  ), [c, g] = reactExports.useState(t.lastCameraError), [k, M2] = reactExports.useState(
+    void 0
+  ), [T2, w] = reactExports.useState(void 0), O = (L2) => {
+    u(L2.isCameraEnabled), a(L2.isMicrophoneEnabled), h(L2.isScreenShareEnabled), w(L2.cameraTrack), M2(L2.microphoneTrack), d(L2.participant.lastMicrophoneError), g(L2.participant.lastCameraError), o(L2.participant);
+  };
+  return reactExports.useEffect(() => {
+    const L2 = Fn(n.localParticipant).subscribe(O);
+    return () => L2.unsubscribe();
+  }, [n]), {
+    isMicrophoneEnabled: s,
+    isScreenShareEnabled: l,
+    isCameraEnabled: i,
+    microphoneTrack: k,
+    cameraTrack: T2,
+    lastMicrophoneError: m,
+    lastCameraError: c,
+    localParticipant: t
+  };
+}
 function ur(e = [
   Track.Source.Camera,
   Track.Source.Microphone,
@@ -2218,6 +2244,7 @@ const Bt = /* @__PURE__ */ reactExports.forwardRef(
 );
 export {
   Bt as B,
+  Ve as V,
   W,
   ae as a,
   ur as u

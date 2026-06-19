@@ -14,7 +14,7 @@ import {
   resetMeeting, setRoomId, setScreenSharing,
   addRaisedHand,
 } from '@/store/slices/meetingSlice';
-import { LiveKitRoom } from '@livekit/components-react';
+import { LiveKitRoom, useLocalParticipant } from '@livekit/components-react';
 import VideoGrid from '@/components/meeting/VideoGrid';
 import ControlBar from '@/components/meeting/ControlBar';
 import ChatPanel from '@/components/meeting/ChatPanel';
@@ -65,10 +65,16 @@ function LiveClassroomRoom() {
   const roomIdRef = useRef<string | null>(routeRoomId);
   const [lkToken, setLkToken] = useState<string | null>(null);
 
-  // Maintain UI toggles
+  // Media state — visual state kept in React; actual LiveKit calls go via lkActionsRef
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [isScreenSharingState, setIsScreenSharingState] = useState(false);
+  // Ref that _MediaControllerSync populates once it has LiveKit room context
+  const lkActionsRef = useRef<{
+    toggleAudio: () => Promise<void>;
+    toggleVideo: () => Promise<void>;
+    toggleScreen: () => Promise<void>;
+  } | null>(null);
 
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<any>(null);
@@ -270,7 +276,7 @@ function LiveClassroomRoom() {
 
   return (
     <div className="meeting-layout animate-in">
-      {/* ── Header ── */}
+      {/* ── Row 1: Header — always rendered, always stable ── */}
       <div className="meeting-header">
         <div className="meeting-header-left">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', flexShrink: 0 }}>
@@ -295,38 +301,57 @@ function LiveClassroomRoom() {
         </div>
       </div>
 
+      {/* ── Row 2: Content — LiveKitRoom wraps only the video area ── */}
       {lkToken ? (
         <LiveKitRoom
           serverUrl={LK_SERVER_URL}
           token={lkToken}
           connect={true}
-          audio={audioEnabled}
-          video={videoEnabled}
-          screen={isScreenSharingState}
+          audio={true}
+          video={true}
           onDisconnected={handleEnd}
-          style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+          style={{ display: 'flex', minHeight: 0, overflow: 'hidden' }}
         >
-          <div className="meeting-main animate-in">
+          {/* meeting-main fills the entire content row */}
+          <div className="meeting-main animate-in" style={{ flex: 1, minHeight: 0 }}>
             <VideoGrid />
             {activePanel === 'chat' && <ChatPanel roomId={getRoomId()} />}
             {activePanel === 'participants' && <ParticipantsPanel localUser={user} roomId={getRoomId()} />}
             {activePanel === 'waiting' && isStaff && <WaitingPanel roomId={getRoomId()} />}
           </div>
-          <ControlBar
+          {/* _MediaControllerSync: invisible, only wires LiveKit API into lkActionsRef */}
+          <_MediaControllerSync
             audioEnabled={audioEnabled}
             videoEnabled={videoEnabled}
             isScreenSharing={isScreenSharingState}
-            onToggleAudio={() => setAudioEnabled(p => !p)}
-            onToggleVideo={() => setVideoEnabled(p => !p)}
-            onScreenShare={() => setIsScreenSharingState(p => !p)}
-            onRaiseHand={() => getSocket()?.emit('raise-hand', { roomId: getRoomId() })}
-            onEnd={handleEnd}
-            isStaff={isStaff}
+            onSyncActions={(actions) => { lkActionsRef.current = actions; }}
+            onToggleAudio={setAudioEnabled}
+            onToggleVideo={setVideoEnabled}
+            onToggleScreen={setIsScreenSharingState}
           />
         </LiveKitRoom>
       ) : (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>Connecting Media...</div>
+        /* Placeholder content while waiting for LK token */
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#030108', minHeight: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '40px', height: '40px', border: '3px solid rgba(124,58,237,0.3)', borderTopColor: '#7C3AED', borderRadius: '50%', animation: 'spin 0.9s linear infinite' }} />
+            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', fontWeight: '600' }}>Connecting media…</span>
+          </div>
+        </div>
       )}
+
+      {/* ── Row 3: Control bar — ALWAYS in the grid, never moves ── */}
+      <ControlBar
+        audioEnabled={audioEnabled}
+        videoEnabled={videoEnabled}
+        isScreenSharing={isScreenSharingState}
+        onToggleAudio={() => lkActionsRef.current ? lkActionsRef.current.toggleAudio() : setAudioEnabled(p => !p)}
+        onToggleVideo={() => lkActionsRef.current ? lkActionsRef.current.toggleVideo() : setVideoEnabled(p => !p)}
+        onScreenShare={() => lkActionsRef.current ? lkActionsRef.current.toggleScreen() : setIsScreenSharingState(p => !p)}
+        onRaiseHand={() => getSocket()?.emit('raise-hand', { roomId: getRoomId() })}
+        onEnd={handleEnd}
+        isStaff={isStaff}
+      />
 
       {/* ── Join Request Toasts (staff) ── */}
       <div style={{ position: 'fixed', top: '72px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 9999 }}>
@@ -348,4 +373,52 @@ function LiveClassroomRoom() {
       </div>
     </div>
   );
+}
+
+/**
+ * _MediaControllerSync — renders nothing visible.
+ * Lives INSIDE <LiveKitRoom> to access useLocalParticipant().
+ * Registers LiveKit API callbacks into lkActionsRef via onSyncActions so the
+ * always-visible ControlBar in row 3 can call them.
+ */
+function _MediaControllerSync({
+  audioEnabled, videoEnabled, isScreenSharing,
+  onSyncActions, onToggleAudio, onToggleVideo, onToggleScreen,
+}: {
+  audioEnabled: boolean;
+  videoEnabled: boolean;
+  isScreenSharing: boolean;
+  onSyncActions: (a: { toggleAudio: () => Promise<void>; toggleVideo: () => Promise<void>; toggleScreen: () => Promise<void> }) => void;
+  onToggleAudio: (v: boolean) => void;
+  onToggleVideo: (v: boolean) => void;
+  onToggleScreen: (v: boolean) => void;
+}) {
+  const { localParticipant } = useLocalParticipant();
+
+  // Keep a stable ref to the current values so async handlers don't close over stale state
+  const stateRef = useRef({ audioEnabled, videoEnabled, isScreenSharing });
+  stateRef.current = { audioEnabled, videoEnabled, isScreenSharing };
+
+  useEffect(() => {
+    onSyncActions({
+      toggleAudio: async () => {
+        const next = !stateRef.current.audioEnabled;
+        try { await localParticipant.setMicrophoneEnabled(next); } catch (e) { console.warn('[LK] mic', e); }
+        onToggleAudio(next);
+      },
+      toggleVideo: async () => {
+        const next = !stateRef.current.videoEnabled;
+        try { await localParticipant.setCameraEnabled(next); } catch (e) { console.warn('[LK] cam', e); }
+        onToggleVideo(next);
+      },
+      toggleScreen: async () => {
+        const next = !stateRef.current.isScreenSharing;
+        try { await localParticipant.setScreenShareEnabled(next); } catch (e) { console.warn('[LK] screen', e); }
+        onToggleScreen(next);
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localParticipant]);
+
+  return null; // renders nothing — ControlBar lives in row 3 of the grid
 }

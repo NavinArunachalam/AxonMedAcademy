@@ -6,35 +6,43 @@ import VideoTile from './VideoTile';
 export default function VideoGrid() {
   const { viewMode, speakerSocketId } = useSelector(s => s.meeting);
 
-  // Retrieve tracks directly from the LiveKit room context
+  // Camera / screen tracks (video)
   const cameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
   const screenTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
+  // Microphone tracks (audio) — indexed by participant identity for quick lookup
+  const micTracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: false }]);
+  const micByIdentity = Object.fromEntries(
+    micTracks.map(t => [t.participant.identity, t])
+  );
 
   const allTiles = [];
 
-  // Add Screen shares first
+  // Screen shares first
   screenTracks.forEach(t => {
     allTiles.push({
       id: t.participant.identity + '_screen',
       trackRef: t,
+      audioTrackRef: undefined, // screen audio is usually part of the screen track itself
       name: `${t.participant.name || t.participant.identity}'s Screen`,
       isLocal: t.participant.isLocal,
       isScreen: true,
-      audio: false, 
-      video: true
+      audio: false,
+      video: true,
     });
   });
 
-  // Add Camera streams (which handles audio mic badges internally via LiveKit, but we can pass state)
+  // Camera streams — pair each with its participant's mic track
   cameraTracks.forEach(t => {
+    const identity = t.participant.identity;
     allTiles.push({
-      id: t.participant.identity,
+      id: identity,
       trackRef: t,
-      name: t.participant.name || t.participant.identity,
+      audioTrackRef: micByIdentity[identity],   // ← separate mic trackRef for AudioTrack
+      name: t.participant.name || identity,
       isLocal: t.participant.isLocal,
       isScreen: false,
       audio: t.participant.isMicrophoneEnabled,
-      video: t.participant.isCameraEnabled
+      video: t.participant.isCameraEnabled,
     });
   });
 
@@ -46,7 +54,7 @@ export default function VideoGrid() {
   if (isSpeakerView && total > 1) {
     const mainId = speakerSocketId && allTiles.find(t => t.id === speakerSocketId)
       ? speakerSocketId
-      : (screenTracks.length > 0 ? allTiles[0].id : allTiles[0].id);
+      : allTiles[0].id;
 
     const mainTile = allTiles.find(t => t.id === mainId) || allTiles[0];
     const stripTiles = allTiles.filter(t => t.id !== mainTile.id);
@@ -57,6 +65,7 @@ export default function VideoGrid() {
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           <VideoTile
             trackRef={mainTile.trackRef}
+            audioTrackRef={mainTile.audioTrackRef}
             name={mainTile.name}
             isLocal={mainTile.isLocal}
             audioEnabled={mainTile.audio}
@@ -71,6 +80,7 @@ export default function VideoGrid() {
             <div key={tile.id} style={{ height: '120px', flexShrink: 0 }}>
               <VideoTile
                 trackRef={tile.trackRef}
+                audioTrackRef={tile.audioTrackRef}
                 name={tile.name}
                 isLocal={tile.isLocal}
                 audioEnabled={tile.audio}
@@ -84,12 +94,11 @@ export default function VideoGrid() {
     );
   }
 
-  // ── Gallery View ─────────────────────────────────────────────────────────────
+  // ── Gallery View ──────────────────────────────────────────────────────────────
   const getGridStyle = () => {
     if (total === 1) return { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' };
     if (total === 2) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: '1fr' };
-    if (total === 3) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
-    if (total === 4) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
+    if (total <= 4) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
     if (total <= 6) return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
     if (total <= 9) return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' };
     return { gridTemplateColumns: 'repeat(4, 1fr)' };
@@ -101,6 +110,7 @@ export default function VideoGrid() {
         <div key={tile.id} style={{ minHeight: 0, ...(total === 3 && i === 0 ? { gridColumn: '1 / -1' } : {}) }}>
           <VideoTile
             trackRef={tile.trackRef}
+            audioTrackRef={tile.audioTrackRef}
             name={tile.name}
             isLocal={tile.isLocal}
             audioEnabled={tile.audio}
