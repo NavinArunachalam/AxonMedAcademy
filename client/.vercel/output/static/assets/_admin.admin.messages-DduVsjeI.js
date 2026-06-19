@@ -1,1 +1,0 @@
-import{aa as r}from"./index-BPRKlNjr.js";import{C as o}from"./Chat-Bczz32pG.js";import"./message-square-DjTjHFSB.js";import"./createLucideIcon-7nBZxSnE.js";import"./search-BiTlqDWO.js";import"./send-P7wmhlNQ.js";function p(){return r.jsx(o,{currentUserRole:"admin"})}export{p as component};
