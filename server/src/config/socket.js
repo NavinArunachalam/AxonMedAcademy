@@ -2,6 +2,39 @@ const { Server } = require('socket.io');
 
 let io = null;
 
+// ── In-memory state for Virtual Classroom WebRTC rooms ───────────────────────
+// roomId → { hostSocketId, hostUserId, hostName, startedAt, waitingList, participants }
+const rooms = new Map();
+
+// socketId → { userId, name, role, roomId }
+const socketUsers = new Map();
+
+// ── Helpers for Virtual Classroom ──────────────────────────────────────────
+function getRoomParticipants(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return [];
+  return Array.from(room.participants.entries()).map(([socketId, u]) => ({ socketId, ...u }));
+}
+
+function cleanupSocket(socket, roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  const name = socketUsers.get(socket.id)?.name || socket.data?.user?.name;
+  room.participants.delete(socket.id);
+  room.waitingList = room.waitingList.filter(w => w.socketId !== socket.id);
+  socket.leave(roomId);
+
+  // Include name so client can show "X left the class"
+  socket.to(roomId).emit('user-left', { socketId: socket.id, name });
+
+  // If the host disconnected, end the meeting for everyone
+  if (room.hostSocketId === socket.id) {
+    io.to(roomId).emit('meeting-ended');
+    rooms.delete(roomId);
+  }
+}
+
 const initSocket = (server) => {
   io = new Server(server, {
     cors: {
@@ -14,10 +47,57 @@ const initSocket = (server) => {
 
   console.log('[Socket.io] Realtime Server initialized');
 
-  io.on('connection', (socket) => {
-    console.log(`[Socket.io] New client connected: ${socket.id}`);
+  // ── Authentication Middleware ──────────────────────────────────────────────
+  io.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) {
+        // Fallback for guest or anonymous connections
+        socket.data.user = {
+          userId: `guest_${socket.id}`,
+          name: socket.handshake.auth?.guestName || 'Guest User',
+          role: 'student'
+        };
+        return next();
+      }
 
-    // Join room event
+      const jwt = require('jsonwebtoken');
+      const User = require('../models/User');
+
+      const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'local_access_secret_for_development_purposes_only_12345');
+      const user = await User.findById(decoded.id);
+      if (!user) {
+        socket.data.user = {
+          userId: `guest_${socket.id}`,
+          name: socket.handshake.auth?.guestName || 'Guest User',
+          role: 'student'
+        };
+        return next();
+      }
+
+      socket.data.user = {
+        userId: user._id.toString(),
+        name: user.fullName,
+        role: user.role === 'student' ? 'student' : 'staff', // map faculty/admin to staff for host capabilities
+      };
+      next();
+    } catch (err) {
+      console.warn('[Socket Auth Warning] Failed to authenticate socket connection. Fallback to guest:', err.message);
+      socket.data.user = {
+        userId: `guest_${socket.id}`,
+        name: socket.handshake.auth?.guestName || 'Guest User',
+        role: 'student'
+      };
+      next();
+    }
+  });
+
+  io.on('connection', (socket) => {
+    const user = socket.data.user;
+    console.log(`[Socket.io] User connected: ${user.name} (${user.role}) — ${socket.id}`);
+
+    // ==================== EXISTENT PLATFORM EVENTS ====================
+    // Join room event (notifications, chats etc)
     socket.on('join_room', (roomId) => {
       socket.join(roomId);
       console.log(`[Socket.io] Socket ${socket.id} joined room ${roomId}`);
@@ -99,8 +179,162 @@ const initSocket = (server) => {
       }
     });
 
+    // ==================== VIRTUAL CLASSROOM EVENTS ====================
+    // ── STAFF: Create or re-join own room
+    socket.on('staff-create-room', ({ roomId }, cb) => {
+      if (user.role !== 'staff') return cb?.({ error: 'Not authorized' });
+      if (!roomId) return cb?.({ error: 'Room ID is required' });
+
+      if (!rooms.has(roomId)) {
+        rooms.set(roomId, {
+          hostSocketId: socket.id,
+          hostUserId: user.userId,
+          hostName: user.name,
+          startedAt: new Date(),
+          waitingList: [],
+          participants: new Map(),
+        });
+      } else {
+        rooms.get(roomId).hostSocketId = socket.id;
+      }
+
+      const room = rooms.get(roomId);
+      socket.join(roomId);
+      room.participants.set(socket.id, { userId: user.userId, name: user.name, role: 'staff' });
+      socketUsers.set(socket.id, { ...user, roomId });
+
+      cb?.({ roomId, participants: getRoomParticipants(roomId) });
+    });
+
+    // ── STUDENT: Request to join (enters waiting room)
+    socket.on('student-request-join', ({ roomId }, cb) => {
+      const room = rooms.get(roomId);
+      if (!room) return cb?.({ error: 'Room not found. The class may not have started yet.' });
+
+      const alreadyWaiting = room.waitingList.some(w => w.socketId === socket.id);
+      if (!alreadyWaiting) {
+        room.waitingList.push({ socketId: socket.id, userId: user.userId, name: user.name });
+      }
+      socketUsers.set(socket.id, { ...user, roomId, waiting: true });
+
+      // Notify staff/host
+      io.to(room.hostSocketId).emit('join-request', {
+        socketId: socket.id,
+        userId: user.userId,
+        name: user.name,
+      });
+
+      cb?.({ status: 'waiting' });
+    });
+
+    // ── STAFF: Admit student
+    socket.on('admit-student', ({ roomId, targetSocketId }) => {
+      if (user.role !== 'staff') return;
+      const room = rooms.get(roomId);
+      if (!room) return;
+
+      room.waitingList = room.waitingList.filter(w => w.socketId !== targetSocketId);
+      const existing = getRoomParticipants(roomId);
+      io.to(targetSocketId).emit('admitted', { roomId, existingParticipants: existing });
+    });
+
+    // ── STAFF: Reject student
+    socket.on('reject-student', ({ roomId, targetSocketId }) => {
+      if (user.role !== 'staff') return;
+      const room = rooms.get(roomId);
+      if (!room) return;
+      room.waitingList = room.waitingList.filter(w => w.socketId !== targetSocketId);
+      io.to(targetSocketId).emit('rejected');
+    });
+
+    // ── STUDENT: Join room after admission
+    socket.on('join-room', ({ roomId }, cb) => {
+      const room = rooms.get(roomId);
+      if (!room) return cb?.({ error: 'Room not found' });
+
+      const existingParticipants = getRoomParticipants(roomId);
+      socket.join(roomId);
+      room.participants.set(socket.id, { userId: user.userId, name: user.name, role: user.role });
+
+      const su = socketUsers.get(socket.id);
+      if (su) su.roomId = roomId;
+      else socketUsers.set(socket.id, { ...user, roomId });
+
+      // Notify everyone already in the room
+      socket.to(roomId).emit('user-joined', {
+        socketId: socket.id,
+        userId: user.userId,
+        name: user.name,
+        role: user.role,
+      });
+
+      cb?.({ existingParticipants });
+    });
+
+    // ── STAFF: Kick a participant
+    socket.on('kick-participant', ({ roomId, targetSocketId }) => {
+      if (user.role !== 'staff') return;
+      const room = rooms.get(roomId);
+      if (!room) return;
+
+      io.to(targetSocketId).emit('kicked');
+
+      // Clean up on server side
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+      if (targetSocket) cleanupSocket(targetSocket, roomId);
+    });
+
+    // ── Leave room
+    socket.on('leave-room', ({ roomId }) => cleanupSocket(socket, roomId));
+
+    // ── Staff ends meeting
+    socket.on('end-meeting', ({ roomId }) => {
+      if (user.role !== 'staff') return;
+      io.to(roomId).emit('meeting-ended');
+      rooms.delete(roomId);
+    });
+
+    // ── Classroom Chat messages
+    socket.on('send-message', ({ roomId, message }) => {
+      if (!message?.trim()) return;
+      io.to(roomId).emit('new-message', {
+        senderId: socket.id,
+        senderName: user.name,
+        message: message.trim(),
+        timestamp: Date.now(),
+      });
+    });
+
+    // ── Broadcast media state changes (mic/camera) to all peers in the room
+    socket.on('media-state', ({ roomId, audio, video }) => {
+      socket.to(roomId).emit('peer-media-state', { socketId: socket.id, audio, video });
+    });
+
+    // ── Raised hand (classroom)
+    socket.on('raise-hand', ({ roomId }) => {
+      const room = rooms.get(roomId);
+      if (room) {
+        io.to(room.hostSocketId).emit('hand-raised', {
+          socketId: socket.id,
+          name: user.name,
+        });
+      }
+    });
+
+    // ── Screen share state
+    socket.on('screen-share-start', ({ roomId }) => {
+      socket.to(roomId).emit('screen-share-started', { socketId: socket.id });
+    });
+
+    socket.on('screen-share-stop', ({ roomId }) => {
+      socket.to(roomId).emit('screen-share-stopped', { socketId: socket.id });
+    });
+
     socket.on('disconnect', () => {
-      console.log(`[Socket.io] Client disconnected: ${socket.id}`);
+      console.log(`[Socket.io] Client disconnected: ${socket.id} (${user.name})`);
+      const su = socketUsers.get(socket.id);
+      if (su?.roomId) cleanupSocket(socket, su.roomId);
+      socketUsers.delete(socket.id);
     });
   });
 

@@ -27,6 +27,7 @@ const studentRequestRoutes = require('./requests');
 const quizRoutes = require('./quizzes');
 const classroomRecordingRoutes = require('./classroomRecordings');
 const messageRoutes = require('./messageRoutes');
+const livekitRoutes = require('./livekitRoutes');
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -54,6 +55,7 @@ router.use('/requests', studentRequestRoutes);
 router.use('/quizzes', quizRoutes);
 router.use('/recordings/classroom', classroomRecordingRoutes);
 router.use('/messages', messageRoutes);
+router.use('/livekit', livekitRoutes);
 
 module.exports = router;
 

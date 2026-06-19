@@ -326,7 +326,7 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
         await refreshClassroom();
         setForm({ title: "", description: "", scheduledAt: "", duration: 60 });
         setShowForm(false);
-        alert("Webex meeting scheduled successfully!");
+        alert("Live class scheduled successfully!");
       })
       .catch((err) => {
         console.error("Schedule Error:", err);
@@ -433,10 +433,10 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
                   )}
                   {m.status === "live" && (
                     <>
-                      <button onClick={() => window.open(m.webexLink, "_blank")}
+                      <Link to="/live/$roomId" params={{ roomId: m.roomId }}
                         className="rounded-full bg-red-500/20 text-red-300 px-4 py-2 text-xs font-bold flex items-center gap-1">
-                        <LuRadio className="h-3 w-3" /> Rejoin
-                      </button>
+                        <LuRadio className="h-3 w-3" /> Join Class
+                      </Link>
                       <button onClick={() => void handleEndMeeting(m.id)}
                         className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 text-xs">
                         End

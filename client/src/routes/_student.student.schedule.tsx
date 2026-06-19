@@ -95,7 +95,7 @@ function Schedule() {
                 </span>
                 {m.status === "live" && (
                   <a
-                    href={`/student/webex/${m.roomId}`}
+                    href={`/live/${m.roomId}`}
                     className="rounded-full bg-orange-500 text-white text-xs font-bold px-4 py-2 animate-pulse inline-flex"
                   >
                     Join Now

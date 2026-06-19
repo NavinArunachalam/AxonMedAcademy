@@ -19,6 +19,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as StudentRouteImport } from './routes/_student'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LiveRoomIdRouteImport } from './routes/live.$roomId'
 import { Route as StudentStudentScheduleRouteImport } from './routes/_student.student.schedule'
 import { Route as StudentStudentProfileRouteImport } from './routes/_student.student.profile'
 import { Route as StudentStudentMessagesRouteImport } from './routes/_student.student.messages'
@@ -93,6 +94,11 @@ const AdminRoute = AdminRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoomIdRoute = LiveRoomIdRouteImport.update({
+  id: '/live/$roomId',
+  path: '/live/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudentStudentScheduleRoute = StudentStudentScheduleRouteImport.update({
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/enroll': typeof EnrollRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
+  '/live/$roomId': typeof LiveRoomIdRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
   '/admin/courses': typeof AdminAdminCoursesRoute
   '/admin/dashboard': typeof AdminAdminDashboardRoute
@@ -285,6 +292,7 @@ export interface FileRoutesByTo {
   '/enroll': typeof EnrollRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
+  '/live/$roomId': typeof LiveRoomIdRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
   '/admin/courses': typeof AdminAdminCoursesRoute
   '/admin/dashboard': typeof AdminAdminDashboardRoute
@@ -325,6 +333,7 @@ export interface FileRoutesById {
   '/enroll': typeof EnrollRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
+  '/live/$roomId': typeof LiveRoomIdRoute
   '/_admin/admin/analytics': typeof AdminAdminAnalyticsRoute
   '/_admin/admin/courses': typeof AdminAdminCoursesRoute
   '/_admin/admin/dashboard': typeof AdminAdminDashboardRoute
@@ -364,6 +373,7 @@ export interface FileRouteTypes {
     | '/enroll'
     | '/login'
     | '/placements'
+    | '/live/$roomId'
     | '/admin/analytics'
     | '/admin/courses'
     | '/admin/dashboard'
@@ -401,6 +411,7 @@ export interface FileRouteTypes {
     | '/enroll'
     | '/login'
     | '/placements'
+    | '/live/$roomId'
     | '/admin/analytics'
     | '/admin/courses'
     | '/admin/dashboard'
@@ -440,6 +451,7 @@ export interface FileRouteTypes {
     | '/enroll'
     | '/login'
     | '/placements'
+    | '/live/$roomId'
     | '/_admin/admin/analytics'
     | '/_admin/admin/courses'
     | '/_admin/admin/dashboard'
@@ -480,6 +492,7 @@ export interface RootRouteChildren {
   EnrollRoute: typeof EnrollRoute
   LoginRoute: typeof LoginRoute
   PlacementsRoute: typeof PlacementsRoute
+  LiveRoomIdRoute: typeof LiveRoomIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -552,6 +565,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live/$roomId': {
+      id: '/live/$roomId'
+      path: '/live/$roomId'
+      fullPath: '/live/$roomId'
+      preLoaderRoute: typeof LiveRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_student/student/schedule': {
@@ -829,6 +849,7 @@ const rootRouteChildren: RootRouteChildren = {
   EnrollRoute: EnrollRoute,
   LoginRoute: LoginRoute,
   PlacementsRoute: PlacementsRoute,
+  LiveRoomIdRoute: LiveRoomIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

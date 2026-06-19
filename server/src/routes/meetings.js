@@ -401,22 +401,13 @@ router.post('/', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Classroom not found for meeting creation' });
     }
 
-    console.log(`[Meeting Create] Creating Webex meeting for classroom: ${classroomDoc.name} (${classroomDoc._id})`);
+    console.log(`[Meeting Create] Creating Virtual Classroom for classroom: ${classroomDoc.name} (${classroomDoc._id})`);
 
-    const uuid = crypto.randomUUID();
-    let webexData = null;
-    try {
-      const { createWebexMeeting } = require('../services/webexService');
-      webexData = await createWebexMeeting({
-        title,
-        start: scheduledAt,
-        duration: duration || 60
-      });
-      console.log('[Meeting Create] Webex meeting created:', webexData.id);
-    } catch (err) {
-      console.error('[Webex Create Error]', err.message);
-      return res.status(500).json({ success: false, message: 'Failed to create Webex meeting: ' + err.message });
-    }
+    const generateRoomId = () => {
+      const r = () => Math.floor(100 + Math.random() * 900);
+      return `${r()}-${r()}-${r()}`;
+    };
+    const roomCode = generateRoomId();
 
     const meeting = await LiveMeeting.create({
       classroom: classroomDoc._id,
@@ -425,11 +416,11 @@ router.post('/', async (req, res, next) => {
       scheduledAt: new Date(scheduledAt),
       duration: duration || 60,
       createdBy: req.user._id,
-      roomId: uuid,
-      meetingLink: `/portal/live/${uuid}/room`,
-      webexMeetingId: webexData.id,
-      webexLink: webexData.webLink,
-      webexPassword: webexData.password,
+      roomId: roomCode,
+      meetingLink: `/live/${roomCode}`,
+      webexMeetingId: roomCode,
+      webexLink: `/live/${roomCode}`,
+      webexPassword: '',
       notified: {
         whatsapp: !!sendWhatsApp,
         portal: !!sendPortalNotification,
@@ -453,13 +444,13 @@ router.post('/', async (req, res, next) => {
         recipient: studentId,
         type: 'live_session',
         title: `Join live class: ${title}`,
-        message: `${title} is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Join link: ${process.env.CLIENT_URL || 'http://localhost:8080'}/student/webex/${uuid}`,
+        message: `${title} is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Join link: ${process.env.CLIENT_URL || 'http://localhost:8080'}/live/${roomCode}`,
         priority: 'medium',
-        actionUrl: `/student/webex/${uuid}`,
+        actionUrl: `/live/${roomCode}`,
         metadata: {
           classroom: classroomDoc._id,
           meetingId: meeting._id,
-          roomId: uuid,
+          roomId: roomCode,
         }
       }));
       if (notifications.length > 0) {
@@ -513,16 +504,6 @@ router.delete('/:id', async (req, res, next) => {
 
     meeting.status = 'cancelled';
     await meeting.save();
-
-    // Delete from Webex if exists
-    if (meeting.webexMeetingId) {
-      try {
-        const { deleteWebexMeeting } = require('../services/webexService');
-        await deleteWebexMeeting(meeting.webexMeetingId);
-      } catch (err) {
-        console.error('[Webex Delete Error]', err.message);
-      }
-    }
 
     // Decrement totalLiveSessions classroom stats
     await Classroom.findByIdAndUpdate(meeting.classroom, {
