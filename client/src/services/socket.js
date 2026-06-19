@@ -17,9 +17,16 @@ export function connectSocket({ token, guestName } = {}) {
 
   socket = io(SOCKET_URL, {
     auth,
+    // Start with polling so mobile carrier proxies don't block the connection.
+    // Socket.IO will automatically upgrade to WebSocket once polling is stable.
+    transports: ['polling', 'websocket'],
+    upgrade: true,
+    // Longer timeouts for Render cold-starts and slow mobile networks
+    timeout: 20000,
     reconnection: true,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 10,
     reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
   });
 
   return socket;
