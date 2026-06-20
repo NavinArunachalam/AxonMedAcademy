@@ -242,29 +242,30 @@ export default function Meeting() {
           video={videoEnabled}
           screen={isScreenSharing}
           onDisconnected={handleEnd}
-          style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+          style={{ display: 'flex', minHeight: 0, overflow: 'hidden' }}
         >
-          <div className="meeting-main">
+          <div className="meeting-main" style={{ flex: 1, minHeight: 0 }}>
             <VideoGrid />
             {activePanel === 'chat' && <ChatPanel roomId={getRoomId()} />}
             {activePanel === 'participants' && <ParticipantsPanel localUser={user} roomId={getRoomId()} />}
             {activePanel === 'waiting' && isStaff && <WaitingPanel roomId={getRoomId()} />}
           </div>
-          <ControlBar
-            audioEnabled={audioEnabled}
-            videoEnabled={videoEnabled}
-            isScreenSharing={isScreenSharing}
-            onToggleAudio={() => setAudioEnabled(p => !p)}
-            onToggleVideo={() => setVideoEnabled(p => !p)}
-            onScreenShare={() => setIsScreenSharing(p => !p)}
-            onRaiseHand={() => getSocket()?.emit('raise-hand', { roomId: getRoomId() })}
-            onEnd={handleEnd}
-            isStaff={isStaff}
-          />
         </LiveKitRoom>
       ) : (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>Connecting Media...</div>
       )}
+
+      <ControlBar
+        audioEnabled={audioEnabled}
+        videoEnabled={videoEnabled}
+        isScreenSharing={isScreenSharing}
+        onToggleAudio={() => setAudioEnabled(p => !p)}
+        onToggleVideo={() => setVideoEnabled(p => !p)}
+        onScreenShare={() => setIsScreenSharing(p => !p)}
+        onRaiseHand={() => getSocket()?.emit('raise-hand', { roomId: getRoomId() })}
+        onEnd={handleEnd}
+        isStaff={isStaff}
+      />
 
       {/* ── Join Request Toasts (staff) ── */}
       <div style={{ position: 'fixed', top: '72px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 9999 }}>

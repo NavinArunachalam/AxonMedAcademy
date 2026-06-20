@@ -6,6 +6,17 @@ export const Route = createFileRoute("/_student/student/certificates")({
   component: Certificates,
 });
 
+const isSameOrigin = (url?: string) => {
+  if (!url) return false;
+  if (url.startsWith("/") || url.startsWith(".") || url.startsWith("data:")) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    return new URL(url).origin === window.location.origin;
+  } catch (e) {
+    return false;
+  }
+};
+
 function Certificates() {
   const { currentUser, classrooms } = useClassroomStore();
   const name = currentUser?.name || "Student Name";
@@ -66,7 +77,7 @@ has successfully completed all requirements, passing all assessments for the pro
                     href={c.certificateUrl}
                     target="_blank"
                     rel="noreferrer"
-                    download
+                    download={isSameOrigin(c.certificateUrl) ? "Certificate.pdf" : undefined}
                     className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-semibold hover:bg-lime/90 shadow-sm transition-colors">
                     <Download className="h-3.5 w-3.5" />
                     Download PDF

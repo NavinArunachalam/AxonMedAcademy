@@ -126,8 +126,8 @@ body.in-meeting {
 .meeting-layout {
   display: grid;
   grid-template-rows: var(--header-height) 1fr var(--bar-height);
-  height: 100dvh;          /* dynamic viewport height — critical on mobile browsers */
   height: 100vh;
+  height: 100dvh;          /* dynamic viewport height — critical on mobile browsers */
   background: #030108;
   overflow: hidden;
 }
@@ -390,7 +390,7 @@ body.in-meeting {
 /* ═══════════════════════════════════════════════════════════════════════════════
    RESPONSIVE — Mobile ≤ 640px
    ═══════════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 540px) {
   .in-meeting {
     --header-height: 48px;
     /* Add ~20px to account for iOS home indicator / Android gesture bar */
@@ -400,8 +400,6 @@ body.in-meeting {
   /* ── Meeting grid shrinks control bar to fit content ── */
   .meeting-layout {
     grid-template-rows: var(--header-height) 1fr var(--bar-height);
-    /* Account for bottom safe area so video doesn't hide behind home indicator */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* ── Header: strip out paddings, force single line ── */
@@ -434,6 +432,7 @@ body.in-meeting {
     gap: 5px;
     /* Show scrollbar on mobile so user knows it scrolls */
     scrollbar-width: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .control-bar-inner::-webkit-scrollbar { display: block; height: 3px; }
   .control-bar-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
