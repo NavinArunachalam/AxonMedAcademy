@@ -142,6 +142,7 @@ export interface EnrolledStudent {
   quizAvg: number;
   status: "active" | "held" | "removed" | "placed" | "at risk";
   addedAt: string;
+  certificateUrl?: string;
 }
 
 export interface Classroom {
@@ -152,6 +153,7 @@ export interface Classroom {
   status: "active" | "archived" | "draft";
   maxStudents: number;
   program: string;
+  certificateUrl?: string;
   createdAt: string;
   students: EnrolledStudent[];
   announcements: Announcement[];
@@ -718,25 +720,32 @@ export function getGrade(percent: number): string {
 }
 
 export function computeCertificates(classrooms: Classroom[], userId: string) {
-  const certs: { classroomId: string; classroomName: string; program: string; earnedAt: string }[] = [];
+  const certs: { classroomId: string; classroomName: string; program: string; earnedAt: string; certificateUrl?: string }[] = [];
   const enrolledClassrooms = classrooms.filter(c => c.students.some(s => s.id === userId && s.status === "active"));
   for (const cls of enrolledClassrooms) {
+    const studentRecord = cls.students.find(s => s.id === userId);
+    const certUrl = studentRecord?.certificateUrl || cls.certificateUrl;
+
+    // Only skip if there are published quizzes AND student hasn't passed them AND no certificate URL
     const publishedQuizzes = cls.quizzes.filter(q => q.status === "published");
-    if (publishedQuizzes.length === 0) continue;
-    const allPassed = publishedQuizzes.every(q =>
-      q.attempts.some(a => a.studentId === userId && a.status === "submitted" && a.score.passed)
-    );
-    if (allPassed) {
-      const lastAttempt = publishedQuizzes
-        .flatMap(q => q.attempts.filter(a => a.studentId === userId && a.score.passed))
-        .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime())[0];
-      certs.push({
-        classroomId: cls.id,
-        classroomName: cls.name,
-        program: cls.program,
-        earnedAt: lastAttempt?.submittedAt || cls.createdAt,
-      });
+    if (publishedQuizzes.length > 0 && !certUrl) {
+      const allPassed = publishedQuizzes.every(q =>
+        q.attempts.some(a => a.studentId === userId && a.status === "submitted" && a.score.passed)
+      );
+      if (!allPassed) continue;
     }
+
+    const lastAttempt = publishedQuizzes
+      .flatMap(q => q.attempts.filter(a => a.studentId === userId && a.score.passed))
+      .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime())[0];
+
+    certs.push({
+      classroomId: cls.id,
+      classroomName: cls.name,
+      program: cls.program,
+      earnedAt: lastAttempt?.submittedAt || cls.createdAt,
+      certificateUrl: certUrl,
+    });
   }
   return certs;
 }

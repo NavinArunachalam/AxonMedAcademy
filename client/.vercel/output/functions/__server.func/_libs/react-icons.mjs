@@ -128,6 +128,9 @@ function LuTrash2(props) {
 function LuSend(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" }, "child": [] }, { "tag": "path", "attr": { "d": "m21.854 2.147-10.94 10.939" }, "child": [] }] })(props);
 }
+function LuSearch(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "circle", "attr": { "cx": "11", "cy": "11", "r": "8" }, "child": [] }, { "tag": "path", "attr": { "d": "m21 21-4.3-4.3" }, "child": [] }] })(props);
+}
 function LuRadio(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "M4.9 19.1C1 15.2 1 8.8 4.9 4.9" }, "child": [] }, { "tag": "path", "attr": { "d": "M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" }, "child": [] }, { "tag": "circle", "attr": { "cx": "12", "cy": "12", "r": "2" }, "child": [] }, { "tag": "path", "attr": { "d": "M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" }, "child": [] }, { "tag": "path", "attr": { "d": "M19.1 4.9C23 8.8 23 15.1 19.1 19" }, "child": [] }] })(props);
 }
@@ -173,30 +176,35 @@ function LuCalendar(props) {
 function LuBookOpen(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "M12 7v14" }, "child": [] }, { "tag": "path", "attr": { "d": "M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" }, "child": [] }] })(props);
 }
+function LuAward(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526" }, "child": [] }, { "tag": "circle", "attr": { "cx": "12", "cy": "8", "r": "6" }, "child": [] }] })(props);
+}
 function LuArrowLeft(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "m12 19-7-7 7-7" }, "child": [] }, { "tag": "path", "attr": { "d": "M19 12H5" }, "child": [] }] })(props);
 }
 export {
   LuArrowLeft as L,
-  LuBookOpen as a,
-  LuCalendar as b,
-  LuCheck as c,
-  LuCircleDot as d,
-  LuClipboardList as e,
-  LuClock as f,
-  LuCopy as g,
-  LuDownload as h,
-  LuEye as i,
-  LuEyeOff as j,
-  LuLink as k,
-  LuMegaphone as l,
-  LuPlay as m,
-  LuPlus as n,
-  LuRadio as o,
-  LuSend as p,
-  LuTrash2 as q,
-  LuUpload as r,
-  LuUsers as s,
-  LuVideo as t,
-  LuX as u
+  LuAward as a,
+  LuBookOpen as b,
+  LuCalendar as c,
+  LuCheck as d,
+  LuCircleDot as e,
+  LuClipboardList as f,
+  LuClock as g,
+  LuCopy as h,
+  LuDownload as i,
+  LuEye as j,
+  LuEyeOff as k,
+  LuLink as l,
+  LuMegaphone as m,
+  LuPlay as n,
+  LuPlus as o,
+  LuRadio as p,
+  LuSearch as q,
+  LuSend as r,
+  LuTrash2 as s,
+  LuUpload as t,
+  LuUsers as u,
+  LuVideo as v,
+  LuX as w
 };

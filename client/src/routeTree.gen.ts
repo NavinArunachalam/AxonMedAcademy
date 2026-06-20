@@ -36,6 +36,7 @@ import { Route as AdminAdminFacultyRouteImport } from './routes/_admin.admin.fac
 import { Route as AdminAdminExamsRouteImport } from './routes/_admin.admin.exams'
 import { Route as AdminAdminDashboardRouteImport } from './routes/_admin.admin.dashboard'
 import { Route as AdminAdminCoursesRouteImport } from './routes/_admin.admin.courses'
+import { Route as AdminAdminCertificatesRouteImport } from './routes/_admin.admin.certificates'
 import { Route as AdminAdminAnalyticsRouteImport } from './routes/_admin.admin.analytics'
 import { Route as StudentStudentMyCoursesIndexRouteImport } from './routes/_student.student.my-courses.index'
 import { Route as StudentStudentClassroomsIndexRouteImport } from './routes/_student.student.classrooms.index'
@@ -182,6 +183,11 @@ const AdminAdminCoursesRoute = AdminAdminCoursesRouteImport.update({
   path: '/admin/courses',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAdminCertificatesRoute = AdminAdminCertificatesRouteImport.update({
+  id: '/admin/certificates',
+  path: '/admin/certificates',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAdminAnalyticsRoute = AdminAdminAnalyticsRouteImport.update({
   id: '/admin/analytics',
   path: '/admin/analytics',
@@ -256,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/placements': typeof PlacementsRoute
   '/live/$roomId': typeof LiveRoomIdRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
+  '/admin/certificates': typeof AdminAdminCertificatesRoute
   '/admin/courses': typeof AdminAdminCoursesRoute
   '/admin/dashboard': typeof AdminAdminDashboardRoute
   '/admin/exams': typeof AdminAdminExamsRoute
@@ -294,6 +301,7 @@ export interface FileRoutesByTo {
   '/placements': typeof PlacementsRoute
   '/live/$roomId': typeof LiveRoomIdRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
+  '/admin/certificates': typeof AdminAdminCertificatesRoute
   '/admin/courses': typeof AdminAdminCoursesRoute
   '/admin/dashboard': typeof AdminAdminDashboardRoute
   '/admin/exams': typeof AdminAdminExamsRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/placements': typeof PlacementsRoute
   '/live/$roomId': typeof LiveRoomIdRoute
   '/_admin/admin/analytics': typeof AdminAdminAnalyticsRoute
+  '/_admin/admin/certificates': typeof AdminAdminCertificatesRoute
   '/_admin/admin/courses': typeof AdminAdminCoursesRoute
   '/_admin/admin/dashboard': typeof AdminAdminDashboardRoute
   '/_admin/admin/exams': typeof AdminAdminExamsRoute
@@ -375,6 +384,7 @@ export interface FileRouteTypes {
     | '/placements'
     | '/live/$roomId'
     | '/admin/analytics'
+    | '/admin/certificates'
     | '/admin/courses'
     | '/admin/dashboard'
     | '/admin/exams'
@@ -413,6 +423,7 @@ export interface FileRouteTypes {
     | '/placements'
     | '/live/$roomId'
     | '/admin/analytics'
+    | '/admin/certificates'
     | '/admin/courses'
     | '/admin/dashboard'
     | '/admin/exams'
@@ -453,6 +464,7 @@ export interface FileRouteTypes {
     | '/placements'
     | '/live/$roomId'
     | '/_admin/admin/analytics'
+    | '/_admin/admin/certificates'
     | '/_admin/admin/courses'
     | '/_admin/admin/dashboard'
     | '/_admin/admin/exams'
@@ -686,6 +698,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminCoursesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/admin/certificates': {
+      id: '/_admin/admin/certificates'
+      path: '/admin/certificates'
+      fullPath: '/admin/certificates'
+      preLoaderRoute: typeof AdminAdminCertificatesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/admin/analytics': {
       id: '/_admin/admin/analytics'
       path: '/admin/analytics'
@@ -768,6 +787,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminAdminAnalyticsRoute: typeof AdminAdminAnalyticsRoute
+  AdminAdminCertificatesRoute: typeof AdminAdminCertificatesRoute
   AdminAdminCoursesRoute: typeof AdminAdminCoursesRoute
   AdminAdminDashboardRoute: typeof AdminAdminDashboardRoute
   AdminAdminExamsRoute: typeof AdminAdminExamsRoute
@@ -786,6 +806,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminAnalyticsRoute: AdminAdminAnalyticsRoute,
+  AdminAdminCertificatesRoute: AdminAdminCertificatesRoute,
   AdminAdminCoursesRoute: AdminAdminCoursesRoute,
   AdminAdminDashboardRoute: AdminAdminDashboardRoute,
   AdminAdminExamsRoute: AdminAdminExamsRoute,

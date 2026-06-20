@@ -127,6 +127,7 @@ function normalizeBackendClassroom(raw: any) {
             quizAvg: metrics.quizAvg,
             status: s.status || 'active',
             addedAt: s.addedAt ? new Date(s.addedAt).toISOString() : new Date().toISOString(),
+            certificateUrl: s.certificateUrl || undefined,
           };
         })()
       }))
@@ -899,6 +900,14 @@ export async function updateClassroomStudentStatus(classroomId: string, studentI
   const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/students/${encodeURIComponent(studentId)}/status`, {
     method: 'PUT',
     body: JSON.stringify({ status }),
+  });
+  return payload;
+}
+
+export async function updateStudentCertificate(classroomId: string, studentId: string, certificateUrl: string) {
+  const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/students/${encodeURIComponent(studentId)}/certificate`, {
+    method: 'PUT',
+    body: JSON.stringify({ certificateUrl }),
   });
   return payload;
 }

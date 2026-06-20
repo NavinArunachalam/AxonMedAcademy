@@ -11,7 +11,8 @@ const classroomSchema = new mongoose.Schema({
   students: [{
     student:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     addedAt:    { type: Date, default: Date.now },
-    status:     { type: String, enum: ['active','removed','held'], default: 'active' }
+    status:     { type: String, enum: ['active','removed','held'], default: 'active' },
+    certificateUrl: { type: String }
   }],
   instructors:  [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   status:       { type: String, enum: ['active','archived','draft'], default: 'active' },
@@ -22,6 +23,7 @@ const classroomSchema = new mongoose.Schema({
     allowStudentChat:     { type: Boolean, default: true },
     notifyOnUpload:       { type: Boolean, default: true }
   },
+  certificateUrl: { type: String },
   stats: {
     totalLiveSessions:   { type: Number, default: 0 },
     totalRecordings:     { type: Number, default: 0 },

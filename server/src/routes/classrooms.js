@@ -794,6 +794,29 @@ router.post('/:id/announcements', async (req, res, next) => {
   }
 });
 
+// PUT /:id/students/:studentId/certificate → Admin: upload certificate link for a student
+router.put('/:id/students/:studentId/certificate', protect, async (req, res, next) => {
+  try {
+    const { certificateUrl } = req.body;
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    const studentRecord = classroom.students.find(s => s.student.toString() === req.params.studentId);
+    if (!studentRecord) {
+      return res.status(404).json({ success: false, message: 'Student not found in this classroom' });
+    }
+
+    studentRecord.certificateUrl = certificateUrl || undefined;
+    await classroom.save();
+
+    res.json({ success: true, message: 'Certificate link updated', classroom });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // DELETE /:id/announcements/:annoId → Admin: delete announcement
 router.delete('/:id/announcements/:annoId', async (req, res, next) => {
   try {

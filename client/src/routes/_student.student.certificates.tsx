@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Award, Download, Share2, ShieldCheck, Lock } from "lucide-react";
+import { Award, Download, Eye, ShieldCheck, Lock, ExternalLink } from "lucide-react";
 import { useClassroomStore, computeCertificates } from "@/lib/classroomStore";
 
 export const Route = createFileRoute("/_student/student/certificates")({
@@ -17,11 +17,6 @@ function Certificates() {
   // Get enrolled classrooms that are NOT completed yet
   const enrolledClassrooms = classrooms.filter(c => c.students.some(s => s.id === studentId && s.status === "active"));
   const inProgress = enrolledClassrooms.filter(c => !certs.some(cert => cert.classroomId === c.id));
-  
-  const handlePrint = (e: React.MouseEvent) => {
-    e.preventDefault();
-    window.print();
-  };
 
   return (
     <div className="space-y-6">
@@ -43,14 +38,14 @@ function Certificates() {
             <div className="relative aspect-[4/3] bg-gradient-to-br from-plum-dark to-plum p-6 text-cream">
               <div className="absolute inset-0 bg-grid opacity-15" />
               <div className="absolute top-4 right-4 grid h-10 w-10 place-items-center rounded-full bg-lime text-plum-dark shadow-lg">
-                <Award className="h-5 w-5" />
+                <Award className="h-5 w-5"/>
               </div>
               <div className="relative h-full flex flex-col pt-4">
                 <div className="text-[10px] uppercase tracking-widest text-lime font-bold">Certificate of Completion</div>
                 <div className="mt-8 text-cream/70 text-xs">This is to certify that</div>
                 <div className="font-display text-3xl font-bold mt-1 text-lime">{name}</div>
                 <div className="mt-4 text-cream/80 text-xs leading-relaxed max-w-[85%]">
-                  has successfully completed all requirements, passing all assessments for the program:
+has successfully completed all requirements, passing all assessments for the program:
                 </div>
                 <div className="mt-auto pb-2">
                   <div className="font-display text-2xl font-bold leading-tight">{c.program}</div>
@@ -62,19 +57,32 @@ function Certificates() {
                 </div>
               </div>
             </div>
-            <div className="p-4 flex items-center justify-between bg-slate-50 border-t border-border">
-              <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full">
-                <ShieldCheck className="h-3.5 w-3.5" /> Verified
+
+            {/* PDF Preview and Actions */}
+            {c.certificateUrl && (
+              <div className="border-t border-border bg-slate-50 p-4">
+                <div className="flex items-center gap-2 mt-3">
+                  <a
+                    href={c.certificateUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-semibold hover:bg-lime/90 shadow-sm transition-colors">
+                    <Download className="h-3.5 w-3.5" />
+                    Download PDF
+                  </a>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button className="grid h-9 w-9 place-items-center rounded-full border border-border bg-white text-plum-dark hover:bg-slate-100 transition-colors">
-                  <Share2 className="h-4 w-4" />
-                </button>
-                <button onClick={handlePrint} className="inline-flex items-center gap-2 rounded-full bg-plum-dark text-cream px-4 py-2 text-xs font-semibold hover:bg-plum shadow-sm transition-colors">
-                  <Download className="h-3.5 w-3.5" /> Save PDF
-                </button>
+            )}
+
+            {!c.certificateUrl && (
+              <div className="p-4 flex items-center justify-between bg-slate-50 border-t border-border">
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Verified
+                </div>
+                <div className="text-xs text-muted-foreground">No certificate file uploaded yet</div>
               </div>
-            </div>
+            )}
           </div>
         ))}
 

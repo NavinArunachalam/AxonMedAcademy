@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
-  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink, LuAward
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
