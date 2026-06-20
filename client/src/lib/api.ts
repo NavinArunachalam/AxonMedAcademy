@@ -93,12 +93,11 @@ function normalizeBackendClassroom(raw: any) {
       ? Math.round((new Set(submittedAttempts.map((att: any) => String(att.quiz?._id || att.quiz))).size / publishedQuizzes.length) * 100)
       : 0;
 
-    const progressParts = [];
-    if (publishedRecordings.length) progressParts.push(recordingProgress);
-    if (publishedQuizzes.length) progressParts.push(quizProgress);
-    const progress = progressParts.length
-      ? Math.round(progressParts.reduce((sum, pct) => sum + pct, 0) / progressParts.length)
-      : 0;
+    const progress = Math.round(
+      (attendance * 0.3) +
+      (recordingProgress * 0.4) +
+      (quizProgress * 0.3)
+    );
 
     return { attendance, quizAvg, progress };
   };
@@ -143,7 +142,7 @@ function normalizeBackendClassroom(raw: any) {
         scheduledAt: m.scheduledAt || new Date().toISOString(),
         duration: m.duration || 60,
         status: normalizeMeetingStatus(m.status),
-        attendees: Array.isArray(m.attendees) ? m.attendees.map((a: any) => String(a.student || a)) : [],
+        attendees: Array.isArray(m.attendees) ? m.attendees.map((a: any) => String(a.student?._id || a.student || a)) : [],
         roomId: m.roomId || '',
         webexLink: m.webexLink || '',
         webexPassword: m.webexPassword || '',
@@ -593,7 +592,7 @@ export async function uploadClassroomFileToCloudinary({
   return new Promise<string>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_BASE}/classrooms/upload-asset`);
-    
+
     if (accessToken) {
       xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
     }
@@ -1072,7 +1071,7 @@ export interface ProgramCourse {
 function normalizeBackendProgram(raw: any): ProgramCourse {
   const status: ProgramCourse['status'] =
     raw.status === 'archived' ? 'archived' :
-    (raw.isPublished || raw.status === 'published') ? 'published' : 'draft';
+      (raw.isPublished || raw.status === 'published') ? 'published' : 'draft';
   return {
     id: String(raw._id || raw.id),
     title: raw.title || '',
@@ -1234,7 +1233,7 @@ export const api = {
       ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       ...getDevAuthUserHeaders(),
     };
-    
+
     const response = await fetch(`${API_BASE}${path}`, {
       method,
       credentials: 'include',
@@ -1290,12 +1289,12 @@ export async function getClassAttendance(classId: string, date?: string, subject
   return fetchJson(`/attendance/class/${encodeURIComponent(classId)}${query}`);
 }
 
-export async function saveAttendance(data: { 
-  classId: string; 
-  date: string; 
-  subject?: string; 
+export async function saveAttendance(data: {
+  classId: string;
+  date: string;
+  subject?: string;
   meetingId?: string;
-  records: Array<{ studentId: string; status: string }> 
+  records: Array<{ studentId: string; status: string }>
 }) {
   return fetchJson('/attendance', {
     method: 'POST',

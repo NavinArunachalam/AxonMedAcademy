@@ -44,7 +44,8 @@ const resolveClassroom = async (classroomIdentifier) => {
 };
 
 const verifyMeetingAccess = async (meeting, user) => {
-  const classroom = await Classroom.findById(meeting.classroom);
+  const classroomId = meeting.classroom && meeting.classroom._id ? meeting.classroom._id : meeting.classroom;
+  const classroom = await Classroom.findById(classroomId);
   const isAdmin = ['admin', 'superadmin'].includes(user.role);
   const isEnrolled = classroom
     ? classroom.students.some(s => s.student.toString() === user._id.toString() && s.status === 'active')
@@ -91,8 +92,11 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
 
     // Verify enrollment
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isInstructor = classroom.instructors && Array.isArray(classroom.instructors)
+      ? classroom.instructors.some(inst => inst.toString() === req.user._id.toString())
+      : false;
     const isEnrolled = classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active');
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isInstructor && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
     }
 
@@ -144,7 +148,7 @@ router.get('/room/:roomId', protect, async (req, res, next) => {
     const classroom = meeting.classroom;
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
     const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
-    
+
     if (!isAdmin && !isEnrolled) {
       console.warn(`[Meeting Access Denied] User: ${req.user._id} (${req.user.role}) for Room: ${req.params.roomId}`);
       return res.status(403).json({ success: false, message: 'You are not authorized to view this meeting room. Please ensure you are enrolled in the classroom.' });
@@ -168,7 +172,7 @@ router.post('/room/:roomId/join', protect, async (req, res, next) => {
     const classroom = meeting.classroom;
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
     const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
-    
+
     if (!isAdmin && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not authorized to join this meeting room. Please ensure you are enrolled in the classroom.' });
     }
@@ -292,11 +296,14 @@ router.get('/:id', protect, async (req, res, next) => {
     }
 
     // Auth check
-    const classroom = await Classroom.findById(meeting.classroom);
+    const classroom = await Classroom.findById(meeting.classroom?._id || meeting.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isInstructor = classroom && Array.isArray(classroom.instructors)
+      ? classroom.instructors.some(inst => inst.toString() === req.user._id.toString())
+      : false;
     const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
 
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isInstructor && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not authorized to view this meeting' });
     }
 
@@ -315,11 +322,14 @@ router.post('/:id/join', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
-    const classroom = await Classroom.findById(meeting.classroom);
+    const classroom = await Classroom.findById(meeting.classroom?._id || meeting.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isInstructor = classroom && Array.isArray(classroom.instructors)
+      ? classroom.instructors.some(inst => inst.toString() === req.user._id.toString())
+      : false;
     const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
 
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isInstructor && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not authorized to join this meeting room' });
     }
 

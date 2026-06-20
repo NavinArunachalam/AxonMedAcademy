@@ -5,7 +5,7 @@ import { store } from '@/store';
 import { useClassroomStore } from '@/lib/classroomStore';
 import { playJoinSound, playHandSound } from '@/utils/sounds';
 import { connectSocket, getSocket, disconnectSocket } from '@/services/socket';
-import { api } from '@/lib/api';
+import { api, joinMeetingByRoomId, heartbeatMeetingByRoomId, leaveMeetingByRoomId } from '@/lib/api';
 import '@livekit/components-styles';
 import '../index.css';
 import {
@@ -64,6 +64,42 @@ function LiveClassroomRoom() {
   const [liveRoomId, setLiveRoomId] = useState<string | null>(routeRoomId);
   const roomIdRef = useRef<string | null>(routeRoomId);
   const [lkToken, setLkToken] = useState<string | null>(null);
+
+  // REST API calls to track attendance in MongoDB
+  useEffect(() => {
+    if (status !== 'live' || !liveRoomId || liveRoomId === 'new') return;
+
+    if (user?.role === 'student') {
+      const joinMeeting = async () => {
+        try {
+          await joinMeetingByRoomId(liveRoomId);
+        } catch (err) {
+          console.error('Failed to log meeting join in DB:', err);
+        }
+      };
+      void joinMeeting();
+
+      const heartbeatInterval = setInterval(async () => {
+        try {
+          await heartbeatMeetingByRoomId(liveRoomId);
+        } catch (err) {
+          console.error('Failed to send meeting heartbeat to DB:', err);
+        }
+      }, 30000);
+
+      return () => {
+        clearInterval(heartbeatInterval);
+        const leaveMeeting = async () => {
+          try {
+            await leaveMeetingByRoomId(liveRoomId);
+          } catch (err) {
+            console.error('Failed to log meeting leave in DB:', err);
+          }
+        };
+        void leaveMeeting();
+      };
+    }
+  }, [status, liveRoomId, user?.role]);
 
   // Media state — visual state kept in React; actual LiveKit calls go via lkActionsRef
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -358,12 +394,12 @@ function LiveClassroomRoom() {
         {joinRequests.map(req => (
           <div key={req.id} className="request-popup animate-in">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '36px', height: '36px',borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#E879F9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: '#fff' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#E879F9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', color: '#fff' }}>
                 {req.name.charAt(0).toUpperCase()}
               </div>
               <div><p style={{ color: '#fff', fontWeight: '700', fontSize: '14px', margin: 0 }}>{req.name}</p></div>
             </div>
-            <div style={{ display:'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => admitFromToast(req)} style={{ flex: 1, background: 'var(--green)', border: 'none', borderRadius: '8px', padding: '9px', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>✓ Admit</button>
               <button onClick={() => rejectFromToast(req)} style={{ flex: 1, background: 'rgba(255,74,106,0.15)', border: '1px solid rgba(255,74,106,0.35)', borderRadius: '8px', padding: '9px', color: 'var(--red)', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>✗ Deny</button>
               <button onClick={() => dismissRequest(req.id)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-light)', borderRadius: '8px', width: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)' }}>X</button>
@@ -417,7 +453,7 @@ function _MediaControllerSync({
         onToggleScreen(next);
       },
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localParticipant]);
 
   return null; // renders nothing — ControlBar lives in row 3 of the grid

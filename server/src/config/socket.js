@@ -32,6 +32,42 @@ function cleanupSocket(socket, roomId) {
   if (room.hostSocketId === socket.id) {
     io.to(roomId).emit('meeting-ended');
     rooms.delete(roomId);
+
+    // Update MongoDB status to ended
+    const LiveMeeting = require('../models/LiveMeeting');
+    const Attendance = require('../models/Attendance');
+    LiveMeeting.findOne({ roomId }).then(async meeting => {
+      if (meeting) {
+        meeting.status = 'ended';
+        meeting.endedAt = new Date();
+        for (const attendee of meeting.attendees) {
+          if (!attendee.leftAt) {
+            attendee.leftAt = meeting.endedAt;
+            const diffMs = attendee.leftAt - attendee.joinedAt;
+            attendee.duration = Math.max(0, Math.round(diffMs / 60000));
+          }
+          const scheduledDate = meeting.scheduledAt || attendee.joinedAt || new Date();
+          await Attendance.findOneAndUpdate(
+            { meeting: meeting._id, student: attendee.student },
+            {
+              $set: {
+                classroom: meeting.classroom,
+                date: scheduledDate,
+                status: attendee.duration >= 1 ? 'present' : 'late',
+                markedBy: 'auto',
+                joinedAt: attendee.joinedAt,
+                leftAt: attendee.leftAt,
+                duration: attendee.duration
+              }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+        }
+        return meeting.save();
+      }
+    }).catch(err => {
+      console.error('[Socket cleanupSocket Error] Could not update meeting status to ended:', err.message);
+    });
   }
 }
 
@@ -45,9 +81,9 @@ function buildAllowedOrigins() {
 
   if (process.env.NODE_ENV !== 'production') {
     ['http://localhost:3000', 'http://localhost:5173',
-     'http://localhost:8080', 'http://localhost:8081'].forEach(o => {
-      if (!origins.includes(o)) origins.push(o);
-    });
+      'http://localhost:8080', 'http://localhost:8081'].forEach(o => {
+        if (!origins.includes(o)) origins.push(o);
+      });
   }
   return origins;
 }
@@ -63,7 +99,7 @@ function socketCorsOrigin(origin, callback) {
 
   // Allow all *.vercel.app preview and production deployments
   if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin) ||
-      /^https:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+\.vercel\.app$/.test(origin)) {
+    /^https:\/\/[a-zA-Z0-9-]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+\.vercel\.app$/.test(origin)) {
     return callback(null, true);
   }
 
@@ -324,10 +360,46 @@ const initSocket = (server) => {
     socket.on('leave-room', ({ roomId }) => cleanupSocket(socket, roomId));
 
     // ── Staff ends meeting
-    socket.on('end-meeting', ({ roomId }) => {
+    socket.on('end-meeting', async ({ roomId }) => {
       if (user.role !== 'staff') return;
       io.to(roomId).emit('meeting-ended');
       rooms.delete(roomId);
+
+      try {
+        const LiveMeeting = require('../models/LiveMeeting');
+        const Attendance = require('../models/Attendance');
+        const meeting = await LiveMeeting.findOne({ roomId });
+        if (meeting) {
+          meeting.status = 'ended';
+          meeting.endedAt = new Date();
+          for (const attendee of meeting.attendees) {
+            if (!attendee.leftAt) {
+              attendee.leftAt = meeting.endedAt;
+              const diffMs = attendee.leftAt - attendee.joinedAt;
+              attendee.duration = Math.max(0, Math.round(diffMs / 60000));
+            }
+            const scheduledDate = meeting.scheduledAt || attendee.joinedAt || new Date();
+            await Attendance.findOneAndUpdate(
+              { meeting: meeting._id, student: attendee.student },
+              {
+                $set: {
+                  classroom: meeting.classroom,
+                  date: scheduledDate,
+                  status: attendee.duration >= 1 ? 'present' : 'late',
+                  markedBy: 'auto',
+                  joinedAt: attendee.joinedAt,
+                  leftAt: attendee.leftAt,
+                  duration: attendee.duration
+                }
+              },
+              { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+          }
+          await meeting.save();
+        }
+      } catch (err) {
+        console.error('[Socket end-meeting Error] Could not update meeting status to ended:', err.message);
+      }
     });
 
     // ── Classroom Chat messages
