@@ -711,9 +711,9 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                   <button
                     onClick={() => startQuiz(q)}
                     disabled={!canAttempt}
-                    className={`rounded-full px-5 py-2.5 text-sm font-bold ${canAttempt ? "bg-plum-dark text-cream hover:bg-plum" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
+                    className={`rounded-full px-2 py-2.5 text-sm font-bold ${canAttempt ? "bg-plum-dark text-cream hover:bg-plum" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
                   >
-                    {!canAttempt ? "Max attempts reached" : myAttempts.length > 0 ? "Retry" : "Start Quiz"}
+                    {!canAttempt ? "Completed" : myAttempts.length > 0 ? "Retry" : "Start Quiz"}
                   </button>
                 </div>
               </div>

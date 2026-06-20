@@ -131,13 +131,13 @@ function Dashboard() {
               </Link>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 lg:w-95">
+          <div className="grid grid-cols-3 gap-2 lg:w-100">
             {[
               { k: "Hours", v: totalHoursWatched.toString() },
               { k: "Exams Done", v: totalSubmissions.toString() },
-              { k: "Classrooms", v: activeCoursesCount.toString() },
+              { k: "Class rooms", v: activeCoursesCount.toString() },
             ].map((s) => (
-              <div key={s.k} className="rounded-2xl bg-cream/10 border border-cream/10 p-4 text-center">
+              <div key={s.k} className="rounded-2xl bg-cream/10 border border-cream/10 p-3 text-center">
                 <div className="font-display text-2xl font-bold text-lime">{s.v}</div>
                 <div className="text-[11px] uppercase tracking-widest mt-1 text-cream/70">{s.k}</div>
               </div>
@@ -169,26 +169,26 @@ function Dashboard() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Continue */}
-        <Card className="lg:col-span-2">
+        <Card className="sm:col-span-2 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h3 className="font-display text-lg font-bold text-plum-dark">Continue learning</h3>
+            <h3 className="font-display text-base sm:text-lg font-bold text-plum-dark">Continue learning</h3>
             <Link to="/student/my-courses" className="text-xs font-medium text-plum hover:text-plum-dark inline-flex items-center gap-1">
               All courses <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
             {enrolledClassrooms.map((c) => {
               const enrolledStudentDetails = c.students.find(s => s.id === studentId);
               const progress = enrolledStudentDetails ? enrolledStudentDetails.progress : 0;
               return (
-              <div key={c.id} className="flex items-center gap-4 rounded-2xl border border-border p-4 hover:border-plum/40 transition-colors">
-                <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-plum-dark shrink-0">
-                  <PlayCircle className="h-6 w-6" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-plum-dark truncate">{c.name}</div>
-                  <div className="text-xs text-muted-foreground">{c.program}</div>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                <div key={c.id} className="flex items-center gap-3 sm:gap-4 rounded-2xl border border-border p-3 sm:p-4 hover:border-plum/40 transition-colors">
+                  <div className="grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-xl bg-secondary text-plum-dark shrink-0">
+                    <PlayCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-plum-dark truncate">{c.name}</div>
+                    <div className="text-xs text-muted-foreground">{c.program}</div>
+                    <div className="mt-1.5 h-1.5 w-full rounded-full bg-secondary overflow-hidden">
                     <div className="h-full bg-plum-dark rounded-full" style={{ width: `${progress}%` }} />
                   </div>
                 </div>
@@ -203,11 +203,11 @@ function Dashboard() {
         <Card>
           <div className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-orange-500" />
-            <h3 className="font-display text-lg font-bold text-plum-dark">Streak</h3>
+            <h3 className="font-display text-base sm:text-lg font-bold text-plum-dark">Streak</h3>
           </div>
-          <div className="mt-3 font-display text-5xl font-bold text-plum-dark">14<span className="text-base font-medium text-muted-foreground"> days</span></div>
+          <div className="mt-2 sm:mt-3 font-display text-4xl sm:text-5xl font-bold text-plum-dark">14<span className="text-sm sm:text-base font-medium text-muted-foreground"> days</span></div>
           <p className="mt-1 text-xs text-muted-foreground">Best: 21 days · Keep it up!</p>
-          <div className="mt-4 grid grid-cols-7 gap-1.5">
+          <div className="mt-3 sm:mt-4 grid grid-cols-7 gap-1">
             {Array.from({ length: 28 }).map((_, i) => (
               <div
                 key={i}
@@ -226,61 +226,45 @@ function Dashboard() {
       </div>
 
       {/* Upcoming + Announcements */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <h3 className="font-display text-lg font-bold text-plum-dark">Upcoming Classes</h3>
-          <ul className="mt-4 space-y-3">
-            {upcomingEvents.map((e) => (
-              <li key={e.id} className="flex items-center gap-4 rounded-xl border border-border p-3">
-                <div className="text-center w-14 shrink-0">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{new Date(e.scheduledAt).toLocaleDateString("en-IN", { weekday: "short" })}</div>
-                  <div className="font-display font-bold text-plum-dark text-sm">{new Date(e.scheduledAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</div>
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
+        <Card className="sm:col-span-2 lg:col-span-1">
+          <h3 className="font-display text-base sm:text-lg font-bold text-plum-dark">Live Sessions</h3>
+          <ul className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
+            {upcomingEvents.length > 0 ? upcomingEvents.map((e) => (
+              <li key={e.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+                <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${e.status === 'live' ? 'bg-red-100 text-red-600' : 'bg-secondary text-plum-dark'}`}>
+                  {e.status === 'live' ? <Radio className="h-4 w-4 animate-pulse" /> : <Clock className="h-4 w-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-plum-dark truncate">{e.title}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-semibold text-plum-dark truncate">{e.title}</div>
+                    {e.status === 'live' && <span className="text-[10px] font-bold uppercase tracking-widest text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LIVE</span>}
+                  </div>
                   <div className="text-xs text-muted-foreground truncate">{e.classroomName}</div>
-                </div>
-                <a 
-                  href={`/live/${e.roomId}`}
-                  className={`text-xs font-semibold rounded-full px-3 py-1.5 flex items-center gap-1.5 ${e.status === 'live' ? "bg-red-500 text-white" : "bg-plum-dark text-cream"}`}
-                >
-                  {e.status === 'live' && <Radio className="h-3 w-3 animate-pulse" />}
-                  {e.status === 'live' ? "Join Now" : "Join"}
-                </a>
-              </li>
-            ))}
-            {upcomingEvents.length === 0 && <li className="text-sm text-muted-foreground">No upcoming classes.</li>}
-          </ul>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-display text-lg font-bold text-plum-dark">Live session alerts</h3>
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">{joinableNotifications.length} actionable</span>
-          </div>
-          <div className="mt-4 space-y-3">
-            {joinableNotifications.length > 0 ? (
-              joinableNotifications.map((notif) => (
-                <div key={notif._id} className="rounded-2xl border border-border p-4 bg-slate-50">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-plum-dark">{notif.title}</div>
-                      <p className="text-xs text-slate-500 mt-1">{notif.message}</p>
-                    </div>
-                    <a 
-                      href={notif.actionUrl || '#'} 
-                      className="rounded-full bg-red-500 text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 hover:bg-red-600 transition-colors"
-                    >
-                      <Radio className="h-3 w-3 animate-pulse" />
-                      Join Now
-                    </a>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    {new Date(e.scheduledAt).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                    {' '}· {new Date(e.scheduledAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">No joinable live session alerts yet.</p>
+              </li>
+            )) : (
+              <li className="text-sm text-muted-foreground py-2">No upcoming classes.</li>
             )}
-          </div>
+            {joinableNotifications.length > 0 && upcomingEvents.length > 0 && (
+              <li className="border-t border-border my-2" />
+            )}
+            {joinableNotifications.map((notif) => (
+              <li key={notif._id} className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-100 text-red-600">
+                  <Radio className="h-4 w-4 animate-pulse" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-plum-dark truncate">{notif.title}</div>
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{notif.message}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </Card>
 
         <Card>
