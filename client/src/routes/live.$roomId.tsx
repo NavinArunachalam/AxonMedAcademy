@@ -12,7 +12,7 @@ import {
   setStatus, addParticipant, removeParticipant,
   addToWaiting, removeFromWaiting, addMessage,
   resetMeeting, setRoomId, setScreenSharing,
-  addRaisedHand,
+  addRaisedHand, removeRaisedHand,
 } from '@/store/slices/meetingSlice';
 import { LiveKitRoom, useLocalParticipant } from '@livekit/components-react';
 import VideoGrid from '@/components/meeting/VideoGrid';
@@ -48,7 +48,7 @@ function LiveClassroomRoom() {
   const dispatch = useDispatch();
 
   const { currentUser: user, accessToken: token } = useClassroomStore();
-  const { status, activePanel } = useSelector((s: any) => s.meeting);
+  const { status, activePanel, raisedHands } = useSelector((s: any) => s.meeting);
 
   // Manage body class for scoped meeting styles
   useEffect(() => {
@@ -190,6 +190,7 @@ function LiveClassroomRoom() {
 
       socket.on('new-message', (msg: any) => { if (mounted) dispatch(addMessage(msg)); });
       socket.on('hand-raised', (data: any) => { if (mounted) { dispatch(addRaisedHand(data)); if (isStaff) playHandSound(); } });
+      socket.on('hand-lowered', ({ socketId }: any) => { if (mounted) dispatch(removeRaisedHand(socketId)); });
 
       const onConnect = () => {
         if (!mounted) return;
@@ -317,7 +318,7 @@ function LiveClassroomRoom() {
         <div className="meeting-header-left">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', flexShrink: 0 }}>
             <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: 'linear-gradient(135deg, #7C3AED, #A855F7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.362a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg></div>
-            <span style={{ fontWeight: '800', fontSize: '14px' }}>Axon Meeting</span>
+            <span className="logo-text" style={{ fontWeight: '800', fontSize: '14px' }}>Axon Meeting</span>
           </div>
           <div style={{ width: '1px', height: '20px', background: 'var(--border)', flexShrink: 0 }} />
           {displayRoomId && <div className="room-code-badge">{displayRoomId}</div>}
@@ -327,12 +328,13 @@ function LiveClassroomRoom() {
           <div className="timer-badge">{fmt(elapsed)}</div>
           {isStaff && displayRoomId && (
             <button onClick={copyLink} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: linkCopied ? 'rgba(0,214,143,0.15)' : 'rgba(124,58,237,0.15)', border: `1px solid ${linkCopied ? 'rgba(0,214,143,0.3)' : 'var(--border)'}`, borderRadius: '8px', padding: '6px 12px', color: linkCopied ? 'var(--green)' : 'var(--secondary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600', flexShrink: 0 }}>
-              {linkCopied ? <span>Copied!</span> : <span>Share Link</span>}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              <span className="share-btn-text">{linkCopied ? 'Copied!' : 'Share Link'}</span>
             </button>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', borderRadius: '99px', padding: '4px 10px 4px 4px', flexShrink: 0 }}>
+          <div className="user-avatar-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', borderRadius: '99px', padding: '4px 10px 4px 4px', flexShrink: 0 }}>
             <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#E879F9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', color: '#fff' }}>{user?.name?.charAt(0)?.toUpperCase()}</div>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</span>
+            <span className="user-name-text" style={{ fontSize: '12px', fontWeight: '600', color: '#fff', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</span>
           </div>
         </div>
       </div>
@@ -384,7 +386,15 @@ function LiveClassroomRoom() {
         onToggleAudio={() => lkActionsRef.current ? lkActionsRef.current.toggleAudio() : setAudioEnabled(p => !p)}
         onToggleVideo={() => lkActionsRef.current ? lkActionsRef.current.toggleVideo() : setVideoEnabled(p => !p)}
         onScreenShare={() => lkActionsRef.current ? lkActionsRef.current.toggleScreen() : setIsScreenSharingState(p => !p)}
-        onRaiseHand={() => getSocket()?.emit('raise-hand', { roomId: getRoomId() })}
+        onRaiseHand={() => {
+          const socket = getSocket();
+          const localHandRaised = raisedHands.some(h => h.socketId === socket?.id);
+          if (localHandRaised) {
+            socket?.emit('lower-hand', { roomId: getRoomId(), targetSocketId: socket?.id });
+          } else {
+            socket?.emit('raise-hand', { roomId: getRoomId() });
+          }
+        }}
         onEnd={handleEnd}
         isStaff={isStaff}
       />

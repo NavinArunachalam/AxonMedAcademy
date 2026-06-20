@@ -422,9 +422,26 @@ const initSocket = (server) => {
     socket.on('raise-hand', ({ roomId }) => {
       const room = rooms.get(roomId);
       if (room) {
-        io.to(room.hostSocketId).emit('hand-raised', {
+        if (!room.raisedHands) room.raisedHands = [];
+        if (!room.raisedHands.some(h => h.socketId === socket.id)) {
+          room.raisedHands.push({ socketId: socket.id, name: user.name });
+        }
+        io.to(roomId).emit('hand-raised', {
           socketId: socket.id,
           name: user.name,
+        });
+      }
+    });
+
+    // ── Lowered hand (classroom)
+    socket.on('lower-hand', ({ roomId, targetSocketId }) => {
+      const room = rooms.get(roomId);
+      if (room) {
+        if (room.raisedHands) {
+          room.raisedHands = room.raisedHands.filter(h => h.socketId !== targetSocketId);
+        }
+        io.to(roomId).emit('hand-lowered', {
+          socketId: targetSocketId,
         });
       }
     });

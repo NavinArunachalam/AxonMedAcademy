@@ -4,13 +4,30 @@ export default function registerMediaHandlers(io, socket, { rooms }) {
     socket.to(roomId).emit('peer-media-state', { socketId: socket.id, audio, video });
   });
 
-  // Raised hand — notify staff (host) only
+  // Raised hand — notify everyone in room
   socket.on('raise-hand', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (room) {
-      io.to(room.hostSocketId).emit('hand-raised', {
+      if (!room.raisedHands) room.raisedHands = [];
+      if (!room.raisedHands.some(h => h.socketId === socket.id)) {
+        room.raisedHands.push({ socketId: socket.id, name: socket.data.user.name });
+      }
+      io.to(roomId).emit('hand-raised', {
         socketId: socket.id,
         name: socket.data.user.name,
+      });
+    }
+  });
+
+  // Lowered hand — notify everyone in room
+  socket.on('lower-hand', ({ roomId, targetSocketId }) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      if (room.raisedHands) {
+        room.raisedHands = room.raisedHands.filter(h => h.socketId !== targetSocketId);
+      }
+      io.to(roomId).emit('hand-lowered', {
+        socketId: targetSocketId,
       });
     }
   });

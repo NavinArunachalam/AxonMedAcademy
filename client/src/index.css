@@ -130,6 +130,7 @@ body.in-meeting {
   height: 100dvh;          /* dynamic viewport height — critical on mobile browsers */
   background: #030108;
   overflow: hidden;
+  position: relative;      /* so absolute positioned overlays align perfectly */
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────────── */
@@ -457,7 +458,7 @@ body.in-meeting {
 
   /* ── Side panel: full-screen overlay on mobile ── */
   .side-panel {
-    position: fixed;
+    position: absolute;
     inset: var(--header-height) 0 var(--bar-height) 0;
     width: 100%;
     max-width: 100%;
@@ -474,5 +475,39 @@ body.in-meeting {
     min-width: unset;
     width: calc(100vw - 20px);
     left: 10px; right: 10px;
+  }
+
+  /* ── Compact top bar details on mobile ── */
+  .logo-text { display: none; }
+  .user-name-text { display: none; }
+  .user-avatar-container { padding: 4px !important; }
+
+  /* ── Extra compact buttons on small phones ── */
+  @media (max-width: 420px) {
+    .control-bar-inner {
+      padding: 6px 6px;
+      gap: 4px;
+      justify-content: center;
+    }
+    .ctrl-btn {
+      width: 41px;
+      height: 44px;
+      border-radius: 8px;
+      gap: 1px;
+    }
+    .ctrl-btn svg {
+      width: 15px;
+      height: 15px;
+    }
+    .ctrl-btn span {
+      font-size: 7.5px;
+      max-width: 40px;
+    }
+    .ctrl-btn.danger {
+      width: 46px;
+    }
+    .ctrl-divider {
+      margin: 0 1px;
+    }
   }
 }
