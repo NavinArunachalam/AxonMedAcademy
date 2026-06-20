@@ -393,12 +393,15 @@ body.in-meeting {
 @media (max-width: 640px) {
   .in-meeting {
     --header-height: 48px;
-    --bar-height:    62px;
+    /* Add ~20px to account for iOS home indicator / Android gesture bar */
+    --bar-height:    calc(62px + env(safe-area-inset-bottom, 0px));
   }
 
   /* ── Meeting grid shrinks control bar to fit content ── */
   .meeting-layout {
     grid-template-rows: var(--header-height) 1fr var(--bar-height);
+    /* Account for bottom safe area so video doesn't hide behind home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* ── Header: strip out paddings, force single line ── */
@@ -423,6 +426,7 @@ body.in-meeting {
   /* ── Control bar: scroll horizontally, show all buttons ── */
   .control-bar {
     padding: 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     justify-content: flex-start;
   }
   .control-bar-inner {
@@ -440,6 +444,14 @@ body.in-meeting {
     height: 48px;
     border-radius: 10px;
     gap: 2px;
+  }
+  /* Keep the End / Leave button sticky at the right edge on mobile */
+  .ctrl-btn.btn-end {
+    position: sticky;
+    right: 0;
+    margin-left: auto;
+    z-index: 2;
+    box-shadow: -4px 0 10px rgba(0,0,0,0.4);
   }
   .ctrl-btn span { font-size: 8.5px; }
   .ctrl-btn.danger { width: 54px; }

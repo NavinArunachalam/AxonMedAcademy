@@ -140,6 +140,9 @@ function LuPlay(props) {
 function LuMegaphone(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "m3 11 18-5v12L3 14v-3z" }, "child": [] }, { "tag": "path", "attr": { "d": "M11.6 16.8a3 3 0 1 1-5.8-1.6" }, "child": [] }] })(props);
 }
+function LuLink(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" }, "child": [] }, { "tag": "path", "attr": { "d": "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" }, "child": [] }] })(props);
+}
 function LuEye(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "path", "attr": { "d": "M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" }, "child": [] }, { "tag": "circle", "attr": { "cx": "12", "cy": "12", "r": "3" }, "child": [] }] })(props);
 }
@@ -185,14 +188,15 @@ export {
   LuDownload as h,
   LuEye as i,
   LuEyeOff as j,
-  LuMegaphone as k,
-  LuPlay as l,
-  LuPlus as m,
-  LuRadio as n,
-  LuSend as o,
-  LuTrash2 as p,
-  LuUpload as q,
-  LuUsers as r,
-  LuVideo as s,
-  LuX as t
+  LuLink as k,
+  LuMegaphone as l,
+  LuPlay as m,
+  LuPlus as n,
+  LuRadio as o,
+  LuSend as p,
+  LuTrash2 as q,
+  LuUpload as r,
+  LuUsers as s,
+  LuVideo as t,
+  LuX as u
 };

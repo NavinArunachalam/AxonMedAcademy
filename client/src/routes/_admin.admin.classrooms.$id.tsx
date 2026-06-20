@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
-  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
@@ -87,9 +87,7 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
   const [isPosting, setIsPosting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [driveLink, setDriveLink] = useState("");
 
   const handlePost = async () => {
     if (!text.trim() || isPosting) return;
@@ -97,24 +95,17 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
     setIsPosting(true);
     try {
       let attachments: any[] = [];
-      if (pdfFile) {
-        setUploadProgress(0);
-        const url = await uploadClassroomFileToCloudinary({
-          file: pdfFile,
-          onProgress: (pct) => setUploadProgress(pct),
-        });
-        attachments.push({ name: pdfFile.name, url, type: 'pdf' });
+      if (driveLink.trim()) {
+        attachments.push({ name: 'Preview', url: driveLink.trim(), type: 'pdf' });
       }
       await createClassroomAnnouncement(classroom.id, text.trim(), attachments);
       setText("");
-      setPdfFile(null);
-      setUploadProgress(null);
+      setDriveLink("");
       await refreshClassroom();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not post announcement");
     } finally {
       setIsPosting(false);
-      setUploadProgress(null);
     }
   };
 
@@ -155,41 +146,26 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
         />
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-3">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
-              accept=".pdf"
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isPosting}
-              className="inline-flex items-center gap-2 text-xs font-bold text-cream/60 hover:text-lime transition-colors disabled:opacity-50"
-            >
-              <LuUpload className="h-3.5 w-3.5" /> {pdfFile ? "Change PDF" : "Attach PDF"}
-            </button>
-
-            {pdfFile && (
-              <div className="flex items-center gap-2 bg-lime/10 border border-lime/20 rounded-full px-3 py-1">
-                <span className="text-[10px] font-bold text-lime truncate max-w-[120px]">
-                  {pdfFile.name}
-                </span>
+            <div className="flex items-center gap-2">
+              <LuLink className="h-3.5 w-3.5 text-cream/60" />
+              <input
+                type="url"
+                value={driveLink}
+                onChange={(e) => setDriveLink(e.target.value)}
+                placeholder="Paste Google Drive PDF link..."
+                disabled={isPosting}
+                className="w-64 bg-cream/5 border border-cream/10 rounded-lg px-3 py-1.5 text-cream text-xs outline-none focus:border-lime/50 disabled:opacity-50"
+              />
+              {driveLink && (
                 <button
-                  onClick={() => setPdfFile(null)}
+                  onClick={() => setDriveLink("")}
                   disabled={isPosting}
-                  className="text-lime/60 hover:text-lime"
+                  className="text-cream/40 hover:text-red-400"
                 >
                   <LuX className="h-3 w-3" />
                 </button>
-              </div>
-            )}
-
-            {uploadProgress !== null && (
-              <span className="text-[10px] font-bold text-lime animate-pulse">
-                Uploading {uploadProgress}%...
-              </span>
-            )}
+              )}
+            </div>
           </div>
 
           <button
@@ -231,10 +207,10 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
                             href={at.url}
                             target="_blank"
                             rel="noreferrer"
-                            download={at.name}
                             className="inline-flex items-center gap-2 bg-cream/5 border border-cream/10 rounded-lg px-3 py-2 text-xs font-semibold text-cream/70 hover:bg-cream/10 hover:text-lime transition-all"
                           >
-                            <LuDownload className="h-3.5 w-3.5" /> {at.name || "Attachment"}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            {"View PDF"}
                           </a>
                         ))}
                     </div>
