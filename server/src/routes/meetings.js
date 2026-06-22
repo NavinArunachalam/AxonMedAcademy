@@ -517,8 +517,8 @@ router.post('/', async (req, res, next) => {
             hour: '2-digit', minute: '2-digit', hour12: true,
           });
 
-          const { invalidTokens } = await sendFCMNotification(allTokens, {
-            title: ` New Live Class Scheduled: ${title}`,
+          sendFCMNotification(allTokens, {
+            title: `📅 New Live Class Scheduled: ${title}`,
             body: `${classroomDoc.name} · ${scheduledTime}. Tap to view the class.`,
             data: {
               type: 'meeting_scheduled',
@@ -526,16 +526,18 @@ router.post('/', async (req, res, next) => {
               roomId: roomCode,
               click_action: `${clientUrl}/student/live`,
             },
+          }).then(async ({ invalidTokens }) => {
+            // Purge stale / invalid tokens returned by FCM
+            if (invalidTokens && invalidTokens.length > 0) {
+              await User.updateMany(
+                { fcmTokens: { $in: invalidTokens } },
+                { $pull: { fcmTokens: { $in: invalidTokens } } }
+              );
+              console.log(`[FCM] Purged ${invalidTokens.length} invalid token(s) after schedule push.`);
+            }
+          }).catch((fcmErr) => {
+            console.error('[FCM] Push notification failed for meeting creation:', fcmErr.message);
           });
-
-          // Purge stale / invalid tokens returned by FCM
-          if (invalidTokens && invalidTokens.length > 0) {
-            await User.updateMany(
-              { fcmTokens: { $in: invalidTokens } },
-              { $pull: { fcmTokens: { $in: invalidTokens } } }
-            );
-            console.log(`[FCM] Purged ${invalidTokens.length} invalid token(s) after schedule push.`);
-          }
         }
       } catch (fcmErr) {
         console.error('[FCM] Push notification failed for meeting creation:', fcmErr.message);
@@ -686,7 +688,7 @@ router.post('/:id/start', async (req, res, next) => {
             const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
             const classroomName = classroomDoc.name || 'your class';
 
-            const { invalidTokens } = await sendFCMNotification(allTokens, {
+            sendFCMNotification(allTokens, {
               title: `🔴 Live Class Started: ${meeting.title}`,
               body: `${classroomName} live session is now live! Tap to join.`,
               data: {
@@ -695,16 +697,18 @@ router.post('/:id/start', async (req, res, next) => {
                 roomId: meeting.roomId,
                 click_action: `${clientUrl}/live/${meeting.roomId}`,
               },
+            }).then(async ({ invalidTokens }) => {
+              // Purge stale / invalid tokens returned by FCM
+              if (invalidTokens && invalidTokens.length > 0) {
+                await User.updateMany(
+                  { fcmTokens: { $in: invalidTokens } },
+                  { $pull: { fcmTokens: { $in: invalidTokens } } }
+                );
+                console.log(`[FCM] Purged ${invalidTokens.length} invalid token(s).`);
+              }
+            }).catch((fcmErr) => {
+              console.error('[FCM] Push notification failed for class start:', fcmErr.message);
             });
-
-            // Purge stale / invalid tokens returned by FCM
-            if (invalidTokens && invalidTokens.length > 0) {
-              await User.updateMany(
-                { fcmTokens: { $in: invalidTokens } },
-                { $pull: { fcmTokens: { $in: invalidTokens } } }
-              );
-              console.log(`[FCM] Purged ${invalidTokens.length} invalid token(s).`);
-            }
           }
         }
       }
