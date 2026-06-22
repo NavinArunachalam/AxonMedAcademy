@@ -476,6 +476,48 @@ router.post('/', async (req, res, next) => {
           console.log('[Socket Error] Could not emit portal notifications:', socketErr.message);
         }
       }
+
+      // ── FCM Push: send instant push notification to enrolled students ─────
+      try {
+        const studentsWithTokens = await User.find(
+          { _id: { $in: studentIds }, fcmTokens: { $exists: true, $not: { $size: 0 } } },
+          { fcmTokens: 1 }
+        );
+
+        const allTokens = studentsWithTokens.flatMap((u) => u.fcmTokens);
+
+        if (allTokens.length > 0) {
+          const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+          const scheduledTime = new Date(scheduledAt).toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit', month: 'short',
+            hour: '2-digit', minute: '2-digit', hour12: true,
+          });
+
+          const { invalidTokens } = await sendFCMNotification(allTokens, {
+            title: `📅 New Live Class Scheduled: ${title}`,
+            body: `${classroomDoc.name} · ${scheduledTime}. Tap to view the class.`,
+            data: {
+              type: 'meeting_scheduled',
+              meetingId: String(meeting._id),
+              roomId: roomCode,
+              click_action: `${clientUrl}/live/${roomCode}`,
+            },
+          });
+
+          // Purge stale / invalid tokens returned by FCM
+          if (invalidTokens && invalidTokens.length > 0) {
+            await User.updateMany(
+              { fcmTokens: { $in: invalidTokens } },
+              { $pull: { fcmTokens: { $in: invalidTokens } } }
+            );
+            console.log(`[FCM] Purged ${invalidTokens.length} invalid token(s) after schedule push.`);
+          }
+        }
+      } catch (fcmErr) {
+        console.error('[FCM] Push notification failed for meeting creation:', fcmErr.message);
+        // Non-fatal — meeting is still created
+      }
     }
 
     if (sendWhatsApp) {
