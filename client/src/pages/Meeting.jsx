@@ -3,7 +3,7 @@ import { playJoinSound, playHandSound } from '../utils/sounds';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { connectSocket, getSocket, disconnectSocket } from '../services/socket';
-  setStatus, addParticipant, removeParticipant,
+import { setStatus, addParticipant, removeParticipant,
   addToWaiting, removeFromWaiting, addMessage,
   resetMeeting, setRoomId, setScreenSharing,
   addRaisedHand, removeRaisedHand,
@@ -262,7 +262,18 @@ export default function Meeting() {
         isScreenSharing={isScreenSharing}
         onToggleAudio={() => setAudioEnabled(p => !p)}
         onToggleVideo={() => setVideoEnabled(p => !p)}
-        onScreenShare={() => setIsScreenSharing(p => !p)}
+        onScreenShare={() => {
+          if (!isScreenSharing && !isStaff) {
+            alert("Only instructors and administrators have permission to share screen.");
+            return;
+          }
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          if (!isScreenSharing && isMobile && !navigator.mediaDevices?.getDisplayMedia) {
+            alert("Screen sharing is not supported by this mobile device/browser. Please try a different browser or desktop.");
+            return;
+          }
+          setIsScreenSharing(p => !p);
+        }}
         onRaiseHand={() => {
           const socket = getSocket();
           const localHandRaised = raisedHands.some(h => h.socketId === socket?.id);

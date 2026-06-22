@@ -10,6 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { getCurrentUser, getClassrooms } from "@/lib/api";
 import { classroomStore, type User } from "@/lib/classroomStore";
+import { initFCM } from "@/lib/fcm";
 
 import appCss from "../styles.css?url";
 
@@ -116,6 +117,13 @@ function RootComponent() {
           role,
         };
         classroomStore.setState(() => ({ currentUser, accessToken, classrooms }));
+
+        // ── FCM: register push token for students after auth is confirmed ──
+        if (role === 'student') {
+          initFCM().catch((err) =>
+            console.warn('[FCM] Background init failed:', err)
+          );
+        }
       })
       .catch(() => {
         // Token invalid or expired — clear stored session
@@ -124,6 +132,33 @@ function RootComponent() {
       .finally(() => {
         setAuthReady(true);
       });
+  }, []);
+
+  // ── Foreground push: show a browser notification toast when app is active ──
+  useEffect(() => {
+    const handler = (event: CustomEvent) => {
+      const { title, body, data } = event.detail || {};
+      const roomId = data?.roomId;
+      if (!title) return;
+
+      // If the browser Notification API is available and permitted, show it
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const notif = new Notification(title, {
+          body: body ?? '',
+          icon: '/favicon.ico',
+          tag: `live-class-${data?.meetingId || Date.now()}`,
+          requireInteraction: true,
+        });
+        notif.onclick = () => {
+          const url = data?.click_action || (roomId ? `/live/${roomId}` : '/');
+          window.focus();
+          window.open(url, '_blank');
+        };
+      }
+    };
+
+    window.addEventListener('fcm:foreground-message', handler as EventListener);
+    return () => window.removeEventListener('fcm:foreground-message', handler as EventListener);
   }, []);
 
   if (!authReady) {

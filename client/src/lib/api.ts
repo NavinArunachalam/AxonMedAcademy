@@ -990,6 +990,20 @@ export async function markNotificationRead(notificationId: string) {
   });
 }
 
+export async function saveFcmToken(token: string) {
+  return fetchJson('/notifications/fcm-token', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}
+
+export async function removeFcmToken(token: string) {
+  return fetchJson('/notifications/fcm-token', {
+    method: 'DELETE',
+    body: JSON.stringify({ token }),
+  });
+}
+
 export function getRecordingStreamUrl(recordingId: string): string {
   return `${API_BASE}/recordings/classroom/${recordingId}/stream`;
 }

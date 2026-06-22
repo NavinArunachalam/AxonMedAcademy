@@ -362,6 +362,7 @@ function LiveClassroomRoom() {
             audioEnabled={audioEnabled}
             videoEnabled={videoEnabled}
             isScreenSharing={isScreenSharingState}
+            isStaff={isStaff}
             onSyncActions={(actions) => { lkActionsRef.current = actions; }}
             onToggleAudio={setAudioEnabled}
             onToggleVideo={setVideoEnabled}
@@ -388,7 +389,7 @@ function LiveClassroomRoom() {
         onScreenShare={() => lkActionsRef.current ? lkActionsRef.current.toggleScreen() : setIsScreenSharingState(p => !p)}
         onRaiseHand={() => {
           const socket = getSocket();
-          const localHandRaised = raisedHands.some(h => h.socketId === socket?.id);
+          const localHandRaised = raisedHands.some((h: any) => h.socketId === socket?.id);
           if (localHandRaised) {
             socket?.emit('lower-hand', { roomId: getRoomId(), targetSocketId: socket?.id });
           } else {
@@ -428,12 +429,13 @@ function LiveClassroomRoom() {
  * always-visible ControlBar in row 3 can call them.
  */
 function _MediaControllerSync({
-  audioEnabled, videoEnabled, isScreenSharing,
+  audioEnabled, videoEnabled, isScreenSharing, isStaff,
   onSyncActions, onToggleAudio, onToggleVideo, onToggleScreen,
 }: {
   audioEnabled: boolean;
   videoEnabled: boolean;
   isScreenSharing: boolean;
+  isStaff: boolean;
   onSyncActions: (a: { toggleAudio: () => Promise<void>; toggleVideo: () => Promise<void>; toggleScreen: () => Promise<void> }) => void;
   onToggleAudio: (v: boolean) => void;
   onToggleVideo: (v: boolean) => void;
@@ -459,8 +461,24 @@ function _MediaControllerSync({
       },
       toggleScreen: async () => {
         const next = !stateRef.current.isScreenSharing;
-        try { await localParticipant.setScreenShareEnabled(next); } catch (e) { console.warn('[LK] screen', e); }
-        onToggleScreen(next);
+        
+        if (next && !isStaff) {
+          alert("Only instructors and administrators have permission to share screen.");
+          return;
+        }
+
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (next && isMobile && !navigator.mediaDevices?.getDisplayMedia) {
+          alert("Screen sharing is not supported by this mobile device/browser. Please try a different browser or desktop.");
+          return;
+        }
+        try {
+          await localParticipant.setScreenShareEnabled(next);
+          onToggleScreen(next);
+        } catch (e: any) {
+          console.warn('[LK] screen', e);
+          alert("Could not start screen sharing: " + (e?.message || String(e)));
+        }
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

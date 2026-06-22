@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   otp:          { type: String, select: false },
   otpExpiry:    { type: Date, select: false },
   refreshTokens: [{ type: String, select: false }],
+  fcmTokens:    [{ type: String }], // FCM push notification device tokens
   lastLogin:    { type: Date },
   deviceInfo:   { type: String }
 }, { 

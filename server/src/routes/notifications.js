@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const { protect, restrictTo } = require('../middleware/auth');
 
 // All routes require authentication
@@ -88,6 +89,49 @@ router.delete('/:id', async (req, res, next) => {
     }
     await notification.deleteOne();
     res.json({ success: true, message: 'Notification deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── FCM Token Routes ──────────────────────────────────────────────────────────
+
+// POST /fcm-token → Save an FCM device token for the current user
+router.post('/fcm-token', async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ success: false, message: 'FCM token is required' });
+    }
+
+    // Dedup: add token only if not already stored; cap at 10 tokens per user
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (!user.fcmTokens.includes(token)) {
+      user.fcmTokens = [...user.fcmTokens.slice(-9), token]; // keep last 10
+      await user.save();
+    }
+
+    res.json({ success: true, message: 'FCM token registered' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /fcm-token → Remove an FCM token (e.g. on logout / permission revoke)
+router.delete('/fcm-token', async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'FCM token is required' });
+    }
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { fcmTokens: token }
+    });
+
+    res.json({ success: true, message: 'FCM token removed' });
   } catch (error) {
     next(error);
   }

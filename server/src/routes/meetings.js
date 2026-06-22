@@ -8,6 +8,7 @@ const Classroom = require('../models/Classroom');
 const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
 const { protect, restrictTo } = require('../middleware/auth');
+const { sendFCMNotification } = require('../config/firebase');
 
 // Socket notification helper
 const notifyMeetingCreated = async (meeting) => {
@@ -530,7 +531,7 @@ router.delete('/:id', async (req, res, next) => {
 router.post('/:id/start', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const meeting = await LiveMeeting.findById(id);
+    const meeting = await LiveMeeting.findById(id).populate('classroom');
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
@@ -539,11 +540,15 @@ router.post('/:id/start', async (req, res, next) => {
     meeting.startedAt = new Date();
     await meeting.save();
 
-    // Notify classroom students via socket
+    const classroomDoc = meeting.classroom?._id
+      ? meeting.classroom
+      : await Classroom.findById(meeting.classroom);
+
+    // ── Socket: notify enrolled students in real-time ─────────────────────
     try {
       const { getIO } = require('../config/socket');
       const io = getIO();
-      io.to(`classroom:${meeting.classroom}`).emit('meeting:live', {
+      io.to(`classroom:${classroomDoc._id}`).emit('meeting:live', {
         meetingId: meeting._id,
         title: meeting.title,
         roomId: meeting.roomId
@@ -552,6 +557,54 @@ router.post('/:id/start', async (req, res, next) => {
       io.emit('admin:class-started', { meetingId: meeting._id, roomId: meeting.roomId });
     } catch (socketErr) {
       console.log('[Socket Error] Could not emit class started alert:', socketErr.message);
+    }
+
+    // ── FCM Push: send instant mobile push to enrolled students ───────────
+    try {
+      if (classroomDoc) {
+        const activeStudentIds = (classroomDoc.students || [])
+          .filter((s) => s.status === 'active')
+          .map((s) => s.student?._id || s.student)
+          .filter(Boolean);
+
+        if (activeStudentIds.length > 0) {
+          // Fetch FCM tokens for all active students in one query
+          const studentsWithTokens = await User.find(
+            { _id: { $in: activeStudentIds }, fcmTokens: { $exists: true, $not: { $size: 0 } } },
+            { fcmTokens: 1 }
+          );
+
+          const allTokens = studentsWithTokens.flatMap((u) => u.fcmTokens);
+
+          if (allTokens.length > 0) {
+            const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+            const classroomName = classroomDoc.name || 'your class';
+
+            const { invalidTokens } = await sendFCMNotification(allTokens, {
+              title: `🔴 Live Class Started: ${meeting.title}`,
+              body: `${classroomName} live session is now live! Tap to join.`,
+              data: {
+                type: 'live_class_started',
+                meetingId: String(meeting._id),
+                roomId: meeting.roomId,
+                click_action: `${clientUrl}/live/${meeting.roomId}`,
+              },
+            });
+
+            // Purge stale / invalid tokens returned by FCM
+            if (invalidTokens && invalidTokens.length > 0) {
+              await User.updateMany(
+                { fcmTokens: { $in: invalidTokens } },
+                { $pull: { fcmTokens: { $in: invalidTokens } } }
+              );
+              console.log(`[FCM] Purged ${invalidTokens.length} invalid token(s).`);
+            }
+          }
+        }
+      }
+    } catch (fcmErr) {
+      console.error('[FCM] Push notification failed for class start:', fcmErr.message);
+      // Non-fatal — the class still starts even if push fails
     }
 
     res.json({ success: true, message: 'Live class started successfully', meeting });

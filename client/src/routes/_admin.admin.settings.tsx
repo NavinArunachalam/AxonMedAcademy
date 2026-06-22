@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_admin/admin/settings")({
 
 function Settings() {
   const [activeTab, setActiveTab] = useState<
-    "Organization"| "About" | "Faculty" | "Placement" | "Blog" | "Contact"
+    "Organization"| "About" | "Faculty" | "Placement" | "Blog" 
   >("Organization");
 
   const [toast, setToast] = useState<string | null>(null);
@@ -171,57 +171,13 @@ function Settings() {
       fetchPlacement();
     } else if (activeTab === "Blog") {
       fetchBlog();
-    } else if (activeTab === "Contact") {
-      fetchContactDetails();
-      fetchInquiries();
     }
   }, [activeTab]);
 
-  // 7. Contact Info & Submissions
-  const [contactMeta, setContactMeta] = useState({
-    address: "Plot 21, Medical Campus, Hosur Road, Bengaluru — 560001",
-    phone: "+91 98765 43210",
-    email: "hello@axon.academy",
-    hours: "Monday – Saturday, 9 AM to 8 PM"
-  });
-  const [inquiries, setInquiries] = useState<any[]>([]);
+  // 7. Contact Info & Submissio
+ 
 
-  const [isLoadingContact, setIsLoadingContact] = useState(false);
-  const fetchContactDetails = async () => {
-    setIsLoadingContact(true);
-    try {
-      const res = await api.get("/public/contact-details");
-      if (res.success && res.contactDetails) {
-        setContactMeta({
-          address: res.contactDetails.address || "",
-          phone: res.contactDetails.phone || "",
-          email: res.contactDetails.email || "",
-          hours: res.contactDetails.hours || ""
-        });
-      }
-    } catch (err) {
-      console.error("Failed to fetch contact details:", err);
-      showToast("Error loading contact details");
-    } finally {
-      setIsLoadingContact(false);
-    }
-  };
 
-  const [isLoadingInquiries, setIsLoadingInquiries] = useState(false);
-  const fetchInquiries = async () => {
-    setIsLoadingInquiries(true);
-    try {
-      const res = await api.get("/admin/inquiries");
-      if (res.success) {
-        setInquiries(res.inquiries || []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch inquiries:", err);
-      showToast("Error loading inquiries");
-    } finally {
-      setIsLoadingInquiries(false);
-    }
-  };
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return "";
@@ -255,18 +211,7 @@ function Settings() {
     }
   };
 
-  const handleSaveContact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await api.put("/admin/contact-details", contactMeta);
-      if (res.success) {
-        showToast("Contact information saved successfully!");
-        fetchContactDetails();
-      }
-    } catch (err: any) {
-      alert(err.message || "Failed to save contact details");
-    }
-  };
+  
 
   return (
     <div className="space-y-6 text-cream pb-12">
@@ -280,7 +225,7 @@ function Settings() {
 
         {/* Navigation sidebar */}
         <aside className="space-y-1">
-          {["Organization", "About", "Faculty", "Placement", "Blog", "Contact"].map((tab) => {
+          {["Organization", "About", "Faculty", "Placement", "Blog",].map((tab) => {
             const isSelected = activeTab === tab;
             return (
               <button
@@ -1392,171 +1337,13 @@ function Settings() {
             </DarkCard>
           )}
 
-          {/* 7. CONTACT & INQUIRIES SETTINGS */}
-          {activeTab === "Contact" && (
-            <div className="space-y-6">
-
-              {/* Public Contact details */}
-              <DarkCard>
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="font-display font-bold text-lg">Contact info configuration</h3>
-                    <p className="text-xs text-cream/60 mt-1">Configure details appearing on the Contact Us page</p>
-                  </div>
-                  <Mail className="text-lime w-6 h-6 opacity-80" />
-                </div>
-
-                <form onSubmit={handleSaveContact} className="space-y-5">
-                  <div className="grid sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="text-[10px] uppercase tracking-widest text-cream/60">Office Phone</label>
-                      <input
-                        type="text"
-                        value={contactMeta.phone}
-                        onChange={(e) => setContactMeta({ ...contactMeta, phone: e.target.value })}
-                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-widest text-cream/60">Office Email</label>
-                      <input
-                        type="email"
-                        value={contactMeta.email}
-                        onChange={(e) => setContactMeta({ ...contactMeta, email: e.target.value })}
-                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-widest text-cream/60">Office timings / Hours</label>
-                      <input
-                        type="text"
-                        value={contactMeta.hours}
-                        onChange={(e) => setContactMeta({ ...contactMeta, hours: e.target.value })}
-                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-widest text-cream/60">Location / Map Address</label>
-                      <input
-                        type="text"
-                        value={contactMeta.address}
-                        onChange={(e) => setContactMeta({ ...contactMeta, address: e.target.value })}
-                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex justify-end border-t border-cream/10 pt-4">
-                    <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold shadow hover:opacity-90">
-                      <Save className="h-4 w-4" /> Save Contact Details
-                    </button>
-                  </div>
-                </form>
-              </DarkCard>
-
-              {/* Submitted Inquiries List */}
-              <DarkCard>
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h3 className="font-display font-bold text-base">Counselling inquiries</h3>
-                    <p className="text-xs text-cream/60 mt-0.5">Leads and messages submitted from the public contact page</p>
-                  </div>
-                  <MessageSquare className="text-lime w-5 h-5 opacity-70" />
-                </div>
-
-                <div className="space-y-4 mt-3">
-                  {isLoadingInquiries ? (
-                    <div className="text-center py-6 text-sm text-cream/50">Loading counselling inquiries...</div>
-                  ) : inquiries.length === 0 ? (
-                    <div className="text-center py-6 text-sm text-cream/50">No counselling inquiries found.</div>
-                  ) : (
-                    inquiries.map((inq) => (
-                      <div
-                        key={inq._id || inq.id}
-                        className={`p-4 rounded-2xl border transition ${inq.resolved
-                            ? "bg-cream/[0.01] border-cream/5 opacity-60"
-                            : "bg-cream/5 border-cream/10"
-                          }`}
-                      >
-                        <div className="flex justify-between items-start gap-4">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm text-cream">{inq.name}</span>
-                              <span className="text-[10px] text-cream/40">{inq.createdAt ? formatDate(inq.createdAt) : inq.date}</span>
-                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${inq.resolved ? "bg-cream/10 text-cream/65" : "bg-lime/20 text-lime"
-                                }`}>
-                                {inq.resolved ? "Resolved" : "Active inquiry"}
-                              </span>
-                            </div>
-                            <div className="mt-1.5 text-xs text-cream/75 font-mono">
-                              <span>Phone: {inq.phone || 'N/A'}</span>
-                              <span className="mx-2">|</span>
-                              <span>Email: {inq.email}</span>
-                              <span className="mx-2">|</span>
-                              <span className="text-lime">Interest: {inq.interest || 'N/A'}</span>
-                            </div>
-                            <p className="mt-3 text-xs bg-plum-dark/40 p-2.5 rounded-lg border border-cream/5 text-cream/80">
-                              {inq.message}
-                            </p>
-                          </div>
-
-                          <div className="flex gap-1 shrink-0">
-                            {!inq.resolved && (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const res = await api.put(`/admin/inquiries/${inq._id || inq.id}/resolve`);
-                                    if (res.success) {
-                                      showToast("Inquiry marked as resolved");
-                                      fetchInquiries();
-                                    }
-                                  } catch (err: any) {
-                                    alert(err.message || "Failed to resolve inquiry");
-                                  }
-                                }}
-                                className="px-2.5 py-1 bg-lime hover:bg-lime/90 text-plum-dark rounded text-[10px] font-bold flex items-center gap-1"
-                              >
-                                <Check className="h-3 w-3" /> Resolve
-                              </button>
-                            )}
-                            <button
-                              onClick={async () => {
-                                if (confirm("Delete this inquiry record?")) {
-                                  try {
-                                    const res = await api.delete(`/admin/inquiries/${inq._id || inq.id}`);
-                                    if (res.success) {
-                                      showToast("Inquiry record deleted");
-                                      fetchInquiries();
-                                    }
-                                  } catch (err: any) {
-                                    alert(err.message || "Failed to delete inquiry");
-                                  }
-                                }
-                              }}
-                              className="p-1 hover:bg-red-500/20 text-cream/50 hover:text-red-400 rounded"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </DarkCard>
-            </div>
-          )}
-
+         
+         
         </div>
       </div>
 
-      {/* Premium Save Notification Toast */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-lime text-plum-dark px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 font-bold animate-pulse text-xs">
-          <Check className="h-4 w-4 stroke-[3px]" />
-          {toast}
-        </div>
-      )}
+      
+   
     </div>
   );
 }

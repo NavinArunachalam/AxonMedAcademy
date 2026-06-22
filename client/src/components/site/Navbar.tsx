@@ -25,10 +25,8 @@ export function Navbar() {
   return (
     <header
       className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${
-        scrolled
-          ? "bg-cream/65 backdrop-blur-md border-b border-border shadow-sm"
-          : "bg-transparent"
-      }`}
+        open ? "bg-cream" : "bg-cream/65 backdrop-blur-md"
+      } border-b border-border shadow-sm`}
     >
       <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between px-5 lg:px-8">
         <Link to="/" className="flex items-center gap-2 group">
@@ -74,7 +72,7 @@ export function Navbar() {
         <button
           aria-label="menu"
           onClick={() => setOpen(true)}
-          className="lg:hidden grid h-10 w-10 place-items-center rounded-full bg-secondary text-plum-dark"
+          className="lg:hidden grid h-10 w-10 place-items-center rounded-full  text-plum-dark"
         >
           <Menu className="h-5 w-5" />
         </button>

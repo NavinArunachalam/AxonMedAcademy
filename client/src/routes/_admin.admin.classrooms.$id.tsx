@@ -144,23 +144,23 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
           disabled={isPosting}
           className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-3 text-cream text-sm outline-none focus:border-lime/50 resize-none disabled:opacity-50"
         />
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <LuLink className="h-3.5 w-3.5 text-cream/60" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full">
+              <LuLink className="h-3.5 w-3.5 text-cream/60 shrink-0" />
               <input
                 type="url"
                 value={driveLink}
                 onChange={(e) => setDriveLink(e.target.value)}
                 placeholder="Paste Google Drive PDF link..."
                 disabled={isPosting}
-                className="w-64 bg-cream/5 border border-cream/10 rounded-lg px-3 py-1.5 text-cream text-xs outline-none focus:border-lime/50 disabled:opacity-50"
+                className="flex-1 sm:w-64 bg-cream/5 border border-cream/10 rounded-lg px-3 py-1.5 text-cream text-xs outline-none focus:border-lime/50 disabled:opacity-50"
               />
               {driveLink && (
                 <button
                   onClick={() => setDriveLink("")}
                   disabled={isPosting}
-                  className="text-cream/40 hover:text-red-400"
+                  className="text-cream/40 hover:text-red-400 shrink-0"
                 >
                   <LuX className="h-3 w-3" />
                 </button>
@@ -171,7 +171,7 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
           <button
             onClick={handlePost}
             disabled={!text.trim() || isPosting}
-            className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2 text-sm font-bold disabled:opacity-40"
+            className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2 text-sm font-bold disabled:opacity-40 shrink-0"
           >
             <LuSend className="h-3.5 w-3.5" /> {isPosting ? "Posting…" : "Post to All Students"}
           </button>
@@ -438,24 +438,26 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
         <div>
           <h3 className="text-xs uppercase tracking-widest text-cream/60 mb-3">Past Sessions</h3>
           <DarkCard className="p-0 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-cream/5">
-                <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60">
-                  <th className="p-4">Class</th><th>Date</th><th>Duration</th><th>Attendees</th><th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {past.map((m) => (
-                  <tr key={m.id} className="border-t border-cream/10">
-                    <td className="p-4 font-semibold text-cream">{m.title}</td>
-                    <td className="text-cream/70 text-xs">{fmtDate(m.scheduledAt)}</td>
-                    <td className="font-mono text-cream/60 text-xs">{m.duration}m</td>
-                    <td className="font-mono text-cream/80">{m.attendees.length}</td>
-                    <td><MeetingStatusBadge status={m.status} /></td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[650px] text-sm">
+                <thead className="bg-cream/5">
+                  <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60">
+                    <th className="p-4">Class</th><th>Date</th><th>Duration</th><th>Attendees</th><th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {past.map((m) => (
+                    <tr key={m.id} className="border-t border-cream/10">
+                      <td className="p-4 font-semibold text-cream">{m.title}</td>
+                      <td className="text-cream/70 text-xs">{fmtDate(m.scheduledAt)}</td>
+                      <td className="font-mono text-cream/60 text-xs">{m.duration}m</td>
+                      <td className="font-mono text-cream/80">{m.attendees.length}</td>
+                      <td><MeetingStatusBadge status={m.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </DarkCard>
         </div>
       )}
@@ -1941,61 +1943,63 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
       )}
 
       <DarkCard className="p-0 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-cream/5">
-            <tr className="text-[10px] uppercase tracking-widest text-cream/60 text-left">
-              <th className="p-4">Student</th>
-              <th>Progress</th>
-              <th>Attendance</th>
-              <th>Quiz Avg</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {cls.students.length === 0 && (
-              <tr><td colSpan={6} className="p-8 text-center text-cream/50">No students enrolled yet.</td></tr>
-            )}
-            {cls.students.map((s) => (
-              <tr key={s.id} className="border-t border-cream/10 hover:bg-cream/5">
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-full bg-lime text-plum-dark text-xs font-bold shrink-0">
-                      {s.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-cream">{s.name}</div>
-                      <div className="text-[11px] text-cream/60 font-mono">{s.enrollmentId}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div className="flex items-center gap-2 w-28">
-                    <div className="flex-1 h-1.5 bg-cream/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-lime rounded-full" style={{ width: `${s.progress}%` }} />
-                    </div>
-                    <span className="text-xs font-mono text-cream/70">{s.progress}%</span>
-                  </div>
-                </td>
-                <td className="font-mono text-cream/80 text-sm">{s.attendance}%</td>
-                <td className="font-mono text-cream/80 text-sm">{s.quizAvg}%</td>
-                <td>
-                  <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${s.status === "active" ? "bg-lime/20 text-lime" : s.status === "held" ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-300"}`}>
-                    {s.status}
-                  </span>
-                </td>
-                <td className="pr-4">
-                  <select value={s.status} onChange={(e) => handleStatusChange(s.id, e.target.value as "active" | "held" | "removed")}
-                    className="bg-[#1A0F33] border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
-                    <option value="active">Active</option>
-                    <option value="held">Hold</option>
-                    <option value="removed">Remove</option>
-                  </select>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px] text-sm">
+            <thead className="bg-cream/5">
+              <tr className="text-[10px] uppercase tracking-widest text-cream/60 text-left">
+                <th className="p-4">Student</th>
+                <th>Progress</th>
+                <th>Attendance</th>
+                <th>Quiz Avg</th>
+                <th>Status</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {cls.students.length === 0 && (
+                <tr><td colSpan={6} className="p-8 text-center text-cream/50">No students enrolled yet.</td></tr>
+              )}
+              {cls.students.map((s) => (
+                <tr key={s.id} className="border-t border-cream/10 hover:bg-cream/5">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-9 w-9 place-items-center rounded-full bg-lime text-plum-dark text-xs font-bold shrink-0">
+                        {s.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-cream">{s.name}</div>
+                        <div className="text-[11px] text-cream/60 font-mono">{s.enrollmentId}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2 w-28">
+                      <div className="flex-1 h-1.5 bg-cream/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-lime rounded-full" style={{ width: `${s.progress}%` }} />
+                      </div>
+                      <span className="text-xs font-mono text-cream/70">{s.progress}%</span>
+                    </div>
+                  </td>
+                  <td className="font-mono text-cream/80 text-sm">{s.attendance}%</td>
+                  <td className="font-mono text-cream/80 text-sm">{s.quizAvg}%</td>
+                  <td>
+                    <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${s.status === "active" ? "bg-lime/20 text-lime" : s.status === "held" ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-300"}`}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td className="pr-4">
+                    <select value={s.status} onChange={(e) => handleStatusChange(s.id, e.target.value as "active" | "held" | "removed")}
+                      className="bg-[#1A0F33] border border-cream/10 rounded-lg px-2 py-1 text-cream/70 text-xs outline-none">
+                      <option value="active">Active</option>
+                      <option value="held">Hold</option>
+                      <option value="removed">Remove</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </DarkCard>
     </div>
   );
@@ -2109,10 +2113,10 @@ function AdminClassroomDetail() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 flex-wrap bg-cream/5 rounded-2xl p-1.5">
+      <div className="flex gap-1 overflow-x-auto bg-cream/5 rounded-2xl p-1.5 whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2.5 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>
+            className={`shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>
             <t.icon className="h-3.5 w-3.5 shrink-0" />
             {t.label}
           </button>

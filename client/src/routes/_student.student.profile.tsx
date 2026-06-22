@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, Phone, MapPin, Briefcase, GraduationCap, Edit3, X, Save } from "lucide-react";
+import { Mail, Phone, MapPin, Briefcase, GraduationCap, Edit3, X, Save, User } from "lucide-react";
 import { Card } from "@/components/portal/PortalShell";
 import { useClassroomStore, adminActions } from "@/lib/classroomStore";
 import { useState } from "react";
@@ -61,43 +61,97 @@ function Profile() {
   const [showEdit, setShowEdit] = useState(false);
 
   const name = currentUser?.name || "Student Name";
-  const initials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
   const email = currentUser?.email || "No email";
   const phone = currentUser?.phone || "No phone added";
   const studentId = currentUser?.id || "";
 
   const enrolled = classrooms.filter(c => c.students.some(s => s.id === studentId));
+  const joinedYear = enrolled.length > 0 ? new Date(enrolled[0].students.find(s => s.id === studentId)!.addedAt).getFullYear() : new Date().getFullYear();
   const activeClassrooms = enrolled.filter(c => c.students.find(s => s.id === studentId)?.status === "active");
 
   const programsEnrolled = Array.from(new Set(activeClassrooms.map(c => c.program)));
   const joinDate = enrolled.length > 0 ? new Date(enrolled[0].students.find(s => s.id === studentId)!.addedAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "Recently";
 
+  const initials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+
   return (
     <div className="space-y-6">
       {showEdit && <EditProfileModal onClose={() => setShowEdit(false)} />}
 
-      <div className="rounded-3xl bg-plum-dark text-cream p-6 lg:p-8 relative overflow-hidden shadow-sm border border-plum-dark/90">
-        <div className="absolute inset-0 bg-grid opacity-15" />
-        <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-lime/20 blur-3xl opacity-50 mix-blend-screen pointer-events-none" />
-        
-        <div className="relative flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-          <div className="grid h-24 w-24 place-items-center rounded-2xl bg-lime text-plum-dark font-display text-3xl font-bold shadow-lg shadow-lime/20 border-2 border-lime/50">{initials}</div>
-          <div className="flex-1">
-            <h1 className="font-display text-3xl font-bold">{name}</h1>
-            <p className="text-cream/70 mt-1.5 text-sm flex items-center gap-2"><span className="bg-lime/20 text-lime px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-widest leading-none block pt-1">Student</span> User ID: <span className="font-mono">{currentUser?.id}</span> <span className="opacity-50">·</span> Joined {joinDate}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {programsEnrolled.map(p => (
-                <span key={p} className="bg-cream/10 backdrop-blur-sm border border-cream/10 text-lime text-xs font-semibold px-3 py-1 rounded-full shadow-sm">{p}</span>
-              ))}
-              {programsEnrolled.length === 0 && <span className="bg-cream/10 text-cream/50 text-xs px-3 py-1 rounded-full">Not enrolled in any programs</span>}
+      {/* ID Card */}
+      <div className="relative mx-auto max-w-lg">
+        <div className="rounded-2xl bg-gradient-to-br from-plum-dark via-plum to-[#1a0a2e] text-cream p-6 shadow-2xl border border-white/10 overflow-hidden">
+          {/* Card pattern background */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-lime/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
+          </div>
+
+          <div className="relative">
+            {/* Header */}
+            <div className="flex items-start justify-center mb-5">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-lime font-bold mb-1 text-center">Axon ACADEMY</div>
+                <div className="text-[10px] text-cream/50 font-mono">Student Identity Card</div>
+              </div>
+              
+            </div>
+
+            {/* Photo and Name */}
+            <div className="flex items-center gap-5">
+              <div className="relative shrink-0">
+                <div className="w-24 h-28 sm:w-28 sm:h-32 rounded-xl bg-gradient-to-br from-lime/30 to-lime/10 border-2 border-lime/40 shadow-lg flex items-center justify-center overflow-hidden">
+                  <div className="text-center">
+                    <User className="h-10 w-10 sm:h-12 sm:w-12 text-lime mx-auto mb-1" />
+                    <div className="text-[10px] text-lime/80 font-medium uppercase tracking-wider">No Photo</div>
+                  </div>
+                </div>
+                {/* Card stripe */}
+                <div className="absolute -bottom-1 left-0 right-0 h-1 bg-gradient-to-r from-lime via-lime/80 to-lime/60 rounded-full" />
+              </div>
+
+              <div className="flex-1 min-w-0 pt-1">
+                <h1 className="font-display text-xl sm:text-2xl font-bold text-white leading-tight mb-1 truncate">{name}</h1>
+                <div className="text-[10px] uppercase tracking-widest text-cream/60 font-semibold mb-2">Student</div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] uppercase tracking-widest text-cream/40 w-14 shrink-0">ID No.</span>
+                    <span className="text-xs font-mono text-lime bg-white/10 px-2 py-0.5 rounded border border-white/10">AXON{studentId.slice(0,5).toUpperCase()}-{joinedYear}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] uppercase tracking-widest text-cream/40 w-14 shrink-0">Email</span>
+                    <span className="text-[11px] text-cream/80 truncate">{email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] uppercase tracking-widest text-cream/40 w-14 shrink-0">Phone</span>
+                    <span className="text-[11px] text-cream/80">{phone}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Programs and Validity */}
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-[9px] uppercase tracking-widest text-cream/40 mb-1">Programs</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {programsEnrolled.length > 0 ? programsEnrolled.map(p => (
+                      <span key={p} className="bg-lime/15 text-lime text-[10px] font-semibold px-2 py-0.5 rounded-md border border-lime/20">{p}</span>
+                    )) : <span className="text-cream/40 text-[11px]">Not enrolled</span>}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[9px] uppercase tracking-widest text-cream/40 mb-1">Joined</div>
+                  <div className="text-xs font-medium text-cream/80">{joinDate}</div>
+                </div>
+              </div>
             </div>
           </div>
-          <button onClick={() => setShowEdit(true)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold shadow-sm hover:bg-[#b0df2b] transition-colors shrink-0">
-            <Edit3 className="h-4 w-4" /> Edit Profile
-          </button>
         </div>
       </div>
 
+      {/* Personal Information */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 border border-slate-100 shadow-sm p-0 overflow-hidden">
           <div className="p-6 border-b border-slate-100 bg-slate-50/50">
