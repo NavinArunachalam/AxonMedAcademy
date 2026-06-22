@@ -305,7 +305,7 @@ export default function VideoGrid() {
                 videoEnabled={tile.video && !isActive}
                 isScreenShare={tile.isScreen}
               />
-              {/* Name label */}
+         
              
               {/* Active indicator dot */}
               {isActive && <div style={S.activeIndicator} />}

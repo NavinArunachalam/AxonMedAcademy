@@ -59,9 +59,7 @@ export default function VideoTile({
           }}>
             {letter}
           </div>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', margin: 0 }}>
-            {isLocal ? 'Camera off' : 'No video'}
-          </p>
+         
         </div>
       )}
 
