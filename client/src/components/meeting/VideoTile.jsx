@@ -19,7 +19,7 @@ export default function VideoTile({
       className="video-tile"
       ref={videoHolderRef}
       style={{
-        position: 'relative', background: '#0F0820', borderRadius: '12px',
+        position: 'relative', background: '#0F0820', 
         overflow: 'hidden', display: 'flex', alignItems: 'center',
         justifyContent: 'center', height: '100%',
       }}
@@ -29,7 +29,8 @@ export default function VideoTile({
         <VideoTrack
           trackRef={trackRef}
           style={{
-            width: '100%', height: '100%', objectFit: 'cover',
+            width: '100%', height: '100%',
+            objectFit: isScreenShare ? 'contain' : 'cover',
             transform: isLocal && !isScreenShare ? 'scaleX(-1)' : 'none',
           }}
         />
@@ -66,23 +67,34 @@ export default function VideoTile({
 
       {/* Name + mute badge */}
       <div style={{
-        position: 'absolute', bottom: '8px', left: '8px', right: '8px',
+        position: 'absolute', bottom: '3px', left: '8px', right: '8px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2,
       }}>
         <div style={{
           background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', color: '#fff',
-          fontSize: '12px', fontWeight: '600', padding: '3px 10px', borderRadius: '6px',
-          maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          fontSize: '10px', fontWeight: '600', padding: '2px 6px 2px 2px', borderRadius: '99px',
+          maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           fontFamily: 'Plus Jakarta Sans, sans-serif',
+          display: 'flex', alignItems: 'center', gap: '4px',
         }}>
-          {name}{isLocal ? ' (You)' : ''}
+          <div style={{
+            width: '16px', height: '16px', borderRadius: '50%',
+            background: 'linear-gradient(135deg,#7C3AED,#E879F9)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '8px', fontWeight: '700', color: '#fff', flexShrink: 0,
+          }}>
+            {letter}
+          </div>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {name}{isLocal ? ' (You)' : ''}
+          </span>
         </div>
         {!audioEnabled && (
           <div style={{
-            background: 'rgba(255,74,106,0.85)', borderRadius: '6px',
-            width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(255,74,106,0.85)', borderRadius: '50%',
+            width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="1" y1="1" x2="23" y2="23"/>
               <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
               <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>

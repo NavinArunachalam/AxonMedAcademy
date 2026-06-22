@@ -267,9 +267,8 @@ export default function Meeting() {
             alert("Only instructors and administrators have permission to share screen.");
             return;
           }
-          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-          if (!isScreenSharing && isMobile && !navigator.mediaDevices?.getDisplayMedia) {
-            alert("Screen sharing is not supported by this mobile device/browser. Please try a different browser or desktop.");
+          if (!isScreenSharing && !navigator.mediaDevices?.getDisplayMedia) {
+            alert("Screen sharing is not supported by this browser or device. Please try a different browser or desktop.");
             return;
           }
           setIsScreenSharing(p => !p);

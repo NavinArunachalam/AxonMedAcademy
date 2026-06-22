@@ -467,9 +467,8 @@ function _MediaControllerSync({
           return;
         }
 
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (next && isMobile && !navigator.mediaDevices?.getDisplayMedia) {
-          alert("Screen sharing is not supported by this mobile device/browser. Please try a different browser or desktop.");
+        if (next && !navigator.mediaDevices?.getDisplayMedia) {
+          alert("Screen sharing is not supported by this browser or device. Please try a different browser or desktop.");
           return;
         }
         try {
