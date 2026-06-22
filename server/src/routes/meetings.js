@@ -545,46 +545,6 @@ router.post('/', async (req, res, next) => {
       }
     }
 
-      // ── Email: send scheduled notification to enrolled students ──────────────
-      try {
-        const activeStudentIds = classroomDoc.students
-          .filter((s) => s.status === 'active')
-          .map((s) => s.student)
-          .filter(Boolean);
-
-        if (activeStudentIds.length > 0) {
-          const students = await User.find(
-            { _id: { $in: activeStudentIds } },
-            'fullName email'
-          );
-
-          const classroomName = classroomDoc.name || 'Classroom';
-          let emailSent = 0;
-          let emailFailed = 0;
-
-          for (const student of students) {
-            const sent = await emailService.sendMeetingScheduledEmail(
-              student,
-              {
-                title,
-                description: description || '',
-                scheduledAt,
-                duration: duration || 60,
-                roomId: roomCode,
-              },
-              classroomName
-            );
-            if (sent) emailSent++;
-            else emailFailed++;
-          }
-
-          console.log(`[Email] Meeting schedule notification: ${emailSent} sent, ${emailFailed} failed for classroom ${classroomName}`);
-        }
-      } catch (emailErr) {
-        console.error('[Email] Failed to send meeting schedule emails:', emailErr.message);
-        // Non-fatal — meeting is still created
-      }
-
     if (sendWhatsApp) {
       console.log(`[WhatsApp Service Mock] Notify classroom students about: "${title}"`);
     }
