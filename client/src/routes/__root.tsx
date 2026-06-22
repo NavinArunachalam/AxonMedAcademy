@@ -97,6 +97,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [authReady, setAuthReady] = useState(false);
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
 
   useEffect(() => {
     // On every page load, verify the stored token is still valid with the server.
@@ -120,9 +121,16 @@ function RootComponent() {
 
         // ── FCM: register push token for students after auth is confirmed ──
         if (role === 'student') {
-          initFCM().catch((err) =>
-            console.warn('[FCM] Background init failed:', err)
-          );
+          if ('Notification' in window && Notification.permission === 'default') {
+            const hasDismissed = sessionStorage.getItem('fcm_prompt_dismissed');
+            if (!hasDismissed) {
+              setShowPermissionPrompt(true);
+            }
+          } else if ('Notification' in window && Notification.permission === 'granted') {
+            initFCM().catch((err) =>
+              console.warn('[FCM] Background init failed:', err)
+            );
+          }
         }
       })
       .catch(() => {
@@ -176,6 +184,46 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      {showPermissionPrompt && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden transform animate-in zoom-in-95 duration-200">
+            {/* Visual Indicator/Icon */}
+            <div className="h-12 w-12 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bell animate-bounce"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </div>
+            
+            <h3 className="font-display font-bold text-plum-dark dark:text-zinc-100 text-xl">Enable Notifications</h3>
+            <p className="text-sm font-semibold text-purple-600 dark:text-purple-400 mt-1">Allow for live class updates</p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
+              Stay in the loop! Get instant alerts on your device the moment a live class is scheduled or started by your instructors.
+            </p>
+            
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  sessionStorage.setItem('fcm_prompt_dismissed', 'true');
+                  setShowPermissionPrompt(false);
+                }}
+                className="rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 dark:text-zinc-400"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={async () => {
+                  setShowPermissionPrompt(false);
+                  sessionStorage.setItem('fcm_prompt_dismissed', 'true');
+                  await initFCM().catch((err) =>
+                    console.warn('[FCM] Manual init failed:', err)
+                  );
+                }}
+                className="rounded-full bg-plum-dark text-cream hover:bg-plum px-6 py-2.5 text-sm font-bold shadow-lg shadow-plum/20 transition-all hover:scale-105 active:scale-95"
+              >
+                Enable updates
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </QueryClientProvider>
   );
 }

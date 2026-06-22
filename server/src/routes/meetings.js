@@ -9,6 +9,7 @@ const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
 const { protect, restrictTo } = require('../middleware/auth');
 const { sendFCMNotification } = require('../config/firebase');
+const emailService = require('../services/emailService');
 
 // Socket notification helper
 const notifyMeetingCreated = async (meeting) => {
@@ -476,6 +477,27 @@ router.post('/', async (req, res, next) => {
           console.log('[Socket Error] Could not emit portal notifications:', socketErr.message);
         }
       }
+      
+      // ── Email: send meeting details via email to all enrolled students ───
+      try {
+        const enrolledStudents = await User.find(
+          { _id: { $in: studentIds } },
+          'fullName email'
+        );
+        if (enrolledStudents.length > 0) {
+          const { sendMeetingScheduledEmail } = require('../services/emailService');
+          // Fire them in parallel (non-blocking for API response)
+          Promise.all(
+            enrolledStudents.map((student) =>
+              sendMeetingScheduledEmail(student, meeting, classroomDoc.name).catch((err) =>
+                console.error(`[Email Error] Failed to send email to ${student.email}:`, err.message)
+              )
+            )
+          ).catch((err) => console.error('[Email Error] Error sending batch emails:', err));
+        }
+      } catch (emailErr) {
+        console.error('[Email Error] Failed to query student details or send emails:', emailErr.message);
+      }
 
       // ── FCM Push: send instant push notification to enrolled students ─────
       try {
@@ -484,7 +506,8 @@ router.post('/', async (req, res, next) => {
           { fcmTokens: 1 }
         );
 
-        const allTokens = studentsWithTokens.flatMap((u) => u.fcmTokens);
+        // Deduplicate tokens using a Set (fixes double notification issue on same device)
+        const allTokens = [...new Set(studentsWithTokens.flatMap((u) => u.fcmTokens))];
 
         if (allTokens.length > 0) {
           const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
@@ -495,13 +518,13 @@ router.post('/', async (req, res, next) => {
           });
 
           const { invalidTokens } = await sendFCMNotification(allTokens, {
-            title: `📅 New Live Class Scheduled: ${title}`,
+            title: ` New Live Class Scheduled: ${title}`,
             body: `${classroomDoc.name} · ${scheduledTime}. Tap to view the class.`,
             data: {
               type: 'meeting_scheduled',
               meetingId: String(meeting._id),
               roomId: roomCode,
-              click_action: `${clientUrl}/live/${roomCode}`,
+              click_action: `${clientUrl}/student/live`,
             },
           });
 
@@ -519,6 +542,46 @@ router.post('/', async (req, res, next) => {
         // Non-fatal — meeting is still created
       }
     }
+
+      // ── Email: send scheduled notification to enrolled students ──────────────
+      try {
+        const activeStudentIds = classroomDoc.students
+          .filter((s) => s.status === 'active')
+          .map((s) => s.student)
+          .filter(Boolean);
+
+        if (activeStudentIds.length > 0) {
+          const students = await User.find(
+            { _id: { $in: activeStudentIds } },
+            'fullName email'
+          );
+
+          const classroomName = classroomDoc.name || 'Classroom';
+          let emailSent = 0;
+          let emailFailed = 0;
+
+          for (const student of students) {
+            const sent = await emailService.sendMeetingScheduledEmail(
+              student,
+              {
+                title,
+                description: description || '',
+                scheduledAt,
+                duration: duration || 60,
+                roomId: roomCode,
+              },
+              classroomName
+            );
+            if (sent) emailSent++;
+            else emailFailed++;
+          }
+
+          console.log(`[Email] Meeting schedule notification: ${emailSent} sent, ${emailFailed} failed for classroom ${classroomName}`);
+        }
+      } catch (emailErr) {
+        console.error('[Email] Failed to send meeting schedule emails:', emailErr.message);
+        // Non-fatal — meeting is still created
+      }
 
     if (sendWhatsApp) {
       console.log(`[WhatsApp Service Mock] Notify classroom students about: "${title}"`);
@@ -616,7 +679,8 @@ router.post('/:id/start', async (req, res, next) => {
             { fcmTokens: 1 }
           );
 
-          const allTokens = studentsWithTokens.flatMap((u) => u.fcmTokens);
+          // Deduplicate tokens using a Set (fixes double notification issue on same device)
+          const allTokens = [...new Set(studentsWithTokens.flatMap((u) => u.fcmTokens))];
 
           if (allTokens.length > 0) {
             const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
