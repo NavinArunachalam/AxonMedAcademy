@@ -75,11 +75,19 @@ export async function initFCM(): Promise<void> {
   }
 
   try {
-    // 1. Register (or get the existing) service worker
-    const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    // 1. Register (or get the existing) service worker with configuration query parameters
+    const params = new URLSearchParams({
+      apiKey: firebaseConfig.apiKey || '',
+      authDomain: firebaseConfig.authDomain || '',
+      projectId: firebaseConfig.projectId || '',
+      storageBucket: firebaseConfig.storageBucket || '',
+      messagingSenderId: firebaseConfig.messagingSenderId || '',
+      appId: firebaseConfig.appId || '',
+    });
+    const swReg = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?${params.toString()}`);
     await navigator.serviceWorker.ready;
 
-    // 2. Post Firebase config to the SW so it can initialise firebase-messaging
+    // 2. Also keep postMessage as a backup trigger for already-running workers
     const sw = swReg.active || swReg.waiting || swReg.installing;
     if (sw) {
       sw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });

@@ -2,8 +2,8 @@
 // IMPORTANT: This file must be at /public/firebase-messaging-sw.js
 // so it is served from the root of the domain (required by Firebase).
 //
-// This service worker initialises Firebase using config values that are
-// injected via a postMessage from the main thread (fcm.ts) after registration.
+// This service worker initialises Firebase using config values passed via
+// query parameters in the script URL, or injected via postMessage as a fallback.
 // Background push notifications are shown here; foreground messages are handled
 // in fcm.ts via onMessage().
 
@@ -12,15 +12,15 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 
 let messaging = null;
 
-// ── Receive Firebase config from the main thread and initialize ───────────────
-self.addEventListener('message', (event) => {
-  if (!event.data || event.data.type !== 'FIREBASE_CONFIG') return;
+/**
+ * Initialize Firebase and set up the background message handler.
+ */
+function initializeFirebase(config) {
   if (messaging) return; // already initialized
 
   try {
-    const config = event.data.config;
     if (!config || !config.projectId || !config.apiKey) {
-      console.error('[SW] Invalid Firebase config received:', config);
+      console.warn('[SW] Invalid Firebase config received:', config);
       return;
     }
 
@@ -69,6 +69,33 @@ self.addEventListener('message', (event) => {
       console.error('[SW] Firebase init error:', err);
     }
   }
+}
+
+// ── Initialize from script query parameters on startup ────────────────────────
+try {
+  const url = new URL(self.location.href);
+  const config = {
+    apiKey: url.searchParams.get('apiKey'),
+    authDomain: url.searchParams.get('authDomain'),
+    projectId: url.searchParams.get('projectId'),
+    storageBucket: url.searchParams.get('storageBucket'),
+    messagingSenderId: url.searchParams.get('messagingSenderId'),
+    appId: url.searchParams.get('appId'),
+  };
+
+  if (config.apiKey && config.projectId) {
+    console.log('[SW] Initializing Firebase dynamically from URL search params...');
+    initializeFirebase(config);
+  }
+} catch (e) {
+  console.warn('[SW] Could not parse query parameters during initialization:', e);
+}
+
+// ── Receive Firebase config from the main thread (fallback) ───────────────────
+self.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'FIREBASE_CONFIG') return;
+  console.log('[SW] Received FIREBASE_CONFIG message event.');
+  initializeFirebase(event.data.config);
 });
 
 // ── Handle notification click ─────────────────────────────────────────────────
