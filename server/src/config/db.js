@@ -6,12 +6,7 @@ const FacultyMember = require('../models/FacultyMember');
 dotenv.config();
 
 const defaultUsers = [
-  {
-    fullName: 'Super Admin',
-    email: process.env.SUPER_ADMIN_EMAIL || 'superadmin@hospitalacademy.edu',
-    password: process.env.SUPER_ADMIN_PASSWORD || 'SuperAdminPass123!',
-    role: 'superadmin'
-  },
+
   {
     fullName: 'Admin User',
     email: 'admin@ex.com',

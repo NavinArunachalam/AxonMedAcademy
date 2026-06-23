@@ -17,6 +17,7 @@ app.use(helmet());
 // CLIENT_URL accepts a comma-separated list of allowed origins.
 // In production on Railway, set this to your Vercel URL(s), e.g.:
 //   CLIENT_URL=https://oc-pro.vercel.app,https://oc-pro-git-main-yourteam.vercel.app
+// Custom domains: https://www.axonmedacademy.com, etc.
 const rawOrigins = process.env.CLIENT_URL || '';
 
 const allowedOrigins = rawOrigins
@@ -58,8 +59,15 @@ const corsOptions = {
       return callback(null, true);
     }
 
+    // Allow custom production domain and its subdomains
+    if (/^https:\/\/(www\.)?axonmedacademy\.com$/.test(origin) ||
+      /^https:\/\/[a-zA-Z0-9-]+\.axonmedacademy\.com$/.test(origin)) {
+      return callback(null, true);
+    }
+
     console.error(`[CORS] BLOCKED: ${origin}`);
-    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    // Return false instead of throwing an error to avoid a 500 being returned by the error handler
+    return callback(null, false);
   },
 
   credentials: true,
