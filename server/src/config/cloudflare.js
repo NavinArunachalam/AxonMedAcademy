@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
   CreateMultipartUploadCommand,
   UploadPartCommand,
@@ -216,11 +217,32 @@ async function abortMultipartUpload(objectKey, uploadId) {
   }
 }
 
+/**
+ * Generate a presigned GET URL so the browser can stream / download an object
+ * directly from R2 without exposing the S3 API credentials.
+ *
+ * @param {string} objectKey  - R2 object key (path inside the bucket)
+ * @param {number} expiresIn   - Seconds until the URL expires (default 3600 = 1h)
+ * @returns {Promise<string>} presigned GET URL
+ */
+async function generatePresignedGetUrl(objectKey, expiresIn = 3600) {
+  const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+  const client = getS3Client();
+
+  const command = new GetObjectCommand({
+    Bucket: CLOUDFLARE_R2_BUCKET,
+    Key: objectKey,
+  });
+
+  return getSignedUrl(client, command, { expiresIn });
+}
+
 module.exports = {
   getR2ObjectUrl,
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
   generatePresignedUploadUrl,
+  generatePresignedGetUrl,
   // Multipart helpers
   createMultipartUpload,
   generatePresignedPartUrl,

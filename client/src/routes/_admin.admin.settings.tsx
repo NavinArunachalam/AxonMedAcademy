@@ -19,7 +19,8 @@ import {
   Star,
   MessageSquare,
   Check,
-  Upload
+  Upload,
+  Play
 } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_admin/admin/settings")({
 
 function Settings() {
   const [activeTab, setActiveTab] = useState<
-    "Organization"| "About" | "Faculty" | "Placement" | "Blog" 
+    "Organization"| "About" | "Faculty" | "Placement" | "Blog" | "Voices"
   >("Organization");
 
   const [toast, setToast] = useState<string | null>(null);
@@ -105,6 +106,57 @@ function Settings() {
   const [blogImagePreview, setBlogImagePreview] = useState<string | null>(null);
   const blogImageRef = useRef<HTMLInputElement>(null);
 
+  // 7. Voices & Reviews
+  const [voicesSubTab, setVoicesSubTab] = useState<"Reviews" | "Videos">("Reviews");
+
+  // Written testimonials
+  const [testimonials, setTestimonials] = useState<any[]>([]);
+  const [editingTestimonial, setEditingTestimonial] = useState<any | null>(null);
+  const [isAddingTestimonial, setIsAddingTestimonial] = useState(false);
+  const [testimonialImageFile, setTestimonialImageFile] = useState<File | null>(null);
+  const [testimonialImagePreview, setTestimonialImagePreview] = useState<string | null>(null);
+  const testimonialImageRef = useRef<HTMLInputElement>(null);
+  const [isLoadingTestimonials, setIsLoadingTestimonials] = useState(false);
+
+  // Review videos
+  const [reviewVideos, setReviewVideos] = useState<any[]>([]);
+  const [editingVideo, setEditingVideo] = useState<any | null>(null);
+  const [isAddingVideo, setIsAddingVideo] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const videoFileRef = useRef<HTMLInputElement>(null);
+  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+
+  const fetchTestimonials = async () => {
+    setIsLoadingTestimonials(true);
+    try {
+      const res = await api.get("/admin/testimonials");
+      if (res.success) {
+        setTestimonials(res.testimonials || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch testimonials:", err);
+      showToast("Error loading testimonials");
+    } finally {
+      setIsLoadingTestimonials(false);
+    }
+  };
+
+  const fetchReviewVideos = async () => {
+    setIsLoadingVideos(true);
+    try {
+      const res = await api.get("/admin/review-videos");
+      if (res.success) {
+        setReviewVideos(res.videos || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch review videos:", err);
+      showToast("Error loading review videos");
+    } finally {
+      setIsLoadingVideos(false);
+    }
+  };
+
   // --- NEW FETCH FUNCTIONS FOR ABOUT, PLACEMENTS, BLOG ---
   const [isLoadingAbout, setIsLoadingAbout] = useState(false);
   const fetchAbout = async () => {
@@ -171,6 +223,9 @@ function Settings() {
       fetchPlacement();
     } else if (activeTab === "Blog") {
       fetchBlog();
+    } else if (activeTab === "Voices") {
+      fetchTestimonials();
+      fetchReviewVideos();
     }
   }, [activeTab]);
 
@@ -225,7 +280,7 @@ function Settings() {
 
         {/* Navigation sidebar */}
         <aside className="space-y-1">
-          {["Organization", "About", "Faculty", "Placement", "Blog",].map((tab) => {
+          {["Organization", "About", "Faculty", "Placement", "Blog", "Voices"].map((tab) => {
             const isSelected = activeTab === tab;
             return (
               <button
@@ -240,6 +295,10 @@ function Settings() {
                   setIsAddingStory(false);
                   setEditingPost(null);
                   setIsAddingPost(false);
+                  setEditingTestimonial(null);
+                  setIsAddingTestimonial(false);
+                  setEditingVideo(null);
+                  setIsAddingVideo(false);
                 }}
                 className={`w-full text-left rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${isSelected
                     ? "bg-lime text-plum-dark font-bold"
@@ -1338,6 +1397,473 @@ function Settings() {
           )}
 
          
+          {/* 7. VOICES & REVIEWS */}
+          {activeTab === "Voices" && (
+            <div className="space-y-6">
+              {/* Sub-navigation */}
+              <div className="flex gap-2 border-b border-cream/10 pb-1">
+                {(["Reviews", "Videos"] as const).map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setVoicesSubTab(sub)}
+                    className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors ${
+                      voicesSubTab === sub
+                        ? "bg-lime text-plum-dark"
+                        : "text-cream/60 hover:text-cream"
+                    }`}
+                  >
+                    {sub === "Reviews" ? "Student Reviews" : "Review Videos"}
+                  </button>
+                ))}
+              </div>
+
+              {/* --- REVIEWS SUB-TAB --- */}
+              {voicesSubTab === "Reviews" && (
+                <DarkCard>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="font-display font-bold text-lg">Student Reviews</h3>
+                      <p className="text-xs text-cream/60 mt-1">Manage testimonials shown on the home page Voices section</p>
+                    </div>
+                    {!editingTestimonial && !isAddingTestimonial && (
+                      <button
+                        onClick={() => {
+                          setIsAddingTestimonial(true);
+                          setEditingTestimonial({ name: "", roll: "", review: "" });
+                          setTestimonialImageFile(null);
+                          setTestimonialImagePreview(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Review
+                      </button>
+                    )}
+                  </div>
+
+                  {(editingTestimonial || isAddingTestimonial) ? (
+                    <div className="space-y-4 border-t border-cream/10 pt-4">
+                      <h4 className="font-semibold text-sm text-lime">{isAddingTestimonial ? "Add Student Review" : "Edit Student Review"}</h4>
+
+                      {/* Image picker */}
+                      <div className="flex items-center gap-5">
+                        <div className="relative shrink-0">
+                          <div className="h-20 w-20 overflow-hidden rounded-2xl bg-cream/5 border-2 border-dashed border-cream/10 grid place-items-center">
+                            {testimonialImagePreview ? (
+                              <img src={testimonialImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                            ) : editingTestimonial?.image ? (
+                              <img src={editingTestimonial.image} alt="Current" className="h-full w-full object-cover" />
+                            ) : (
+                              <Users className="h-7 w-7 text-cream/10" />
+                            )}
+                          </div>
+                          {(testimonialImagePreview || editingTestimonial?.image) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTestimonialImageFile(null);
+                                setTestimonialImagePreview(null);
+                                setEditingTestimonial((t: any) => ({ ...t, image: null, removeImage: true }));
+                                if (testimonialImageRef.current) testimonialImageRef.current.value = "";
+                              }}
+                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white grid place-items-center"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => testimonialImageRef.current?.click()}
+                            className="inline-flex items-center gap-2 rounded-full bg-cream/10 hover:bg-cream/20 text-cream border border-cream/10 px-3 py-1.5 text-xs font-bold"
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                            {testimonialImagePreview || editingTestimonial?.image ? "Change Photo" : "Upload Photo"}
+                          </button>
+                          <p className="text-[10px] text-cream/30 uppercase tracking-[0.15em]">JPG, PNG or WebP · Max 2MB</p>
+                          <input
+                            ref={testimonialImageRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setTestimonialImageFile(file);
+                                setTestimonialImagePreview(URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-cream/60">Student Name</label>
+                          <input
+                            type="text"
+                            value={editingTestimonial.name}
+                            onChange={(e) => setEditingTestimonial({ ...editingTestimonial, name: e.target.value })}
+                            className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
+                            placeholder="e.g. Priya Krishnan"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-cream/60">Roll / Current Role</label>
+                          <input
+                            type="text"
+                            value={editingTestimonial.roll}
+                            onChange={(e) => setEditingTestimonial({ ...editingTestimonial, roll: e.target.value })}
+                            className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
+                            placeholder="e.g. Staff Nurse · Apollo Hospitals"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] uppercase tracking-widest text-cream/60">Review Text</label>
+                          <textarea
+                            value={editingTestimonial.review}
+                            onChange={(e) => setEditingTestimonial({ ...editingTestimonial, review: e.target.value })}
+                            className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-lime min-h-[80px]"
+                            placeholder="What the student said about the academy..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2.5 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingTestimonial(null);
+                            setIsAddingTestimonial(false);
+                            setTestimonialImageFile(null);
+                            setTestimonialImagePreview(null);
+                            if (testimonialImageRef.current) testimonialImageRef.current.value = "";
+                          }}
+                          className="px-4 py-2 bg-cream/10 hover:bg-cream/20 text-xs font-semibold rounded-full"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!editingTestimonial.name || !editingTestimonial.roll || !editingTestimonial.review) {
+                              alert("Please fill name, roll, and review");
+                              return;
+                            }
+                            try {
+                              const fd = new FormData();
+                              fd.append("name", editingTestimonial.name);
+                              fd.append("roll", editingTestimonial.roll);
+                              fd.append("review", editingTestimonial.review);
+                              if (testimonialImageFile) {
+                                fd.append("image", testimonialImageFile);
+                              } else if (editingTestimonial.removeImage) {
+                                fd.append("removeImage", "true");
+                              }
+
+                              if (isAddingTestimonial) {
+                                const res = await api.multipart("/admin/testimonials", "POST", fd);
+                                if (res.success) {
+                                  showToast("Student review added!");
+                                  fetchTestimonials();
+                                }
+                              } else {
+                                const res = await api.multipart(`/admin/testimonials/${editingTestimonial._id || editingTestimonial.id}`, "PUT", fd);
+                                if (res.success) {
+                                  showToast("Student review updated!");
+                                  fetchTestimonials();
+                                }
+                              }
+                              setEditingTestimonial(null);
+                              setIsAddingTestimonial(false);
+                              setTestimonialImageFile(null);
+                              setTestimonialImagePreview(null);
+                              if (testimonialImageRef.current) testimonialImageRef.current.value = "";
+                            } catch (err: any) {
+                              alert(err.message || "Failed to save review");
+                            }
+                          }}
+                          className="px-4 py-2 bg-lime text-plum-dark text-xs font-bold rounded-full"
+                        >
+                          Save Review
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      {isLoadingTestimonials ? (
+                        <div className="col-span-2 text-center py-8 text-sm text-cream/50">Loading reviews...</div>
+                      ) : testimonials.length === 0 ? (
+                        <div className="col-span-2 text-center py-8 text-sm text-cream/50">No student reviews yet. Add your first review!</div>
+                      ) : (
+                        testimonials.map((t) => (
+                          <div key={t._id || t.id} className="flex gap-3 p-4 rounded-2xl bg-cream/5 border border-cream/10 relative group">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-plum-dark shrink-0 border border-cream/10">
+                              {t.image ? (
+                                <img src={t.image} alt={t.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="font-display font-bold text-lime text-base">{t.name.charAt(0)}</span>
+                              )}
+                            </div>
+                            <div className="space-y-1 pr-14">
+                              <h4 className="font-semibold text-sm text-cream">{t.name}</h4>
+                              <div className="text-[11px] text-lime font-medium">{t.roll}</div>
+                              <p className="text-xs text-cream/60 line-clamp-2">"{t.review}"</p>
+                            </div>
+                            <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => {
+                                  setEditingTestimonial(t);
+                                  setTestimonialImageFile(null);
+                                  setTestimonialImagePreview(null);
+                                }}
+                                className="p-1 hover:bg-cream/10 rounded text-cream/80"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Delete review by ${t.name}?`)) {
+                                    try {
+                                      const res = await api.delete(`/admin/testimonials/${t._id || t.id}`);
+                                      if (res.success) {
+                                        showToast("Review deleted");
+                                        fetchTestimonials();
+                                      }
+                                    } catch (err: any) {
+                                      alert(err.message || "Failed to delete review");
+                                    }
+                                  }
+                                }}
+                                className="p-1 hover:bg-red-500/20 rounded text-red-400"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </DarkCard>
+              )}
+
+              {/* --- REVIEW VIDEOS SUB-TAB --- */}
+              {voicesSubTab === "Videos" && (
+                <DarkCard>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="font-display font-bold text-lg">Review Videos</h3>
+                      <p className="text-xs text-cream/60 mt-1">Upload student video testimonials to Cloudflare R2</p>
+                    </div>
+                    {!editingVideo && !isAddingVideo && (
+                      <button
+                        onClick={() => {
+                          setIsAddingVideo(true);
+                          setEditingVideo({ title: "", studentName: "", roll: "" });
+                          setVideoFile(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Upload Video
+                      </button>
+                    )}
+                  </div>
+
+                  {(editingVideo || isAddingVideo) ? (
+                    <div className="space-y-4 border-t border-cream/10 pt-4">
+                      <h4 className="font-semibold text-sm text-lime">{isAddingVideo ? "Upload New Review Video" : "Edit Video Details"}</h4>
+
+                      {isAddingVideo && (
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-cream/60">Video File (MP4 / MOV / WebM)</label>
+                          <div
+                            onClick={() => videoFileRef.current?.click()}
+                            className="mt-1.5 cursor-pointer flex flex-col items-center justify-center gap-2 h-28 rounded-2xl bg-cream/5 border-2 border-dashed border-cream/10 hover:border-lime/50 transition-colors"
+                          >
+                            {videoFile ? (
+                              <div className="text-center">
+                                <Check className="h-6 w-6 text-lime mx-auto mb-1" />
+                                <span className="text-xs font-semibold text-lime">{videoFile.name}</span>
+                                <p className="text-[10px] text-cream/40 mt-0.5">{(videoFile.size / (1024 * 1024)).toFixed(1)} MB</p>
+                              </div>
+                            ) : (
+                              <>
+                                <Upload className="h-6 w-6 text-cream/20" />
+                                <span className="text-xs text-cream/40">Click to select a video file</span>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            ref={videoFileRef}
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setVideoFile(file);
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      <div className="grid sm:grid-cols-3 gap-4">
+                        <div className="sm:col-span-3">
+                          <label className="text-[10px] uppercase tracking-widest text-cream/60">Video Title</label>
+                          <input
+                            type="text"
+                            value={editingVideo.title}
+                            onChange={(e) => setEditingVideo({ ...editingVideo, title: e.target.value })}
+                            className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
+                            placeholder="e.g. My journey from student to staff nurse"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest text-cream/60">Student Name</label>
+                          <input
+                            type="text"
+                            value={editingVideo.studentName}
+                            onChange={(e) => setEditingVideo({ ...editingVideo, studentName: e.target.value })}
+                            className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
+                            placeholder="e.g. Priya Krishnan"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] uppercase tracking-widest text-cream/60">Roll / Current Role</label>
+                          <input
+                            type="text"
+                            value={editingVideo.roll}
+                            onChange={(e) => setEditingVideo({ ...editingVideo, roll: e.target.value })}
+                            className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
+                            placeholder="e.g. Staff Nurse · Apollo Hospitals"
+                          />
+                        </div>
+                      </div>
+
+                      {isUploadingVideo && (
+                        <div className="rounded-xl bg-lime/10 border border-lime/20 px-4 py-3 text-xs font-semibold text-lime flex items-center gap-2">
+                          <span className="animate-spin inline-block h-3 w-3 border-2 border-lime border-t-transparent rounded-full" />
+                          Uploading video to Cloudflare R2… this may take a moment.
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2.5 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingVideo(null);
+                            setIsAddingVideo(false);
+                            setVideoFile(null);
+                            if (videoFileRef.current) videoFileRef.current.value = "";
+                          }}
+                          className="px-4 py-2 bg-cream/10 hover:bg-cream/20 text-xs font-semibold rounded-full"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUploadingVideo}
+                          onClick={async () => {
+                            if (!editingVideo.title) { alert("Please fill the video title"); return; }
+                            if (isAddingVideo && !videoFile) { alert("Please select a video file"); return; }
+                            try {
+                              if (isAddingVideo) {
+                                setIsUploadingVideo(true);
+                                const fd = new FormData();
+                                fd.append("title", editingVideo.title);
+                                fd.append("studentName", editingVideo.studentName || "");
+                                fd.append("roll", editingVideo.roll || "");
+                                fd.append("video", videoFile!);
+                                const res = await api.multipart("/admin/review-videos", "POST", fd);
+                                if (res.success) {
+                                  showToast("Review video uploaded to Cloudflare R2!");
+                                  fetchReviewVideos();
+                                }
+                              } else {
+                                const res = await api.put(`/admin/review-videos/${editingVideo._id || editingVideo.id}`, {
+                                  title: editingVideo.title,
+                                  studentName: editingVideo.studentName,
+                                  roll: editingVideo.roll,
+                                });
+                                if (res.success) {
+                                  showToast("Video details updated!");
+                                  fetchReviewVideos();
+                                }
+                              }
+                              setEditingVideo(null);
+                              setIsAddingVideo(false);
+                              setVideoFile(null);
+                              if (videoFileRef.current) videoFileRef.current.value = "";
+                            } catch (err: any) {
+                              alert(err.message || "Failed to save video");
+                            } finally {
+                              setIsUploadingVideo(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-lime text-plum-dark text-xs font-bold rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isAddingVideo ? (isUploadingVideo ? "Uploading..." : "Upload to R2") : "Save Details"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 divide-y divide-cream/5">
+                      {isLoadingVideos ? (
+                        <div className="text-center py-8 text-sm text-cream/50">Loading review videos...</div>
+                      ) : reviewVideos.length === 0 ? (
+                        <div className="text-center py-8 text-sm text-cream/50">No review videos yet. Upload your first video!</div>
+                      ) : (
+                        reviewVideos.map((v) => (
+                          <div key={v._id || v.id} className="py-3.5 flex items-center justify-between gap-4 group">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="shrink-0 w-10 h-10 rounded-xl bg-plum-dark border border-cream/10 grid place-items-center">
+                                <Play className="h-4 w-4 fill-lime text-lime" />
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="font-semibold text-sm text-cream truncate">{v.title}</h4>
+                                <div className="text-xs text-cream/55 flex items-center gap-1.5">
+                                  {v.studentName && <span>{v.studentName}</span>}
+                                  {v.studentName && v.roll && <span>·</span>}
+                                  {v.roll && <span className="text-lime/80">{v.roll}</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => setEditingVideo(v)}
+                                className="p-1 hover:bg-cream/10 rounded text-cream"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Delete "${v.title}"? This will also remove it from Cloudflare R2.`)) {
+                                    try {
+                                      const res = await api.delete(`/admin/review-videos/${v._id || v.id}`);
+                                      if (res.success) {
+                                        showToast("Review video deleted from R2");
+                                        fetchReviewVideos();
+                                      }
+                                    } catch (err: any) {
+                                      alert(err.message || "Failed to delete video");
+                                    }
+                                  }
+                                }}
+                                className="p-1 hover:bg-red-500/20 rounded text-red-400"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </DarkCard>
+              )}
+            </div>
+          )}
+
          
         </div>
       </div>

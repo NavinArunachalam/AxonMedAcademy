@@ -10,6 +10,12 @@ const PlacementStory = require('../models/PlacementStory');
 const BlogPost = require('../models/BlogPost');
 const ContactDetail = require('../models/ContactDetail');
 const Inquiry = require('../models/Inquiry');
+const Testimonial = require('../models/Testimonial');
+const ReviewVideo = require('../models/ReviewVideo');
+const {
+  uploadFileToCloudflareR2,
+  deleteFileFromCloudflareR2,
+} = require('../config/cloudflare');
 const { sendWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo } = require('../middleware/auth');
 const multer = require('multer');
@@ -17,6 +23,7 @@ const { storage, cloudinary, blogStorage } = require('../config/cloudinary');
 
 const upload = multer({ storage });
 const uploadBlogImage = multer({ storage: blogStorage });
+const videoUpload = multer({ storage: multer.memoryStorage() });
 
 // GET /stats → Command center stats: sessions, exams, incidents, users
 router.get('/stats', (req, res) => {
@@ -697,6 +704,179 @@ router.delete('/inquiries/:id', protect, restrictTo('admin', 'superadmin'), asyn
       return res.status(404).json({ success: false, message: 'Inquiry not found' });
     }
     res.json({ success: true, message: 'Inquiry deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// TESTIMONIALS / STUDENT REVIEWS CRUD
+// ==========================================
+
+// GET /testimonials → List all testimonials
+router.get('/testimonials', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const testimonials = await Testimonial.find().sort({ createdAt: -1 });
+    res.json({ success: true, testimonials });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /testimonials → Create testimonial (accepts student image upload)
+router.post('/testimonials', protect, restrictTo('admin', 'superadmin'), upload.single('image'), async (req, res, next) => {
+  try {
+    const { name, roll, review } = req.body;
+    if (!name || !roll || !review) {
+      return res.status(400).json({ success: false, message: 'Name, roll, and review are required' });
+    }
+
+    const image = req.file ? req.file.path : undefined;
+    const imagePublicId = req.file ? req.file.filename : undefined;
+
+    const testimonial = await Testimonial.create({
+      name,
+      roll,
+      review,
+      image,
+      imagePublicId
+    });
+
+    res.status(201).json({ success: true, message: 'Testimonial created successfully', testimonial });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /testimonials/:id → Update testimonial (accepts student image upload)
+router.put('/testimonials/:id', protect, restrictTo('admin', 'superadmin'), upload.single('image'), async (req, res, next) => {
+  try {
+    const { name, roll, review, removeImage } = req.body;
+    const updateData = { name, roll, review };
+
+    if (req.file) {
+      const existing = await Testimonial.findById(req.params.id);
+      if (existing && existing.imagePublicId) {
+        cloudinary.uploader.destroy(existing.imagePublicId).catch(err => console.error('Cloudinary delete error:', err));
+      }
+      updateData.image = req.file.path;
+      updateData.imagePublicId = req.file.filename;
+    } else if (removeImage === 'true' || removeImage === true) {
+      const existing = await Testimonial.findById(req.params.id);
+      if (existing && existing.imagePublicId) {
+        cloudinary.uploader.destroy(existing.imagePublicId).catch(err => console.error('Cloudinary delete error:', err));
+      }
+      updateData.image = null;
+      updateData.imagePublicId = null;
+    }
+
+    const testimonial = await Testimonial.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
+    if (!testimonial) {
+      return res.status(404).json({ success: false, message: 'Testimonial not found' });
+    }
+    res.json({ success: true, message: 'Testimonial updated successfully', testimonial });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /testimonials/:id → Delete testimonial
+router.delete('/testimonials/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const testimonial = await Testimonial.findById(req.params.id);
+    if (!testimonial) {
+      return res.status(404).json({ success: false, message: 'Testimonial not found' });
+    }
+
+    if (testimonial.imagePublicId) {
+      cloudinary.uploader.destroy(testimonial.imagePublicId).catch(err => console.error('Cloudinary delete error:', err));
+    }
+
+    await testimonial.deleteOne();
+    res.json({ success: true, message: 'Testimonial deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// REVIEW VIDEOS CRUD (Cloudflare R2)
+// ==========================================
+
+// GET /review-videos → List all review videos
+router.get('/review-videos', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const videos = await ReviewVideo.find().sort({ createdAt: -1 });
+    res.json({ success: true, videos });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /review-videos → Create & upload to R2
+router.post('/review-videos', protect, restrictTo('admin', 'superadmin'), videoUpload.single('video'), async (req, res, next) => {
+  try {
+    const { title, studentName, roll } = req.body;
+    if (!title) {
+      return res.status(400).json({ success: false, message: 'Title is required' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Video file is required' });
+    }
+
+    const objectKey = `review-videos/${Date.now()}-${req.file.originalname.replace(/[/\\]/g, '_')}`;
+    const uploadResult = await uploadFileToCloudflareR2(
+      req.file.buffer,
+      objectKey,
+      req.file.mimetype
+    );
+
+    const video = await ReviewVideo.create({
+      title,
+      studentName,
+      roll,
+      videoUrl: uploadResult.url,
+      cloudflareKey: objectKey
+    });
+
+    res.status(201).json({ success: true, message: 'Review video uploaded successfully', video });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /review-videos/:id → Update review video details
+router.put('/review-videos/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { title, studentName, roll } = req.body;
+    const video = await ReviewVideo.findByIdAndUpdate(
+      req.params.id,
+      { title, studentName, roll },
+      { new: true, runValidators: true }
+    );
+    if (!video) {
+      return res.status(404).json({ success: false, message: 'Review video not found' });
+    }
+    res.json({ success: true, message: 'Review video details updated successfully', video });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /review-videos/:id → Delete from DB and Cloudflare R2
+router.delete('/review-videos/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const video = await ReviewVideo.findById(req.params.id);
+    if (!video) {
+      return res.status(404).json({ success: false, message: 'Review video not found' });
+    }
+
+    if (video.cloudflareKey) {
+      await deleteFileFromCloudflareR2(video.cloudflareKey).catch(err => console.error('R2 delete error:', err));
+    }
+
+    await video.deleteOne();
+    res.json({ success: true, message: 'Review video deleted successfully' });
   } catch (error) {
     next(error);
   }
