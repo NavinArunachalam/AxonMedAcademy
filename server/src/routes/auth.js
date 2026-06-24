@@ -12,7 +12,7 @@ const StudentRequest = require('../models/StudentRequest');
 const { protect } = require('../middleware/auth');
 
 const defaultLoginAccounts = {
-  'admin@ex.com': {
+  'axonmedacademy2@gmail.com': {
     fullName: 'Admin User',
     password: 'axon@admin',
     role: 'admin'
@@ -289,6 +289,7 @@ router.get('/me', protect, async (req, res, next) => {
       fullName: req.user.fullName,
       email: req.user.email,
       phone: req.user.phone,
+      address: req.user.address,
       role: req.user.role,
       isVerified: req.user.isVerified,
       isActive: req.user.isActive,
@@ -381,13 +382,18 @@ router.post('/refresh-token', async (req, res, next) => {
   }
 });
 
-// PUT /me → Update own profile fields
+// PUT /me → Update own profile fields (fullName, phone, address)
 router.put('/me', protect, async (req, res, next) => {
   try {
-    const { fullName, phone } = req.body;
+    const { fullName, phone, address } = req.body;
+    const updates = {};
+    if (fullName !== undefined) updates.fullName = fullName;
+    if (phone !== undefined) updates.phone = phone;
+    if (address !== undefined) updates.address = address;
+
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      { $set: { fullName, phone } },
+      { $set: updates },
       { new: true }
     );
     res.json({
@@ -397,7 +403,66 @@ router.put('/me', protect, async (req, res, next) => {
         fullName: updatedUser.fullName,
         email: updatedUser.email,
         phone: updatedUser.phone,
-        role: updatedUser.role
+        address: updatedUser.address,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /me/avatar → Upload profile photo to Cloudinary
+const { avatarStorage, cloudinary } = require('../config/cloudinary');
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  }
+});
+
+router.post('/me/avatar', protect, avatarUpload.single('avatar'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image file provided' });
+    }
+    const avatarUrl = req.file.path; // Cloudinary secure URL
+
+    // Delete existing avatar from Cloudinary if one exists
+    const existingUser = await User.findById(req.user._id);
+    if (existingUser && existingUser.avatar && existingUser.avatar.includes('res.cloudinary.com')) {
+      try {
+        const parts = existingUser.avatar.split('/');
+        const folderIndex = parts.indexOf('avatars');
+        if (folderIndex !== -1) {
+          const filename = parts.slice(folderIndex).join('/'); // "avatars/avatar-xxx.ext"
+          const publicId = filename.substring(0, filename.lastIndexOf('.')); // "avatars/avatar-xxx"
+          cloudinary.uploader.destroy(publicId).catch(err => console.error('Cloudinary avatar delete error:', err));
+        }
+      } catch (deleteErr) {
+        console.error('Failed to parse Cloudinary avatar URL for deletion:', deleteErr);
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { avatar: avatarUrl } },
+      { new: true }
+    );
+    res.json({
+      success: true,
+      avatar: avatarUrl,
+      user: {
+        _id: updatedUser._id,
+        fullName: updatedUser.fullName,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar
       }
     });
   } catch (error) {

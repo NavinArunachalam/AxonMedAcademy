@@ -5,8 +5,9 @@ const userSchema = new mongoose.Schema({
   fullName:  { type: String, required: true, trim: true },
   email:     { type: String, required: true, unique: true, lowercase: true, trim: true },
   phone:     { type: String, unique: true, sparse: true, trim: true },
+  address:   { type: String, default: null, trim: true },
   password:  { type: String, required: true, select: false },
-  avatar:    { type: String, default: null }, // S3 URL
+  avatar:    { type: String, default: null }, // Cloudinary / local URL
   role: {
     type: String,
     enum: ['student', 'faculty', 'admin', 'accounts', 'receptionist', 'superadmin'],

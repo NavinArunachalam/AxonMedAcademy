@@ -46,9 +46,22 @@ const blogStorage = new CloudinaryStorage({
   }
 });
 
+const avatarStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'avatars',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    public_id: (req, file) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      return 'avatar-' + uniqueSuffix;
+    }
+  }
+});
+
 module.exports = {
   cloudinary,
   storage,
   announcementStorage,
-  blogStorage
+  blogStorage,
+  avatarStorage
 };

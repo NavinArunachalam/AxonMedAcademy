@@ -27,9 +27,9 @@ function getDevAuthUserHeaders(): Record<string, string> {
 function normalizeLoginIdentifier(value: string) {
   if (value.includes('@')) return value;
   const map: Record<string, string> = {
-    Ajay: 'ajay@ex.com',
+    Ajay: 'navin.procols@gmailcom',
     Navin: 'navin@ex.com',
-    Admin: 'admin@ex.com',
+    Admin: 'axonmedacademy2@gmail.com',
   };
   return map[value] ?? value;
 }
@@ -320,6 +320,53 @@ export async function loginUser(identifier: string, password: string) {
 
 export async function getCurrentUser() {
   return fetchJson('/auth/me');
+}
+
+export async function updateMyProfile(data: { fullName?: string; phone?: string; address?: string }) {
+  return fetchJson('/auth/me', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function uploadProfileAvatar(file: File, onProgress?: (pct: number) => void): Promise<{ avatar: string; user: any }> {
+  const accessToken = classroomStore.getState().accessToken;
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/auth/me/avatar`);
+    xhr.withCredentials = true;
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+
+    // Dev auth headers
+    if (!import.meta.env.PROD) {
+      const devHeaders = getDevAuthUserHeaders();
+      Object.entries(devHeaders).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    }
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const resp = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && resp.success) {
+          resolve(resp);
+        } else {
+          reject(new Error(resp.message || `Upload failed: ${xhr.statusText}`));
+        }
+      } catch {
+        reject(new Error('Failed to parse upload response'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error during avatar upload'));
+    xhr.send(formData);
+  });
 }
 
 export async function getAdminUsers(role?: string) {

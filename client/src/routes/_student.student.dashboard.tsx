@@ -162,9 +162,9 @@ function Dashboard() {
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Active Courses" value={activeCoursesCount.toString()} delta="+1 this month" icon={BookOpen} accent="plum" />
-        <StatTile label="Hours This Week" value="18.5" delta="+12% vs last" icon={Clock} accent="lime" />
+        <StatTile label="Hours This Week" value="0" delta="0% vs last" icon={Clock} accent="lime" />
         <StatTile label="Assignments Done" value={`${totalSubmissions}/${totalQuizzes}`} icon={CheckCircle2} accent="plum" />
-        <StatTile label="Achievement Points" value="1,284" delta="+86 today" icon={Trophy} accent="lime" />
+        <StatTile label="Achievement Points" value="0" delta="0% vs last" icon={Trophy} accent="lime" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

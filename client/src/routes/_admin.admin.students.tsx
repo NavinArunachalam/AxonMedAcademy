@@ -78,7 +78,7 @@ function StudentDetail({ studentId }: { studentId: string }) {
       return ss + (vs?.totalWatchedSec || 0);
     }, 0), 0);
 
-  const totalLiveAttended = enrolled.reduce((s, c) => s + c.meetings.filter(m => Array.isArray(m.attendees) && m.attendees.some(a => String(a?.student?._id || a?.student || a) === studentId)).length, 0);
+  const totalLiveAttended = enrolled.reduce((s, c) => s + c.meetings.filter(m => Array.isArray(m.attendees) && m.attendees.some((a: any) => String(a?.student?._id || a?.student || a) === studentId)).length, 0);
   const totalMeetings = enrolled.reduce((s, c) => s + c.meetings.length, 0);
 
   const avgWatchPct = totalPublishedRecs > 0
@@ -112,7 +112,7 @@ function StudentDetail({ studentId }: { studentId: string }) {
         const pubRecs = c.recordings.filter(r => r.isPublished);
         const watchedRecs = pubRecs.filter(r => r.viewStats.some(v => v.studentId === studentId && v.watchedPercent > 0));
         const quizAttempts = c.quizzes.flatMap(q => q.attempts.filter(a => a.studentId === studentId));
-        const liveAttended = c.meetings.filter(m => Array.isArray(m.attendees) && m.attendees.some(a => String(a?.student?._id || a?.student || a) === studentId)).length;
+        const liveAttended = c.meetings.filter(m => Array.isArray(m.attendees) && m.attendees.some((a: any) => String(a?.student?._id || a?.student || a) === studentId)).length;
         return (
           <div key={c.id} className="border border-cream/10 rounded-xl p-3">
             <div className="flex items-center justify-between mb-2">
@@ -229,7 +229,7 @@ function AdminStudents() {
           return sum + (vs?.totalWatchedSec || 0);
         }, 0) / 3600;
 
-        const liveAttended = c.meetings.filter(m => Array.isArray(m.attendees) && m.attendees.some(a => String(a?.student?._id || a?.student || a) === s.id)).length;
+        const liveAttended = c.meetings.filter(m => Array.isArray(m.attendees) && m.attendees.some((a: any) => String(a?.student?._id || a?.student || a) === s.id)).length;
 
         const quizAttempts = c.quizzes.flatMap(q => q.attempts.filter(a => a.studentId === s.id));
         const quizAvg = quizAttempts.length > 0

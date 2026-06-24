@@ -115,6 +115,8 @@ function RootComponent() {
           name: backendUser.fullName || backendUser.email,
           email: backendUser.email,
           phone: backendUser.phone,
+          address: backendUser.address,
+          avatar: backendUser.avatar,
           role,
         };
         classroomStore.setState(() => ({ currentUser, accessToken, classrooms }));

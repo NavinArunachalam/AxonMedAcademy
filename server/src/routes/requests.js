@@ -5,14 +5,11 @@ const User = require('../models/User');
 const StudentRequest = require('../models/StudentRequest');
 const Classroom = require('../models/Classroom');
 const { protect, restrictTo } = require('../middleware/auth');
+const { sendApprovalEmail } = require('../services/emailService');
 
 // Mock messaging services
 const whatsappService = {
   send: async (data) => console.log('[WhatsApp Mock] Sent message to:', data.phone, 'Template:', data.template, 'Data:', data.data)
-};
-
-const emailService = {
-  send: async (data) => console.log('[Email Mock] Sent email to:', data.to, 'Template:', data.template, 'Data:', data.data)
 };
 
 // Protect all routes under requests (except register and my-status which are public/student-accessible)
@@ -100,8 +97,8 @@ router.put('/bulk-approve', async (req, res, next) => {
 
     const results = [];
     for (const id of ids) {
-      const request = await StudentRequest.findById(id);
-      if (!request) continue;
+      const request = await StudentRequest.findById(id).populate('user');
+      if (!request || !request.user) continue;
 
       request.status = 'approved';
       request.reviewedBy = req.user._id;
@@ -122,7 +119,7 @@ router.put('/bulk-approve', async (req, res, next) => {
       await request.save();
 
       // Activate User
-      await User.findByIdAndUpdate(request.user, {
+      await User.findByIdAndUpdate(request.user._id, {
         isVerified: true,
         isActive: true
       });
@@ -131,9 +128,14 @@ router.put('/bulk-approve', async (req, res, next) => {
       if (classroomIds && classroomIds.length > 0) {
         await Classroom.updateMany(
           { _id: { $in: classroomIds } },
-          { $addToSet: { students: { student: request.user, status: 'active' } } }
+          { $addToSet: { students: { student: request.user._id, status: 'active' } } }
         );
       }
+
+      // Send approval email (non-blocking in bulk loop)
+      sendApprovalEmail(request.user).catch(err => {
+        console.error('[Bulk Approve] Failed to send email to', request.user.email, '—', err.message || err);
+      });
 
       results.push(id);
     }
@@ -213,11 +215,11 @@ router.put('/:id/approve', async (req, res, next) => {
       data: { name: request.fullName, loginUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/login` }
     });
 
-    await emailService.send({
-      to: request.email,
-      template: 'account_approved',
-      data: { fullName: request.fullName }
-    });
+    try {
+      await sendApprovalEmail(request.user);
+    } catch (emailErr) {
+      console.error('[Approve] Failed to send approval email to', request.user.email, '—', emailErr.message || emailErr);
+    }
 
     res.json({ success: true, message: 'Student request approved successfully', request });
   } catch (error) {

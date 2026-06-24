@@ -129,6 +129,16 @@ const Calendar = createLucideIcon("Calendar", [
   ["rect", { width: "18", height: "18", x: "3", y: "4", rx: "2", key: "1hopcy" }],
   ["path", { d: "M3 10h18", key: "8toen8" }]
 ]);
+const Camera = createLucideIcon("Camera", [
+  [
+    "path",
+    {
+      d: "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z",
+      key: "1tc9qg"
+    }
+  ],
+  ["circle", { cx: "12", cy: "13", r: "3", key: "1vg3eu" }]
+]);
 const ChartColumn = createLucideIcon("ChartColumn", [
   ["path", { d: "M3 3v16a2 2 0 0 0 2 2h16", key: "c24i48" }],
   ["path", { d: "M18 17V9", key: "2bz60n" }],
@@ -155,6 +165,10 @@ const CircleAlert = createLucideIcon("CircleAlert", [
   ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
   ["line", { x1: "12", x2: "12", y1: "8", y2: "12", key: "1pkeuh" }],
   ["line", { x1: "12", x2: "12.01", y1: "16", y2: "16", key: "4dfq90" }]
+]);
+const CircleCheckBig = createLucideIcon("CircleCheckBig", [
+  ["path", { d: "M21.801 10A10 10 0 1 1 17 3.335", key: "yps3ct" }],
+  ["path", { d: "m9 11 3 3L22 4", key: "1pflzl" }]
 ]);
 const CircleCheck = createLucideIcon("CircleCheck", [
   ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
@@ -342,6 +356,16 @@ const Microscope = createLucideIcon("Microscope", [
   ["path", { d: "M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3", key: "1drr47" }]
 ]);
 const Minus = createLucideIcon("Minus", [["path", { d: "M5 12h14", key: "1ays0h" }]]);
+const PenLine = createLucideIcon("PenLine", [
+  ["path", { d: "M12 20h9", key: "t2du7b" }],
+  [
+    "path",
+    {
+      d: "M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z",
+      key: "1ykcvy"
+    }
+  ]
+]);
 const Pen = createLucideIcon("Pen", [
   [
     "path",
@@ -604,62 +628,65 @@ const Youtube = createLucideIcon("Youtube", [
   ["path", { d: "m10 15 5-3-5-3z", key: "1jp15x" }]
 ]);
 export {
-  Plus as $,
+  Phone as $,
   Activity as A,
   Bell as B,
   Calendar as C,
   Download as D,
   ExternalLink as E,
   FileText as F,
-  GraduationCap as G,
-  Heart as H,
-  IndianRupee as I,
-  Instagram as J,
-  Linkedin as K,
-  LayoutDashboard as L,
-  LoaderCircle as M,
-  Lock as N,
-  LogOut as O,
-  Mail as P,
-  MapPin as Q,
-  Megaphone as R,
-  Menu as S,
-  MessageCircle as T,
-  MessageSquare as U,
-  Microscope as V,
-  Minus as W,
-  Pen as X,
-  Phone as Y,
-  Pill as Z,
-  Play as _,
+  Flame as G,
+  GraduationCap as H,
+  Heart as I,
+  HeartPulse as J,
+  IndianRupee as K,
+  Instagram as L,
+  LayoutDashboard as M,
+  Linkedin as N,
+  LoaderCircle as O,
+  Lock as P,
+  LogOut as Q,
+  Mail as R,
+  MapPin as S,
+  Megaphone as T,
+  Menu as U,
+  MessageCircle as V,
+  MessageSquare as W,
+  Microscope as X,
+  Minus as Y,
+  Pen as Z,
+  PenLine as _,
   Archive as a,
-  Quote as a0,
-  Radio as a1,
-  RefreshCw as a2,
-  Save as a3,
-  School as a4,
-  ScrollText as a5,
-  Search as a6,
-  Send as a7,
-  Settings as a8,
-  ShieldAlert as a9,
-  ShieldCheck as aa,
-  SlidersHorizontal as ab,
-  Sparkles as ac,
-  SquareCheckBig as ad,
-  Star as ae,
-  Stethoscope as af,
-  Target as ag,
-  Trash2 as ah,
-  TrendingUp as ai,
-  TriangleAlert as aj,
-  Trophy as ak,
-  Upload as al,
-  User as am,
-  Users as an,
-  Video as ao,
-  X as ap,
-  Youtube as aq,
+  Pill as a0,
+  Play as a1,
+  Plus as a2,
+  Quote as a3,
+  Radio as a4,
+  RefreshCw as a5,
+  Save as a6,
+  School as a7,
+  ScrollText as a8,
+  Search as a9,
+  Send as aa,
+  Settings as ab,
+  ShieldAlert as ac,
+  ShieldCheck as ad,
+  SlidersHorizontal as ae,
+  Sparkles as af,
+  SquareCheckBig as ag,
+  Star as ah,
+  Stethoscope as ai,
+  Target as aj,
+  Trash2 as ak,
+  TrendingUp as al,
+  TriangleAlert as am,
+  Trophy as an,
+  Upload as ao,
+  User as ap,
+  Users as aq,
+  Video as ar,
+  X as as,
+  Youtube as at,
   ArrowDownRight as b,
   ArrowLeft as c,
   ArrowRight as d,
@@ -668,21 +695,21 @@ export {
   BookOpen as g,
   Briefcase as h,
   Building2 as i,
-  ChartColumn as j,
-  ChartNoAxesColumn as k,
-  Check as l,
-  ChevronDown as m,
-  ChevronLeft as n,
-  ChevronRight as o,
-  ChevronUp as p,
-  CircleAlert as q,
-  CircleCheck as r,
-  CirclePlay as s,
-  ClipboardCheck as t,
-  ClipboardList as u,
-  Clock as v,
-  CreditCard as w,
-  Eye as x,
-  Flame as y,
-  HeartPulse as z
+  Camera as j,
+  ChartColumn as k,
+  ChartNoAxesColumn as l,
+  Check as m,
+  ChevronDown as n,
+  ChevronLeft as o,
+  ChevronRight as p,
+  ChevronUp as q,
+  CircleAlert as r,
+  CircleCheck as s,
+  CircleCheckBig as t,
+  CirclePlay as u,
+  ClipboardCheck as v,
+  ClipboardList as w,
+  Clock as x,
+  CreditCard as y,
+  Eye as z
 };

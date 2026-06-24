@@ -11,6 +11,8 @@ export interface User {
   role: "student" | "admin" | "faculty";
   password?: string;
   phone?: string;
+  address?: string;
+  avatar?: string;
 }
 
 export interface Course {
@@ -201,8 +203,7 @@ const in1h = new Date(now.getTime() + 1 * 60 * 60 * 1000).toISOString();
 
 const INITIAL_USERS: User[] = [
   { id: "Ajay", name: "Ajay Kumar", email: "ajay@ex.com", role: "student", password: "1111", phone: "+91 98700 11110" },
-  { id: "Navin", name: "Navin Raj", email: "navin@ex.com", role: "student", password: "2222", phone: "+91 98700 22220" },
-  { id: "admin", name: "Admin", email: "admin@ex.com", role: "admin", password: "axon@admin" },
+  { id: "admin", name: "Admin", email: "axonmedacademy2@gmail.com", role: "admin", password: "axon@admin" },
 ];
 
 const INITIAL_COURSES: Course[] = [
