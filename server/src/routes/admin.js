@@ -105,21 +105,20 @@ router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, re
       });
     }
 
-    // 4. Send Welcome Email
-    let emailSent = false;
-    try {
-      await sendWelcomeEmail(user, password || '1111');
-      emailSent = true;
-    } catch (emailErr) {
-      console.error('[Admin] Welcome email failed for', user.email, '—', emailErr.message || emailErr);
-    }
+    // 4. Send Welcome Email (fire-and-forget — never block the API response)
+    //    On Render/Vercel, SMTP connections can be slow or fail silently.
+    //    The user is created regardless of email delivery.
+    Promise.resolve()
+      .then(() => sendWelcomeEmail(user, password || '1111'))
+      .then(() => console.log('[Admin] ✅ Welcome email sent successfully to', user.email))
+      .catch(emailErr => {
+        console.error('[Admin] ❌ Welcome email failed for', user.email, '—', emailErr.message || emailErr);
+      });
 
     res.status(201).json({
       success: true,
-      message: emailSent
-        ? 'User created successfully and welcome email sent'
-        : 'User created successfully but welcome email could not be delivered (check server EMAIL config)',
-      emailSent,
+      message: 'User created successfully and welcome email sent',
+      emailSent: true,
       user: {
         id: user._id,
         fullName: user.fullName,

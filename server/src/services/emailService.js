@@ -4,6 +4,9 @@ const nodemailer = require('nodemailer');
  * Create a fresh transporter each time so env vars are always current.
  * Gmail requires:  host=smtp.gmail.com, port=587, secure=false (STARTTLS)
  * and the EMAIL_PASS should be a 16-char App Password (not your Gmail login password).
+ * 
+ * Added timeouts to prevent hanging on deployed environments (Render/Vercel)
+ * where outbound SMTP connections can be slow or blocked.
  */
 function createTransporter() {
   const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
@@ -18,6 +21,9 @@ function createTransporter() {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    connectionTimeout: 10000,   // 10s to establish TCP connection
+    greetingTimeout: 5000,      // 5s to receive SMTP greeting after connect
+    socketTimeout: 15000,       // 15s for entire socket inactivity
     tls: {
       rejectUnauthorized: false, // needed for some Gmail routing / Railway env
     },
@@ -109,8 +115,8 @@ exports.sendWelcomeEmail = async (user, password) => {
 
   try {
     const transporter = createTransporter();
-    // Verify SMTP connection before sending
-    await transporter.verify();
+    // Skip transporter.verify() — it can hang on Render/Vercel due to IP reputation issues.
+    // sendMail() internally verifies connection and will throw on failure.
     const info = await transporter.sendMail(mailOptions);
     console.log(`[Email] ✅ Welcome email sent to ${user.email} — MessageId: ${info.messageId}`);
     if (nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(info)) {
@@ -192,7 +198,6 @@ exports.sendApprovalEmail = async (user) => {
 
   try {
     const transporter = createTransporter();
-    await transporter.verify();
     const info = await transporter.sendMail(mailOptions);
     console.log(`[Email] ✅ Approval email sent to ${user.email} — MessageId: ${info.messageId}`);
     return true;
