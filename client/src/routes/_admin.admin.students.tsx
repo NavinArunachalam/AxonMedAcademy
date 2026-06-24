@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React from "react";
-import { Search, Plus, Download, Mail, ChevronDown, ChevronUp, Video, BookOpen, ClipboardList, X } from "lucide-react";
+import { Search, Plus, Download, Mail, ChevronDown, ChevronUp, Video, BookOpen, ClipboardList, X, Loader2 } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 import { useClassroomStore, adminActions, classroomActions, messageActions, type EnrolledStudent } from "@/lib/classroomStore";
 import { useState, useMemo, useEffect } from "react";
@@ -187,6 +187,7 @@ function AdminStudents() {
   const [form, setForm] = useState({ name: "", email: "", password: "", selectedClassroom: "" });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [msgStudent, setMsgStudent] = useState<{ id: string; name: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -366,8 +367,9 @@ function AdminStudents() {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email) return;
+    if (!form.name || !form.email || isSubmitting) return;
 
+    setIsSubmitting(true);
     try {
       const res = await createAdminUser({
         fullName: form.name,
@@ -393,6 +395,8 @@ function AdminStudents() {
       setBackendError(null);
     } catch (err) {
       setBackendError(err instanceof Error ? err.message : "Could not create student");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -470,8 +474,11 @@ function AdminStudents() {
               </div>
             </div>
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setShowAdd(false)} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
-              <button type="submit" className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold">Register & Enroll</button>
+              <button type="button" onClick={() => setShowAdd(false)} disabled={isSubmitting} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-50">Cancel</button>
+              <button type="submit" disabled={isSubmitting} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-75">
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isSubmitting ? "Registering..." : "Register & Enroll"}
+              </button>
             </div>
           </form>
         </DarkCard>
