@@ -60,7 +60,7 @@ function isPathInScope(pathname, base) {
   return !base || canonical === base || canonical.startsWith(base + "/");
 }
 const findRouteRules = /* @__PURE__ */ (() => {
-  const $0 = [{ name: "proxy", route: "/api/**", handler: proxy, options: { "to": "https://oc-pro-production.up.railway.app/api/**", "_proxyStripBase": "/api" } }], $1 = [{ name: "headers", route: "/assets/**", handler: headers, options: { "cache-control": "public, max-age=31536000, immutable" } }];
+  const $0 = [{ name: "proxy", route: "/api/**", handler: proxy, options: { "to": "https://oc-pro.onrender.com/api/**", "_proxyStripBase": "/api" } }], $1 = [{ name: "headers", route: "/assets/**", handler: headers, options: { "cache-control": "public, max-age=31536000, immutable" } }];
   return (m, p) => {
     let r = [];
     if (p.charCodeAt(p.length - 1) === 47) p = p.slice(0, -1) || "/";
