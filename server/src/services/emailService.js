@@ -1,33 +1,28 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 /**
- * Create a fresh transporter each time so env vars are always current.
- * Gmail requires:  host=smtp.gmail.com, port=587, secure=false (STARTTLS)
- * and the EMAIL_PASS should be a 16-char App Password (not your Gmail login password).
- * 
- * Added timeouts to prevent hanging on deployed environments (Render/Vercel)
- * where outbound SMTP connections can be slow or blocked.
+ * Email Service — powered by Resend (https://resend.com)
+ *
+ * Why Resend instead of Gmail SMTP?
+ * Railway, Render, and Vercel block outbound SMTP ports (25, 465, 587) to
+ * prevent spam. Resend uses the HTTPS API — no blocked ports, works everywhere.
+ *
+ * Setup:
+ *  1. Sign up at https://resend.com (free — 3,000 emails/month)
+ *  2. Add & verify your domain OR use onboarding@resend.dev for initial testing
+ *  3. Create an API key → add RESEND_API_KEY to Railway environment variables
+ *  4. Set EMAIL_FROM to a verified sender address, e.g. no-reply@yourdomain.com
+ *     (For testing without a domain, use: onboarding@resend.dev)
  */
-function createTransporter() {
-  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.EMAIL_PORT || '587', 10);
-  const isSecure = port === 465; // 465 = SSL, 587 = STARTTLS
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: isSecure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    connectionTimeout: 10000,   // 10s to establish TCP connection
-    greetingTimeout: 5000,      // 5s to receive SMTP greeting after connect
-    socketTimeout: 15000,       // 15s for entire socket inactivity
-    tls: {
-      rejectUnauthorized: false, // needed for some Gmail routing / Railway env
-    },
-  });
+function getResend() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      '[Email] RESEND_API_KEY is not set. Add it to your Railway / Vercel environment variables.'
+    );
+  }
+  return new Resend(apiKey);
 }
 
 // Resolve the public portal URL from CLIENT_URL env (take first entry if comma-separated)
@@ -44,11 +39,12 @@ function getPortalUrl() {
 
 exports.sendWelcomeEmail = async (user, password) => {
   const portalUrl = getPortalUrl();
-  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const resend = getResend();
 
-  const mailOptions = {
-    from: `"Axon Academy" <${fromEmail}>`,
-    to: user.email,
+  const { data, error } = await resend.emails.send({
+    from: `Axon Academy <${fromEmail}>`,
+    to: [user.email],
     subject: '🎓 Welcome to Axon Academy — Your Login Credentials',
     html: `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
@@ -111,34 +107,27 @@ exports.sendWelcomeEmail = async (user, password) => {
         </div>
       </div>
     `,
-  };
+  });
 
-  try {
-    const transporter = createTransporter();
-    // Skip transporter.verify() — it can hang on Render/Vercel due to IP reputation issues.
-    // sendMail() internally verifies connection and will throw on failure.
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`[Email] ✅ Welcome email sent to ${user.email} — MessageId: ${info.messageId}`);
-    if (nodemailer.getTestMessageUrl && nodemailer.getTestMessageUrl(info)) {
-      console.log('[Email] Preview URL:', nodemailer.getTestMessageUrl(info));
-    }
-    return true;
-  } catch (error) {
-    console.error(`[Email] ❌ Failed to send welcome email to ${user.email}:`, error.message || error);
-    // Re-throw so caller can handle (or log) appropriately
-    throw error;
+  if (error) {
+    console.error(`[Email] ❌ Failed to send welcome email to ${user.email}:`, error);
+    throw new Error(error.message || JSON.stringify(error));
   }
+
+  console.log(`[Email] ✅ Welcome email sent to ${user.email} — ID: ${data?.id}`);
+  return true;
 };
 
 // ─── Account Approved Email ──────────────────────────────────────────────────
 
 exports.sendApprovalEmail = async (user) => {
   const portalUrl = getPortalUrl();
-  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const resend = getResend();
 
-  const mailOptions = {
-    from: `"Axon Academy" <${fromEmail}>`,
-    to: user.email,
+  const { data, error } = await resend.emails.send({
+    from: `Axon Academy <${fromEmail}>`,
+    to: [user.email],
     subject: '🎉 Your Axon Academy Account Has Been Approved!',
     html: `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
@@ -194,17 +183,15 @@ exports.sendApprovalEmail = async (user) => {
         </div>
       </div>
     `,
-  };
+  });
 
-  try {
-    const transporter = createTransporter();
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`[Email] ✅ Approval email sent to ${user.email} — MessageId: ${info.messageId}`);
-    return true;
-  } catch (error) {
-    console.error(`[Email] ❌ Failed to send approval email to ${user.email}:`, error.message || error);
-    throw error;
+  if (error) {
+    console.error(`[Email] ❌ Failed to send approval email to ${user.email}:`, error);
+    throw new Error(error.message || JSON.stringify(error));
   }
+
+  console.log(`[Email] ✅ Approval email sent to ${user.email} — ID: ${data?.id}`);
+  return true;
 };
 
 
@@ -213,7 +200,8 @@ exports.sendApprovalEmail = async (user) => {
 exports.sendMeetingScheduledEmail = async (student, meeting, classroomName) => {
   const clientUrl = getPortalUrl();
   const joinUrl = `${clientUrl}/live/${meeting.roomId}`;
-  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const resend = getResend();
 
   const formattedTime = new Date(meeting.scheduledAt).toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
@@ -225,9 +213,9 @@ exports.sendMeetingScheduledEmail = async (student, meeting, classroomName) => {
     hour12: true,
   });
 
-  const mailOptions = {
-    from: `"Axon Academy" <${fromEmail}>`,
-    to: student.email,
+  const { data, error } = await resend.emails.send({
+    from: `Axon Academy <${fromEmail}>`,
+    to: [student.email],
     subject: `📅 Live Class Scheduled: ${meeting.title}`,
     html: `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
@@ -277,15 +265,13 @@ exports.sendMeetingScheduledEmail = async (student, meeting, classroomName) => {
         </div>
       </div>
     `,
-  };
+  });
 
-  try {
-    const transporter = createTransporter();
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`[Email] ✅ Meeting notification sent to ${student.email}: ${info.messageId}`);
-    return true;
-  } catch (error) {
-    console.error(`[Email] ❌ Failed to send meeting notification to ${student.email}:`, error.message || error);
-    throw error;
+  if (error) {
+    console.error(`[Email] ❌ Failed to send meeting notification to ${student.email}:`, error);
+    throw new Error(error.message || JSON.stringify(error));
   }
+
+  console.log(`[Email] ✅ Meeting notification sent to ${student.email} — ID: ${data?.id}`);
+  return true;
 };
