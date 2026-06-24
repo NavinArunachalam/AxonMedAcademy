@@ -19,13 +19,10 @@ initSocket(server);
 const startServer = async () => {
   try {
     await connectDB();
-    
-    server.listen(PORT, () => {
-      console.log(`===================================================`);
-      console.log(`🏥 Platform Service is running on port ${PORT}`);
-      console.log(`🌐 Development Endpoint: http://localhost:${PORT}`);
-      console.log(`🛡️ Current Environment: ${process.env.NODE_ENV}`);
-      console.log(`===================================================`);
+    console.log("PORT =", process.env.PORT);
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(` Platform Service is running on port ${PORT}`);;
+      console.log(` Current Environment: ${process.env.NODE_ENV}`);
     });
   } catch (error) {
     console.error(`[Boot Error] Platform failed to start:`, error.message);
