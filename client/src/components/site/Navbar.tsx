@@ -32,8 +32,8 @@ export function Navbar() {
     >
       <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between px-5 lg:px-8">
         <Link to="/" className="flex items-center gap-2 group">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-plum-dark text-lime transition-transform group-hover:rotate-6">
-            <Stethoscope className="h-5 w-5" />
+          <span className="grid h-12 w-12 place-items-center rounded-xl bg-plum-dark text-lime transition-transform ">
+            <img src='../../logo.jpeg' className="h-full w-full" />
           </span>
           <span className="font-display text-[17px] font-bold tracking-tight text-plum-dark">
             {organization.name}

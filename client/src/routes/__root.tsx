@@ -67,9 +67,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "India's #1 paramedical training academy. Live classes, proctored exams, blockchain certificates, 95% placement rate across 200+ partner hospitals." },
       { property: "og:title", content: "Axon Academy" },
       { property: "og:description", content: "Train. Certify. Get placed in leading hospitals." },
+      { property: "og:image", content: "/logo.jpeg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
       { property: "og:type", content: "website" },
     ],
     links: [
+      { rel: "icon", type: "image/jpeg", href: "/logo.jpeg" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },

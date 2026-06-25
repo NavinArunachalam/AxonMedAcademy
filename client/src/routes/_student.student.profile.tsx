@@ -325,6 +325,7 @@ function Profile() {
   const address   = currentUser?.address || "";
   const avatar    = currentUser?.avatar  || "";
   const studentId = currentUser?.id      || "";
+  const userId = currentUser?.userId      || "";
 
   const apiBase   = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "") || "/api/v1";
   const resolveUrl = (url?: string) => {
@@ -393,7 +394,7 @@ function Profile() {
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] uppercase tracking-widest text-cream/40 w-14 shrink-0">ID No.</span>
                     <span className="text-xs font-mono text-lime bg-white/10 px-2 py-0.5 rounded border border-white/10">
-                      AXON{studentId.slice(0, 5).toUpperCase()}-{joinedYear}
+                      {userId}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

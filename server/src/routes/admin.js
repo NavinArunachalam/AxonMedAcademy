@@ -90,8 +90,16 @@ router.post('/users', protect, restrictTo('admin', 'superadmin'), async (req, re
       return res.status(400).json({ success: false, message: 'User with this email already exists' });
     }
 
+    const yearSuffix = String(new Date().getFullYear()).slice(-2);
+    const randomLetters = String.fromCharCode(
+      65 + Math.floor(Math.random() * 26),
+      65 + Math.floor(Math.random() * 26)
+    );
+    const randomNumbers = String(Math.floor(1000 + Math.random() * 9000));
+    const generatedUserId = `Axon${yearSuffix}${randomLetters}${randomNumbers}`;
     // 2. Create User
     const user = await User.create({
+      userId: generatedUserId,
       fullName,
       email,
       phone,

@@ -73,11 +73,14 @@ router.post('/register', upload.any(), async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
-    // 1. Generate sequential student user ID: Axon-2025-0001, Axon-2025-0002 ...
-    const currentYear = new Date().getFullYear();
-    const studentCount = await User.countDocuments({ role: 'student' });
-    const newStudentNumber = String(studentCount + 1).padStart(4, '0');
-    const generatedUserId = `Axon-${currentYear}-${newStudentNumber}`;
+    // 1. Generate student user ID: Axon + last 2 year digits + random letters + numbers (e.g., Axon26AB7812)
+    const yearSuffix = String(new Date().getFullYear()).slice(-2);
+    const randomLetters = String.fromCharCode(
+      65 + Math.floor(Math.random() * 26),
+      65 + Math.floor(Math.random() * 26)
+    );
+    const randomNumbers = String(Math.floor(1000 + Math.random() * 9000));
+    const generatedUserId = `Axon${yearSuffix}${randomLetters}${randomNumbers}`;
 
     // 1. Create User account (isVerified=false, role=student, isActive=true)
     const user = await User.create({
@@ -272,7 +275,8 @@ router.post('/login', async (req, res, next) => {
       role: user.role,
       isVerified: user.isVerified,
       isActive: user.isActive,
-      avatar: user.avatar
+      avatar: user.avatar,
+      userId: user.userId
     };
 
     res.json({
@@ -298,7 +302,8 @@ router.get('/me', protect, async (req, res, next) => {
       role: req.user.role,
       isVerified: req.user.isVerified,
       isActive: req.user.isActive,
-      avatar: req.user.avatar
+      avatar: req.user.avatar,
+      userId: req.user.userId
     };
 
     // Extract current accessToken from cookies, headers, or query parameters
@@ -410,7 +415,8 @@ router.put('/me', protect, async (req, res, next) => {
         phone: updatedUser.phone,
         address: updatedUser.address,
         role: updatedUser.role,
-        avatar: updatedUser.avatar
+        avatar: updatedUser.avatar,
+        userId: updatedUser.userId
       }
     });
   } catch (error) {
@@ -467,7 +473,8 @@ router.post('/me/avatar', protect, avatarUpload.single('avatar'), async (req, re
         phone: updatedUser.phone,
         address: updatedUser.address,
         role: updatedUser.role,
-        avatar: updatedUser.avatar
+        avatar: updatedUser.avatar,
+        userId: updatedUser.userId
       }
     });
   } catch (error) {
