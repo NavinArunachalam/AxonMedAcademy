@@ -1,12 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const multer = require('multer');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const User = require('../models/User');
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const Classroom = require('../models/Classroom');
 const { protect, restrictTo } = require('../middleware/auth');
+
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 // Helper to shuffle an array (Fisher-Yates)
 function shuffleArray(array) {
@@ -631,6 +636,65 @@ router.get('/:id/analytics', async (req, res, next) => {
       analytics: questionAnalytics
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+// POST /generate-from-pdf → Admin: Generate quiz questions from PDF using Gemini
+router.post('/generate-from-pdf', protect, restrictTo('admin', 'superadmin'), upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No PDF file uploaded' });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ success: false, message: 'GEMINI_API_KEY is not configured on the server' });
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const prompt = `You are an expert educational content extractor. I am providing a PDF document that contains quiz/exam questions.
+The document might be in a regional language like Tamil or English.
+Your task is to extract ALL the questions, options, and determine the correct answer based on your knowledge base.
+
+Format your response exactly as a JSON array of objects, where each object matches this structure:
+{
+  "text": "The extracted question text",
+  "type": "mcq", // or "msq" or "true_false"
+  "marks": 1,
+  "options": [
+    { "label": "A", "text": "Option A text", "isCorrect": false },
+    { "label": "B", "text": "Option B text", "isCorrect": true }
+    // Add all options available
+  ],
+  "explanation": "A brief explanation of why the selected answer is correct (optional)"
+}
+
+Important:
+- YOU MUST return ONLY the JSON array. Do not include markdown code blocks like \`\`\`json.
+- YOU MUST automatically select the correct answer(s) by setting "isCorrect": true.
+- If the language is Tamil, preserve the Tamil text exactly.`;
+
+    const response = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          mimeType: 'application/pdf',
+          data: req.file.buffer.toString('base64')
+        }
+      }
+    ]);
+
+    let textResponse = response.response.text();
+    // Strip markdown formatting if the model still includes it
+    textResponse = textResponse.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+
+    const questions = JSON.parse(textResponse);
+
+    res.json({ success: true, questions });
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
     next(error);
   }
 });

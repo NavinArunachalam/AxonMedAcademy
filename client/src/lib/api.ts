@@ -430,6 +430,34 @@ export async function createQuiz(classroomId: string, quiz: any) {
   return normalizeBackendQuiz(payload.quiz);
 }
 
+export async function generateQuizFromPdf(file: File) {
+  const accessToken = classroomStore.getState().accessToken;
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const headers: Record<string, string> = {
+    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+    ...getDevAuthUserHeaders(),
+  };
+
+  const response = await fetch(`${API_BASE}/quizzes/generate-from-pdf`, {
+    method: 'POST',
+    credentials: 'include',
+    headers, // Content-Type is omitted so browser sets it with multipart boundary
+    body: formData,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401) {
+      classroomStore.setState(() => ({ currentUser: null }));
+    }
+    throw new Error(payload.message || 'Failed to generate quiz from PDF');
+  }
+  return payload.questions;
+}
+
+
 export async function updateQuiz(quizId: string, quiz: any) {
   const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}`, {
     method: 'PUT',

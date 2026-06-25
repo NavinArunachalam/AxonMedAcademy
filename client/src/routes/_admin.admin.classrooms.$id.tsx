@@ -21,7 +21,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -1171,6 +1171,8 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   const [bulkMarksValue, setBulkMarksValue] = useState(4);
   const [bulkNegEnabled, setBulkNegEnabled] = useState(false);
   const [bulkNegValue, setBulkNegValue] = useState(1);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState("");
 
   React.useEffect(() => {
     if (!viewQuizId) {
@@ -1243,6 +1245,44 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     }
   };
 
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsGeneratingPdf(true);
+    setPdfError("");
+    try {
+      const generatedQuestions = await generateQuizFromPdf(file);
+      if (generatedQuestions && Array.isArray(generatedQuestions)) {
+        // Map unique IDs and orders to the generated questions
+        const newQuestions = generatedQuestions.map((q: any, i: number) => ({
+          id: uid(),
+          type: q.type || "mcq",
+          text: q.text,
+          marks: q.marks || 1,
+          explanation: q.explanation || "",
+          order: quiz.questions.length + i + 1,
+          options: (q.options || []).map((o: any) => ({
+            label: o.label,
+            text: o.text,
+            isCorrect: !!o.isCorrect
+          }))
+        }));
+        
+        setQuiz(prev => ({
+          ...prev,
+          questions: [...prev.questions, ...newQuestions]
+        }));
+      }
+    } catch (error) {
+      console.error("PDF Generation error:", error);
+      setPdfError(error instanceof Error ? error.message : "Failed to generate questions from PDF");
+    } finally {
+      setIsGeneratingPdf(false);
+      // Reset input value to allow re-upload of same file if needed
+      e.target.value = "";
+    }
+  };
+
   const handlePublishQuiz = async (quizId: string) => {
     setQuizOperationQuizId(quizId);
     try {
@@ -1280,24 +1320,74 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   };
 
   const handleDownloadQuiz = (q: Quiz, format: 'pdf' | 'doc') => {
-    let txt = ``;
+    const totalMarks = q.questions.reduce((s, quest) => s + quest.marks, 0);
+    
+    // Create professional HTML structure
+    let htmlContent = `
+      <div class="header">
+        <h1>${cls.name}</h1>
+        <h2>${q.title}</h2>
+        <div class="meta">
+          <span><strong>Total Marks:</strong> ${totalMarks}</span>
+          <span><strong>Time:</strong> ${q.duration ? q.duration + ' mins' : 'N/A'}</span>
+        </div>
+        ${q.instructions ? `<p class="instructions"><strong>Instructions:</strong> ${q.instructions}</p>` : ''}
+      </div>
+      <div class="questions">
+    `;
+
     q.questions.forEach((quest, i) => {
-      txt += `${i + 1}. ${quest.text}\n`;
+      htmlContent += `
+        <div class="question">
+          <div class="q-header">
+            <span class="q-num">Q${i + 1}.</span>
+            <span class="q-text">${quest.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+            <span class="q-marks">[${quest.marks} Marks]</span>
+          </div>
+          <div class="options">
+      `;
       quest.options.forEach((opt) => {
-        txt += `  Option ${opt.label}: ${opt.text}\n`;
+        htmlContent += `
+            <div class="option">
+              <strong>${opt.label})</strong> ${opt.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+            </div>
+        `;
       });
-      if (quest.explanation) {
-        txt += `  Explanation: ${quest.explanation}\n`;
-      }
-      const correctOpt = quest.options.find(o => o.isCorrect);
-      if (correctOpt) {
-        txt += `  Ans: Option ${correctOpt.label}\n`;
-      }
-      txt += `\n`;
+      htmlContent += `</div></div>`; // end options and question
     });
+    
+    htmlContent += `</div>`;
+
+    const fullHtml = `
+      <html>
+        <head>
+          <title>${q.title}</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: 'Times New Roman', serif; line-height: 1.5; padding: 40px; color: black; background: white; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { margin: 0 0 10px 0; font-size: 24px; text-transform: uppercase; }
+            .header h2 { margin: 0 0 15px 0; font-size: 20px; font-weight: normal; }
+            .meta { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px; }
+            .instructions { font-size: 14px; text-align: left; font-style: italic; }
+            .question { margin-bottom: 25px; page-break-inside: avoid; }
+            .q-header { display: flex; align-items: flex-start; margin-bottom: 10px; }
+            .q-num { font-weight: bold; margin-right: 10px; min-width: 30px; }
+            .q-text { flex-grow: 1; }
+            .q-marks { font-size: 12px; font-weight: bold; margin-left: 15px; white-space: nowrap; }
+            .options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-left: 40px; margin-bottom: 10px; }
+            .option { font-size: 14px; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>${htmlContent}</body>
+      </html>
+    `;
 
     if (format === 'doc') {
-      const blob = new Blob([txt], { type: "application/msword" });
+      const blob = new Blob(['\ufeff', fullHtml], { type: "application/msword" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -1309,17 +1399,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     } else if (format === 'pdf') {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>${q.title}</title>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; padding: 40px; white-space: pre-wrap; color: black; background: white; }
-              </style>
-            </head>
-            <body>${txt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</body>
-          </html>
-        `);
+        printWindow.document.write(fullHtml);
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => {
@@ -1527,10 +1607,18 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           ))}
         </div>
 
-        <button onClick={() => setQuiz((q) => ({ ...q, questions: [...q.questions, newQuestion(q.questions.length + 1, bulkMarksEnabled ? bulkMarksValue : 1)] }))}
-          className="w-full rounded-2xl border-2 border-dashed border-lime/20 hover:border-lime/40 py-5 text-lime/70 hover:text-lime text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-          <LuPlus className="h-4 w-4" /> Add Question
-        </button>
+        {pdfError && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{pdfError}</div>}
+        
+        <div className="flex gap-3">
+          <button onClick={() => setQuiz((q) => ({ ...q, questions: [...q.questions, newQuestion(q.questions.length + 1, bulkMarksEnabled ? bulkMarksValue : 1)] }))}
+            className="flex-1 rounded-2xl border-2 border-dashed border-lime/20 hover:border-lime/40 py-5 text-lime/70 hover:text-lime text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+            <LuPlus className="h-4 w-4" /> Add Question
+          </button>
+          <label className={`flex-1 rounded-2xl border-2 border-dashed border-lime/20 hover:border-lime/40 py-5 text-lime/70 hover:text-lime text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer ${isGeneratingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
+            <LuUpload className="h-4 w-4" /> {isGeneratingPdf ? 'Generating...' : 'Upload PDF (AI)'}
+            <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} disabled={isGeneratingPdf} />
+          </label>
+        </div>
 
         <div className="flex items-center justify-between rounded-2xl bg-cream/5 px-5 py-3">
           <span className="text-cream/60 text-sm">Questions: <strong className="text-cream">{quiz.questions.length}</strong></span>
