@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   address:   { type: String, default: null, trim: true },
   password:  { type: String, required: true, select: false },
   avatar:    { type: String, default: null }, // Cloudinary / local URL
+  userId:    { type: String, unique: true, sparse: true, trim: true },
   role: {
     type: String,
     enum: ['student', 'faculty', 'admin', 'accounts', 'receptionist', 'superadmin'],

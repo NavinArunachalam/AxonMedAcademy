@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Menu, X, Stethoscope } from "lucide-react";
+import { useOrganizationDetails } from "@/lib/organization";
 
 const NAV = [
   { label: "Courses", to: "/courses" },
@@ -14,6 +15,7 @@ const NAV = [
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const organization = useOrganizationDetails();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -34,7 +36,7 @@ export function Navbar() {
             <Stethoscope className="h-5 w-5" />
           </span>
           <span className="font-display text-[17px] font-bold tracking-tight text-plum-dark">
-            Axon<span className="text-plum">.</span>Academy
+            {organization.name}
           </span>
         </Link>
 

@@ -7,7 +7,7 @@ import { PortalShell } from "@/components/portal/PortalShell";
 import { useClassroomStore } from "@/lib/classroomStore";
 import { useEffect, useState } from "react";
 
-const NAV = [
+const ADMIN_NAV = [
   { label: "Overview", to: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Classrooms", to: "/admin/classrooms", icon: School },
   { label: "Attendance", to: "/admin/classes", icon: School },
@@ -21,6 +21,14 @@ const NAV = [
   { label: "Messages", to: "/admin/messages", icon: MessageCircle },
   { label: "Certificates", to: "/admin/certificates", icon: Award },
   { label: "Settings", to: "/admin/settings", icon: Settings },
+];
+
+const FACULTY_NAV = [
+  { label: "Classrooms", to: "/admin/classrooms", icon: School },
+  { label: "Attendance", to: "/admin/classes", icon: School },
+  { label: "Students", to: "/admin/students", icon: Users },
+  { label: "Exams", to: "/admin/exams", icon: ClipboardList },
+  { label: "Messages", to: "/admin/messages", icon: MessageCircle },
 ];
 
 export const Route = createFileRoute("/_admin")({
@@ -43,14 +51,16 @@ function AdminLayout() {
     return <Navigate to="/login" />;
   }
 
+  const navItems = currentUser.role === "faculty" ? FACULTY_NAV : ADMIN_NAV;
+
   return (
     <PortalShell
       variant="admin"
       brand="Axon Academy"
-      nav={NAV}
+      nav={navItems}
       user={{
         name: currentUser.name,
-        role: currentUser.role === "faculty" ? "Faculty" : "Super Admin",
+        role: currentUser.role === "faculty" ? "Faculty" : "Admin",
         initials: currentUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
       }}
     >

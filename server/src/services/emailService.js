@@ -120,6 +120,76 @@ exports.sendWelcomeEmail = async (user, password) => {
 
 // ─── Account Approved Email ──────────────────────────────────────────────────
 
+exports.sendFacultyWelcomeEmail = async (user, password) => {
+  const portalUrl = getPortalUrl();
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const resend = getResend();
+
+  const { data, error } = await resend.emails.send({
+    from: `Axon Academy <${fromEmail}>`,
+    to: [user.email],
+    subject: 'Welcome to Axon Academy - Faculty Login Credentials',
+    html: `
+      <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+        <div style="background: linear-gradient(135deg, #1A0F33 0%, #4C1D95 100%); color: #fff; padding: 32px 28px; text-align: center;">
+          <h1 style="margin: 0; font-size: 26px; font-weight: 700;">Axon Academy</h1>
+          <p style="margin: 8px 0 0 0; color: #c4b5fd; font-size: 14px;">Your faculty portal access is ready</p>
+        </div>
+
+        <div style="padding: 32px 28px;">
+          <p style="font-size: 16px; margin-top: 0;">Dear <strong>${user.fullName}</strong>,</p>
+          <p>You have been registered as a faculty member at <strong>Axon Academy</strong>. You can now log in to manage classes and student learning activities.</p>
+
+          <div style="background: #f8f5ff; border: 1px solid #e9d5ff; border-left: 4px solid #7C3AED; border-radius: 8px; padding: 20px; margin: 24px 0;">
+            <p style="margin: 0 0 12px 0; font-weight: 700; color: #4C1D95; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">Your Login Credentials</p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 6px 0; color: #6b7280; font-size: 13px; width: 100px;">Portal URL</td>
+                <td style="padding: 6px 0;"><a href="${portalUrl}" style="color: #7C3AED; font-weight: 600;">${portalUrl}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Email</td>
+                <td style="padding: 6px 0; font-weight: 600;">${user.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Password</td>
+                <td style="padding: 6px 0; font-weight: 600; font-family: monospace; font-size: 15px; color: #1A0F33;">${password}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${portalUrl}" style="background: linear-gradient(135deg, #7C3AED, #4C1D95); color: #fff; text-decoration: none; padding: 14px 36px; font-weight: 700; border-radius: 50px; display: inline-block; font-size: 15px; box-shadow: 0 4px 14px rgba(124,58,237,0.4);">
+              Login to Portal
+            </a>
+          </div>
+
+          <p style="font-size: 14px; color: #6b7280;">On the portal you can manage classrooms, live sessions, recordings, quizzes, and student progress.</p>
+
+          <p style="font-size: 13px; color: #ef4444; background: #fef2f2; padding: 12px; border-radius: 6px; border: 1px solid #fecaca;">
+            Please change your password after your first login for security.
+          </p>
+
+          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Academy Admin Team</strong></p>
+        </div>
+
+        <div style="background: #f8fafc; padding: 16px 28px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+          &copy; ${new Date().getFullYear()} Axon Academy. All rights reserved.<br>
+          If you did not expect this email, please contact <a href="mailto:${fromEmail}" style="color: #7C3AED;">${fromEmail}</a>.
+        </div>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error(`[Email] Failed to send faculty welcome email to ${user.email}:`, error);
+    throw new Error(error.message || JSON.stringify(error));
+  }
+
+  console.log(`[Email] Faculty welcome email sent to ${user.email} - ID: ${data?.id}`);
+  return true;
+};
+
 exports.sendApprovalEmail = async (user) => {
   const portalUrl = getPortalUrl();
   const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';

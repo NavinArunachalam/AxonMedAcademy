@@ -387,7 +387,7 @@ function pipeFileResponse(sourceRes, targetRes) {
 }
 
 // POST /upload-asset → Admin: Upload a classroom asset (PDF) to Cloudflare R2
-router.post('/upload-asset', protect, restrictTo('admin', 'superadmin'), r2Upload.single('file'), async (req, res, next) => {
+router.post('/upload-asset', protect, restrictTo('admin', 'superadmin', 'faculty'), r2Upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -486,9 +486,10 @@ router.get('/:id', protect, async (req, res, next) => {
 
     // Verify student is enrolled or user is admin
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isFaculty = req.user.role === 'faculty';
     const isEnrolled = classroom.students.some(s => getStudentRefId(s.student) === req.user._id.toString() && s.status === 'active');
 
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isFaculty && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
     }
 
@@ -528,7 +529,7 @@ router.put('/:id/announcements/:annoId/read', protect, async (req, res, next) =>
 
 // Admin-only endpoints
 router.use(protect);
-router.use(restrictTo('admin', 'superadmin'));
+router.use(restrictTo('admin', 'superadmin', 'faculty'));
 
 // POST / → Admin: create classroom
 router.post('/', async (req, res, next) => {
@@ -645,8 +646,8 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
-// GET /:id/students → Admin: list all students in classroom
-router.get('/:id/students', async (req, res, next) => {
+// GET /:id/students → Admin/Faculty: list all students in classroom
+router.get('/:id/students', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const classroom = await Classroom.findById(req.params.id).lean();
 
@@ -661,8 +662,8 @@ router.get('/:id/students', async (req, res, next) => {
   }
 });
 
-// POST /:id/students/add → Admin: add student(s) by studentIds array or by batchId
-router.post('/:id/students/add', async (req, res, next) => {
+// POST /:id/students/add → Admin/Faculty: add student(s) by studentIds array or by batchId
+router.post('/:id/students/add', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { studentIds, batchId } = req.body;
     const classroom = await Classroom.findById(req.params.id);
@@ -706,8 +707,8 @@ router.post('/:id/students/add', async (req, res, next) => {
   }
 });
 
-// DELETE /:id/students/:studentId → Admin: remove student from classroom
-router.delete('/:id/students/:studentId', async (req, res, next) => {
+// DELETE /:id/students/:studentId → Admin/Faculty: remove student from classroom
+router.delete('/:id/students/:studentId', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const classroom = await Classroom.findById(req.params.id);
     if (!classroom) {
@@ -723,8 +724,8 @@ router.delete('/:id/students/:studentId', async (req, res, next) => {
   }
 });
 
-// PUT /:id/students/:studentId/status → Admin: hold/activate/remove student in classroom
-router.put('/:id/students/:studentId/status', async (req, res, next) => {
+// PUT /:id/students/:studentId/status → Admin/Faculty: hold/activate/remove student in classroom
+router.put('/:id/students/:studentId/status', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { status } = req.body; // active, removed, held
     if (!['active', 'removed', 'held'].includes(status)) {
@@ -750,8 +751,8 @@ router.put('/:id/students/:studentId/status', async (req, res, next) => {
   }
 });
 
-// POST /:id/announcements → Admin: post announcement
-router.post('/:id/announcements', async (req, res, next) => {
+// POST /:id/announcements → Admin/Faculty: post announcement
+router.post('/:id/announcements', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { content, attachments } = req.body;
     if (!content) {
@@ -817,8 +818,8 @@ router.put('/:id/students/:studentId/certificate', protect, async (req, res, nex
   }
 });
 
-// DELETE /:id/announcements/:annoId → Admin: delete announcement
-router.delete('/:id/announcements/:annoId', async (req, res, next) => {
+// DELETE /:id/announcements/:annoId → Admin/Faculty: delete announcement
+router.delete('/:id/announcements/:annoId', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const announcement = await ClassroomAnnouncement.findByIdAndDelete(req.params.annoId);
     if (!announcement) {

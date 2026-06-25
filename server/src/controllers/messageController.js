@@ -83,7 +83,7 @@ const getChatUsers = async (req, res) => {
     if (userRole === 'student') {
       targetRole = ['faculty', 'admin'];
     } else if (userRole === 'faculty') {
-      targetRole = ['student'];
+      targetRole = ['student', 'admin'];
     } else if (userRole === 'admin') {
       targetRole = ['student', 'faculty'];
     } else {

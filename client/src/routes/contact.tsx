@@ -3,6 +3,7 @@ import { PublicLayout } from "../components/site/Layout";
 import { MapPin, Mail, Phone, Clock, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { defaultOrganization, normalizeOrganization } from "@/lib/organization";
 import { submitToGoogleSheet } from "@/lib/googleSheets.ts";
 export const Route = createFileRoute("/contact")({ component: Contact });
 
@@ -10,12 +11,7 @@ function Contact() {
   const [sent, setSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [contactInfo, setContactInfo] = useState({
-    address: "Plot 21, Medical Campus, Hosur Road, Bengaluru — 560001",
-    phone: "+91 98765 43210",
-    email: "hello@Axon.academy",
-    hours: "Monday – Saturday, 9 AM to 8 PM"
-  });
+  const [contactInfo, setContactInfo] = useState(defaultOrganization);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -29,7 +25,7 @@ function Contact() {
       try {
         const res = await api.get("/public/contact-details");
         if (res.success && res.contactDetails) {
-          setContactInfo(res.contactDetails);
+          setContactInfo(normalizeOrganization(res.contactDetails));
         }
       } catch (err) {
         console.error("Failed to load contact info:", err);
@@ -180,4 +176,5 @@ function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
     </div>
   );
 }
+
 

@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
+import { useClassroomStore } from "@/lib/classroomStore";
 import { api, getAssetUrl } from "@/lib/api";
 import {
   Save,
@@ -29,6 +30,10 @@ export const Route = createFileRoute("/_admin/admin/settings")({
 });
 
 function Settings() {
+  const { currentUser } = useClassroomStore();
+  if (currentUser?.role === "faculty") {
+    return <Navigate to="/admin/classrooms" />;
+  }
   const [activeTab, setActiveTab] = useState<
     "Organization"| "About" | "Faculty" | "Placement" | "Blog" | "Voices"
   >("Organization");
@@ -53,6 +58,37 @@ function Settings() {
     address: "Plot 21, Medical Campus,\nBengaluru 560001",
     about: "India's most trusted paramedical training academy."
   });
+  const [isLoadingOrg, setIsLoadingOrg] = useState(false);
+  const [isSavingOrg, setIsSavingOrg] = useState(false);
+
+  const applyOrgDetails = (contactDetails: any) => {
+    setOrg((current) => ({
+      ...current,
+      name: contactDetails.name || current.name,
+      url: contactDetails.url || current.url,
+      email: contactDetails.email || current.email,
+      phone: contactDetails.phone || current.phone,
+      gst: contactDetails.gst || current.gst,
+      timezone: contactDetails.timezone || current.timezone,
+      address: contactDetails.address || current.address,
+      about: contactDetails.about || current.about,
+    }));
+  };
+
+  const fetchOrg = async () => {
+    setIsLoadingOrg(true);
+    try {
+      const res = await api.get("/admin/contact-details");
+      if (res.success && res.contactDetails) {
+        applyOrgDetails(res.contactDetails);
+      }
+    } catch (err) {
+      console.error("Failed to fetch organization settings:", err);
+      showToast("Error loading organization details");
+    } finally {
+      setIsLoadingOrg(false);
+    }
+  };
 
   // 2. Courses
   
@@ -215,7 +251,9 @@ function Settings() {
   };
 
   useEffect(() => {
-    if (activeTab === "Faculty") {
+    if (activeTab === "Organization") {
+      fetchOrg();
+    } else if (activeTab === "Faculty") {
       fetchFaculty();
     } else if (activeTab === "About") {
       fetchAbout();
@@ -249,9 +287,33 @@ function Settings() {
 
   // --- ACTIONS ---
 
-  const handleSaveOrg = (e: React.FormEvent) => {
+  const handleSaveOrg = async (e: React.FormEvent) => {
     e.preventDefault();
-    showToast("Organization settings saved successfully!");
+    setIsSavingOrg(true);
+    try {
+      const res = await api.put("/admin/contact-details", org);
+      if (res.success) {
+        if (res.contactDetails) applyOrgDetails(res.contactDetails);
+        showToast("Organization settings saved successfully!");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to save organization settings");
+    } finally {
+      setIsSavingOrg(false);
+    }
+  };
+
+  const handleResetOrg = async () => {
+    if (!confirm("Reset organization details to defaults?")) return;
+    try {
+      const res = await api.delete("/admin/contact-details");
+      if (res.success) {
+        if (res.contactDetails) applyOrgDetails(res.contactDetails);
+        showToast("Organization settings reset successfully!");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to reset organization settings");
+    }
   };
 
   const handleSaveAbout = async (e: React.FormEvent) => {
@@ -321,6 +383,7 @@ function Settings() {
                 <div>
                   <h3 className="font-display font-bold text-lg">Organization details</h3>
                   <p className="text-xs text-cream/60 mt-1">General public information about Axon Academy</p>
+                  {isLoadingOrg && <p className="text-xs text-lime mt-1">Loading saved details...</p>}
                 </div>
                 <Building2 className="text-lime w-6 h-6 opacity-80" />
               </div>
@@ -403,8 +466,11 @@ function Settings() {
                 </div>
 
                 <div className="mt-7 flex justify-end gap-3 border-t border-cream/10 pt-5">
-                  <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold shadow hover:opacity-90">
-                    <Save className="h-4 w-4" /> Save changes
+                  <button type="button" onClick={handleResetOrg} className="inline-flex items-center gap-2 rounded-full border border-cream/15 px-5 py-2.5 text-sm font-bold text-cream/80 hover:bg-cream/10">
+                    <Trash2 className="h-4 w-4" /> Reset
+                  </button>
+                  <button type="submit" disabled={isSavingOrg} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold shadow hover:opacity-90 disabled:opacity-60">
+                    <Save className="h-4 w-4" /> {isSavingOrg ? "Saving..." : "Save changes"}
                   </button>
                 </div>
               </form>
@@ -509,7 +575,7 @@ function Settings() {
                       <textarea
                         value={editingMilestone.description}
                         onChange={(e) => setEditingMilestone({ ...editingMilestone, description: e.target.value })}
-                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-lime min-h-[60px]"
+                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-lime min-h-15"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
@@ -646,7 +712,7 @@ function Settings() {
                           onClick={() => {
                             setFacultyPhotoFile(null);
                             setFacultyPhotoPreview(null);
-                            setEditingFaculty((f: any) => ({ ...f, image: null, removeImage: true }));
+                            setEditingFaculty((f: any) => ({ ...f, removeImage: true }));
                             if (facultyPhotoRef.current) facultyPhotoRef.current.value = "";
                           }}
                           className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-red-500 text-white grid place-items-center shadow"
@@ -682,6 +748,26 @@ function Settings() {
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-cream/60">Email (for login)</label>
+                      <input
+                        type="email"
+                        value={editingFaculty.email}
+                        onChange={(e) => setEditingFaculty({ ...editingFaculty, email: e.target.value })}
+                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
+                        placeholder="e.g. dr.anita@axon.academy"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-cream/60">Password (for login)</label>
+                      <input
+                        type="text"
+                        value={editingFaculty.password}
+                        onChange={(e) => setEditingFaculty({ ...editingFaculty, password: e.target.value })}
+                        className="mt-1.5 w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-lime"
+                        placeholder="Set a password for faculty login"
+                      />
+                    </div>
                     <div>
                       <label className="text-[10px] uppercase tracking-widest text-cream/60">Full Name</label>
                       <input
@@ -775,6 +861,8 @@ function Settings() {
                           fd.append("years", String(editingFaculty.years || 0));
                           fd.append("rating", String(editingFaculty.rating || 5.0));
                           fd.append("initials", editingFaculty.initials || "");
+                          if (editingFaculty.email) fd.append("email", editingFaculty.email);
+                          if (editingFaculty.password) fd.append("password", editingFaculty.password);
                           if (facultyPhotoFile) {
                             fd.append("image", facultyPhotoFile);
                           } else if (editingFaculty.removeImage) {

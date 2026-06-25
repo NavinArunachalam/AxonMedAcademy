@@ -17,18 +17,13 @@ const defaultLoginAccounts = {
     password: 'axon@admin',
     role: 'admin'
   },
-  'ajay@ex.com': {
+  'navin.procols@gmail.com': {
     fullName: 'Ajay Kumar',
     password: '1111',
     role: 'student',
     phone: '+91 98700 11110'
   },
-  'navin@ex.com': {
-    fullName: 'Navin Raj',
-    password: '2222',
-    role: 'student',
-    phone: '+91 98700 22220'
-  }
+ 
 };
 
 const repairDefaultLoginAccount = async (user, password) => {
@@ -36,7 +31,10 @@ const repairDefaultLoginAccount = async (user, password) => {
   if (!defaults || password !== defaults.password) return;
 
   user.fullName = defaults.fullName;
-  user.role = defaults.role;
+  // Only override role if user still has default 'student' role (not changed by admin)
+  if (user.role === 'student') {
+    user.role = defaults.role;
+  }
   user.isVerified = true;
   user.isActive = true;
   if (defaults.phone) user.phone = defaults.phone;
@@ -75,12 +73,19 @@ router.post('/register', upload.any(), async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
+    // 1. Generate sequential student user ID: Axon-2025-0001, Axon-2025-0002 ...
+    const currentYear = new Date().getFullYear();
+    const studentCount = await User.countDocuments({ role: 'student' });
+    const newStudentNumber = String(studentCount + 1).padStart(4, '0');
+    const generatedUserId = `Axon-${currentYear}-${newStudentNumber}`;
+
     // 1. Create User account (isVerified=false, role=student, isActive=true)
     const user = await User.create({
       fullName,
       email,
       phone,
       password, // it will be hashed by pre-save hook in User model
+      userId: generatedUserId,
       role: 'student',
       isVerified: false,
       isActive: true

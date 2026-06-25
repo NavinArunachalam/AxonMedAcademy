@@ -19,8 +19,8 @@ router.get('/my', protect, async (req, res, next) => {
   }
 });
 
-// GET /meeting/:meetingId -> Admin: attendance for a live meeting
-router.get('/meeting/:meetingId', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// GET /meeting/:meetingId -> Admin/Faculty: attendance for a live meeting
+router.get('/meeting/:meetingId', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const attendanceList = await Attendance.find({ meeting: req.params.meetingId })
       .populate('student', 'fullName email phone avatar')
@@ -61,8 +61,8 @@ router.post('/mark', protect, async (req, res, next) => {
   }
 });
 
-// POST /manual -> Admin: manual mark/update
-router.post('/manual', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// POST /manual -> Admin/Faculty: manual mark/update
+router.post('/manual', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { meeting, classroom, student, status, joinedAt, leftAt, duration } = req.body;
     if (!meeting || !student || !status) {
@@ -91,8 +91,8 @@ router.post('/manual', protect, restrictTo('admin', 'superadmin'), async (req, r
   }
 });
 
-// PUT /:id -> Admin: update attendance record
-router.put('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// PUT /:id -> Admin/Faculty: update attendance record
+router.put('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const attendance = await Attendance.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
     if (!attendance) {
@@ -104,8 +104,8 @@ router.put('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, 
   }
 });
 
-// GET /report/:classroomId -> Admin: full attendance report for classroom
-router.get('/report/:classroomId', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// GET /report/:classroomId -> Admin/Faculty: full attendance report for classroom
+router.get('/report/:classroomId', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const report = await Attendance.find({ classroom: req.params.classroomId })
       .populate('student', 'fullName email phone')
@@ -117,8 +117,8 @@ router.get('/report/:classroomId', protect, restrictTo('admin', 'superadmin'), a
   }
 });
 
-// GET /class/:classId -> Admin: get attendance records for classroom
-router.get('/class/:classId', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// GET /class/:classId -> Admin/Faculty: get attendance records for classroom
+router.get('/class/:classId', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { date, subject, meetingId } = req.query;
     const query = { classroom: req.params.classId };
@@ -150,8 +150,8 @@ router.get('/class/:classId', protect, restrictTo('admin', 'superadmin'), async 
   }
 });
 
-// POST / -> Admin: save or update attendance (prevent duplicates)
-router.post('/', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// POST / -> Admin/Faculty: save or update attendance (prevent duplicates)
+router.post('/', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { classId, date, subject, meetingId, records } = req.body;
     
@@ -317,8 +317,8 @@ router.get('/student/:studentId', protect, async (req, res, next) => {
   }
 });
 
-// GET /report/class/:classId -> Admin: aggregated history for classroom
-router.get('/report/class/:classId', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// GET /report/class/:classId -> Admin/Faculty: aggregated history for classroom
+router.get('/report/class/:classId', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.classId)) {
       return res.status(400).json({ success: false, message: 'Invalid class ID format' });

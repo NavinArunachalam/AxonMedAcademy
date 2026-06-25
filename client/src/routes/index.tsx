@@ -21,7 +21,7 @@ function Home() {
   const { currentUser } = useClassroomStore();
 
   if (currentUser) {
-    if (currentUser.role === "admin") {
+    if (currentUser.role === "admin" || currentUser.role === "faculty") {
       return <Navigate to="/admin/dashboard" replace />;
     } else if (currentUser.role === "student") {
       return <Navigate to="/student/dashboard" replace />;

@@ -49,11 +49,12 @@ const verifyMeetingAccess = async (meeting, user) => {
   const classroomId = meeting.classroom && meeting.classroom._id ? meeting.classroom._id : meeting.classroom;
   const classroom = await Classroom.findById(classroomId);
   const isAdmin = ['admin', 'superadmin'].includes(user.role);
+  const isFaculty = user.role === 'faculty';
   const isEnrolled = classroom
     ? classroom.students.some(s => s.student.toString() === user._id.toString() && s.status === 'active')
     : false;
 
-  return { classroom, isAdmin, isEnrolled, allowed: isAdmin || isEnrolled };
+  return { classroom, isAdmin, isFaculty, isEnrolled, allowed: isAdmin || isFaculty || isEnrolled };
 };
 
 const upsertMeetingAttendance = async (meeting, userId, markedBy = 'auto') => {
@@ -386,9 +387,9 @@ router.post('/:id/leave', protect, async (req, res, next) => {
   }
 });
 
-// Admin-only endpoints (applied to routes below)
+// Admin and Faculty endpoints (applied to routes below)
 router.use(protect);
-router.use(restrictTo('admin', 'superadmin'));
+router.use(restrictTo('admin', 'superadmin', 'faculty'));
 
 // POST / → Admin: create live meeting for classroom
 router.post('/', async (req, res, next) => {

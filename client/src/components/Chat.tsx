@@ -17,6 +17,7 @@ export default function Chat({ currentUserRole }: ChatProps) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { currentUser } = useClassroomStore();
@@ -55,6 +56,13 @@ export default function Chat({ currentUserRole }: ChatProps) {
       return;
     }
 
+    // Clear unread count for the opened conversation
+    setUnreadCounts((prev) => {
+      const next = { ...prev };
+      delete next[activeUserId];
+      return next;
+    });
+
     const fetchMessages = async () => {
       try {
         const msgs = await getConversation(activeUserId);
@@ -91,6 +99,12 @@ export default function Chat({ currentUserRole }: ChatProps) {
     } else if (isToMe && !otherId) {
       // Auto-select conversation if none selected and message is for me
       setActiveUserId(msg.senderId._id);
+    }
+
+    // Track unread messages when conversation is not open
+    if (isToMe && otherId !== msg.senderId._id) {
+      const senderId = msg.senderId._id;
+      setUnreadCounts((prev) => ({ ...prev, [senderId]: (prev[senderId] || 0) + 1 }));
     }
 
     // Refresh users list to update last message
@@ -163,7 +177,7 @@ export default function Chat({ currentUserRole }: ChatProps) {
       <aside className="border-r border-border flex flex-col w-full md:w-[320px] shrink-0 bg-slate-50/50">
         <div className="p-4 border-b border-border bg-white">
           <h2 className="font-display font-bold text-plum-dark text-lg">
-            {isStudent ? "Faculty & Admin" : isFaculty ? "Students" : "All Users"}
+            {isStudent ? "Faculty & Admin" : isFaculty ? "All Users" : "All Users"}
           </h2>
           <div className="mt-3 flex items-center gap-2 bg-slate-100 rounded-full px-4 py-2.5">
             <Search className="h-4 w-4 text-slate-400" />
@@ -195,13 +209,22 @@ export default function Chat({ currentUserRole }: ChatProps) {
                     isActive ? "bg-plum-dark/5" : "hover:bg-slate-100"
                   }`}
                 >
-                  <div className="grid h-11 w-11 place-items-center rounded-full bg-plum-dark text-lime text-xs font-bold shrink-0">
-                    {getInitials(user.fullName)}
+                  <div className="relative shrink-0">
+                    <div className="grid h-11 w-11 place-items-center rounded-full bg-plum-dark text-lime text-xs font-bold">
+                      {getInitials(user.fullName)}
+                    </div>
+                    {unreadCounts[user._id] > 0 && (
+                      <div className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-white shadow-sm">
+                        {unreadCounts[user._id]}
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
                     <div className="flex justify-between items-baseline gap-2">
                       <div className="text-sm font-semibold text-plum-dark truncate">
                         {user.fullName}
+                     <div className="text-[10px] text-slate-400 truncate">
+                     ({user.role})</div>
                       </div>
                       {user.lastMessageTime && (
                         <div className="text-[10px] font-mono text-slate-400 shrink-0">
@@ -212,11 +235,7 @@ export default function Chat({ currentUserRole }: ChatProps) {
                         </div>
                       )}
                     </div>
-                    {user.lastMessage && (
-                      <div className="text-xs truncate mt-0.5 text-slate-500">
-                        {user.lastMessage}
-                      </div>
-                    )}
+                   
                   </div>
                 </button>
               );
@@ -270,7 +289,7 @@ export default function Chat({ currentUserRole }: ChatProps) {
                         className={`max-w-[75%] rounded-2xl px-5 py-3 text-sm shadow-sm leading-relaxed ${
                           isMe
                             ? "bg-plum-dark text-cream rounded-br-sm"
-                            : "bg-white border border-slate-200 text-slate-700 rounded-bl-sm"
+                            : "bg-cream/80 border border-slate-200 text-slate-700 rounded-bl-sm"
                         }`}
                       >
                         {m.message}

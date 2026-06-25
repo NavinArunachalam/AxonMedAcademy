@@ -32,8 +32,9 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
     }
 
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isFaculty = req.user.role === 'faculty';
     const isEnrolled = classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active');
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isFaculty && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
     }
 
@@ -77,9 +78,10 @@ router.get('/:id', protect, async (req, res, next) => {
 
     const classroom = await Classroom.findById(quiz.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isFaculty = req.user.role === 'faculty';
     const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
 
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isFaculty && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
@@ -388,9 +390,9 @@ router.get('/:id/leaderboard', protect, async (req, res, next) => {
   }
 });
 
-// Admin-only endpoints
+// Admin and Faculty endpoints
 router.use(protect);
-router.use(restrictTo('admin', 'superadmin'));
+router.use(restrictTo('admin', 'superadmin', 'faculty'));
 
 // POST / → Admin: create quiz
 router.post('/', async (req, res, next) => {

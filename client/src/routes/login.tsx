@@ -22,7 +22,7 @@ function Login() {
       const payload = await loginUser(userId, password);
       const backendUser = payload.user;
       const accessToken = payload.accessToken || null;
-      const role = backendUser.role === "student" ? "student" : "admin";
+      const role = backendUser.role === "student" ? "student" : backendUser.role;
       const currentUser: User = {
         id: backendUser._id,
         name: backendUser.fullName || backendUser.email,
@@ -32,7 +32,7 @@ function Login() {
       };
 
       classroomStore.setState(() => ({ currentUser, accessToken }));
-      navigate({ to: role === "admin" ? "/admin/dashboard" : "/student/dashboard" });
+      navigate({ to: role === "student" ? "/student/dashboard" : "/admin/dashboard" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid User ID or Password");
     } finally {

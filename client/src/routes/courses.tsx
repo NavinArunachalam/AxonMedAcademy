@@ -8,13 +8,26 @@ export const Route = createFileRoute("/courses")({ component: CoursesPage });
 
 import { getPublicPrograms, type ProgramCourse, getAssetUrl } from "@/lib/api";
 
-const SPECIALTIES = ["Nursing", "Lab Tech", "OT Tech", "ICU Care", "Radiology", "Pharmacy", "Dental", "Hospital Admin", "Other", "Cardiology"];
 const DURATIONS  = ["1 Month", "3 Months", "6 Months", "1 Year"];
 const MODES      = ["Online", "Offline", "Hybrid"];
 
 function CoursesPage() {
   const [courses, setCourses] = useState<ProgramCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const specialties = useMemo(() => {
+    const map = new Map<string, string>();
+    courses.forEach(c => {
+      const val = c.specialty || c.category;
+      if (val) {
+        const trimmed = val.trim();
+        const key = trimmed.toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, trimmed);
+        }
+      }
+    });
+    return Array.from(map.values()).sort();
+  }, [courses]);
 
   const [q, setQ] = useState("");
   const [spec, setSpec] = useState<string[]>([]);
@@ -33,7 +46,7 @@ function CoursesPage() {
   const filtered = useMemo(() => {
     let r = courses.filter(c =>
       (!q || c.title.toLowerCase().includes(q.toLowerCase())) &&
-      (spec.length === 0 || spec.includes(c.specialty || c.category)) &&
+      (spec.length === 0 || spec.some(s => s.trim().toLowerCase() === (c.specialty || c.category || "").trim().toLowerCase())) &&
       (dur.length === 0 || dur.includes(c.duration || "6 Months"))
       // Note: Backend doesn't have mode field exposed in ProgramCourse currently, so we skip mode filtering for now
     );
@@ -45,7 +58,7 @@ function CoursesPage() {
 
   const FilterPanel = (
     <div className="space-y-7">
-      <FilterGroup label="Specialty" options={SPECIALTIES} selected={spec} onChange={setSpec} />
+      <FilterGroup label="Specialty" options={specialties} selected={spec} onChange={setSpec} />
       <FilterGroup label="Duration"  options={DURATIONS}   selected={dur}  onChange={setDur} />
       <FilterGroup label="Mode"      options={MODES}       selected={mode} onChange={setMode} />
       {(spec.length || dur.length || mode.length) > 0 && (

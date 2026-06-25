@@ -6,8 +6,8 @@ const StudentProfile = require('../models/StudentProfile');
 const { protect, restrictTo } = require('../middleware/auth');
 const mongoose = require('mongoose');
 
-// GET /classes/:classId/students -> Admin: list students of a classroom
-router.get('/:classId/students', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// GET /classes/:classId/students -> Admin/Faculty: list students of a classroom
+router.get('/:classId/students', protect, restrictTo('admin','faculty'), async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.classId)) {
       return res.status(400).json({ success: false, message: 'Invalid class ID format' });

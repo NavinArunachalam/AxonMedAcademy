@@ -78,7 +78,7 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
               onClick={() => setMobileMenuOpen(false)}
               className={`${linkBaseClass} ${isActive ? linkActiveClass : ""}`}
             >
-              <item.icon className="w-[18px] h-[18px] opacity-75 shrink-0" />
+              <item.icon className="w-4.5 h-4.5 opacity-75 shrink-0" />
               {item.label}
             </Link>
           );

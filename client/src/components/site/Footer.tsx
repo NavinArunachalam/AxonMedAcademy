@@ -1,7 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { Stethoscope, Instagram, Linkedin, Youtube, Mail, MapPin, Phone } from "lucide-react";
+import { useOrganizationDetails } from "@/lib/organization";
 
 export function Footer() {
+  const organization = useOrganizationDetails();
+  const addressLines = organization.address.split(/\r?\n|,\s*/).filter(Boolean);
+
   return (
     <footer className="mt-24 bg-plum-dark text-cream/85 relative overflow-hidden">
       <div className="absolute inset-0 bg-noise opacity-50 pointer-events-none" />
@@ -15,12 +19,11 @@ export function Footer() {
                 <Stethoscope className="h-5 w-5" />
               </span>
               <span className="font-display text-lg font-bold text-cream">
-                Axon.Academy
+                {organization.name}
               </span>
             </Link>
             <p className="mt-5 text-sm leading-relaxed max-w-xs">
-              India's most trusted paramedical training academy. Train, certify, and get placed
-              in leading hospitals nationwide.
+              {organization.about}
             </p>
             <div className="mt-6 flex gap-2">
               {[Instagram, Linkedin, Youtube].map((Icon, i) => (
@@ -55,9 +58,9 @@ export function Footer() {
               Reach Us
             </h4>
             <ul className="mt-5 space-y-3 text-sm">
-              <li className="flex gap-3"><MapPin className="h-4 w-4 mt-0.5 text-lime shrink-0" /><span>Plot 21, Medical Campus,<br />Bengaluru 560001</span></li>
-              <li className="flex gap-3"><Phone className="h-4 w-4 mt-0.5 text-lime shrink-0" /><span>+91 8300581589</span></li>
-              <li className="flex gap-3"><Mail className="h-4 w-4 mt-0.5 text-lime shrink-0" /><span><a href="mailto:support@axonmedacademy.com">support@axonmedacademy.com</a></span></li>
+              <li className="flex gap-3"><MapPin className="h-4 w-4 mt-0.5 text-lime shrink-0" /><span>{addressLines.map((line, index) => <span key={`${line}-${index}`}>{line}{index < addressLines.length - 1 && <br />}</span>)}</span></li>
+              <li className="flex gap-3"><Phone className="h-4 w-4 mt-0.5 text-lime shrink-0" /><span>{organization.phone}</span></li>
+              <li className="flex gap-3"><Mail className="h-4 w-4 mt-0.5 text-lime shrink-0" /><span><a href={`mailto:${organization.email}`}>{organization.email}</a></span></li>
             </ul>
           </div>
         </div>

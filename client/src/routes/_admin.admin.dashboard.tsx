@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import {
   Users, IndianRupee, BookOpen,
   ArrowUpRight, ArrowDownRight, Activity,
@@ -56,6 +56,10 @@ function HeartbeatDot({ pulse }: { pulse: boolean }) {
 }
 
 function AdminHome() {
+  const { currentUser } = useClassroomStore();
+  if (currentUser?.role === "faculty") {
+    return <Navigate to="/admin/classrooms" />;
+  }
   const { classrooms } = useClassroomStore();
   const [students, setStudents] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);

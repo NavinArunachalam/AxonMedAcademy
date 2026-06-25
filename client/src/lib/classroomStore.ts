@@ -202,7 +202,7 @@ const in3d = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
 const in1h = new Date(now.getTime() + 1 * 60 * 60 * 1000).toISOString();
 
 const INITIAL_USERS: User[] = [
-  { id: "Ajay", name: "Ajay Kumar", email: "ajay@ex.com", role: "student", password: "1111", phone: "+91 98700 11110" },
+  { id: "Ajay", name: "Ajay Kumar", email: "navin.procols@gmail.com", role: "student", password: "1111", phone: "+91 98700 11110" },
   { id: "admin", name: "Admin", email: "axonmedacademy2@gmail.com", role: "admin", password: "axon@admin" },
 ];
 

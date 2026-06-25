@@ -27,8 +27,7 @@ function getDevAuthUserHeaders(): Record<string, string> {
 function normalizeLoginIdentifier(value: string) {
   if (value.includes('@')) return value;
   const map: Record<string, string> = {
-    Ajay: 'navin.procols@gmailcom',
-    Navin: 'navin@ex.com',
+    Ajay: 'navin.procols@gmail.com',
     Admin: 'axonmedacademy2@gmail.com',
   };
   return map[value] ?? value;

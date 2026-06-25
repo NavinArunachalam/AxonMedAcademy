@@ -16,7 +16,7 @@ const {
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
 } = require('../config/cloudflare');
-const { sendWelcomeEmail } = require('../services/emailService');
+const { sendWelcomeEmail, sendFacultyWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo } = require('../middleware/auth');
 const multer = require('multer');
 const { storage, cloudinary, blogStorage } = require('../config/cloudinary');
@@ -43,10 +43,17 @@ router.get('/stats', (req, res) => {
 // ==========================================
 
 // GET /users → List all users (filter role/status, paginate, search)
-router.get('/users', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+router.get('/users', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { role, status, search } = req.query;
     const filter = {};
+
+    if (req.user.role === 'faculty' && role !== 'student') {
+      return res.status(403).json({
+        success: false,
+        message: 'Faculty can only view student users.'
+      });
+    }
 
     if (role) filter.role = role;
     if (status === 'active') filter.isActive = true;
@@ -300,7 +307,7 @@ router.put('/live/sessions/:id/mute-all', (req, res) => {
 // ==========================================
 
 // GET /faculty → Get all faculty members
-router.get('/faculty', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+router.get('/faculty', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const facultyList = await FacultyMember.find().sort({ createdAt: 1 });
     res.json({ success: true, facultyList });
@@ -312,7 +319,7 @@ router.get('/faculty', protect, restrictTo('admin', 'superadmin'), async (req, r
 // POST /faculty → Create new faculty member
 router.post('/faculty', protect, restrictTo('admin', 'superadmin'), upload.single('image'), async (req, res, next) => {
   try {
-    const { name, role, specialty, years, rating, initials } = req.body;
+    const { name, role, specialty, years, rating, initials, email, password } = req.body;
     if (!name || !role || !specialty || years === undefined) {
       return res.status(400).json({ success: false, message: 'Required fields: name, role, specialty, years' });
     }
@@ -330,6 +337,33 @@ router.post('/faculty', protect, restrictTo('admin', 'superadmin'), upload.singl
       imagePublicId,
       initials: initials || name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     });
+
+    let facultyUser = null;
+
+    // If email and password are provided, also create a User account with role 'faculty'
+    if (email && password) {
+      const existingUser = await User.findOne({ email });
+      if (!existingUser) {
+        facultyUser = await User.create({
+          fullName: name,
+          email,
+          password,
+          role: 'faculty',
+          isVerified: true,
+          isActive: true
+        });
+      }
+    }
+
+    if (facultyUser) {
+      Promise.resolve()
+        .then(() => sendFacultyWelcomeEmail(facultyUser, password))
+        .then(() => console.log('[Admin] Faculty welcome email sent successfully to', facultyUser.email))
+        .catch(emailErr => {
+          console.error('[Admin] Faculty welcome email failed for', facultyUser.email, '-', emailErr.message || emailErr);
+        });
+    }
+
     res.status(201).json({ success: true, faculty });
   } catch (error) {
     next(error);
@@ -658,20 +692,42 @@ router.delete('/blogs/:id', protect, restrictTo('admin', 'superadmin'), async (r
 // ==========================================
 
 // PUT /contact-details → Update contact details
+router.get('/contact-details', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    let contactDetails = await ContactDetail.findOne();
+    if (!contactDetails) {
+      contactDetails = await ContactDetail.create({});
+    }
+    res.json({ success: true, contactDetails });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.put('/contact-details', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
   try {
-    const { address, phone, email, hours } = req.body;
+    const { name, url, address, phone, email, hours, gst, timezone, about } = req.body;
+    const update = { name, url, address, phone, email, hours, gst, timezone, about };
     let contactDetails = await ContactDetail.findOne();
     if (contactDetails) {
-      contactDetails.address = address;
-      contactDetails.phone = phone;
-      contactDetails.email = email;
-      contactDetails.hours = hours;
+      Object.entries(update).forEach(([key, value]) => {
+        if (value !== undefined) contactDetails[key] = value;
+      });
       await contactDetails.save();
     } else {
-      contactDetails = await ContactDetail.create({ address, phone, email, hours });
+      contactDetails = await ContactDetail.create(update);
     }
-    res.json({ success: true, message: 'Contact details saved successfully', contactDetails });
+    res.json({ success: true, message: 'Organization details saved successfully', contactDetails });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/contact-details', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    await ContactDetail.deleteMany({});
+    const contactDetails = await ContactDetail.create({});
+    res.json({ success: true, message: 'Organization details reset successfully', contactDetails });
   } catch (error) {
     next(error);
   }

@@ -35,10 +35,11 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
     }
 
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isFaculty = req.user.role === 'faculty';
     const isEnrolled = classroom.students.some(
       (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
     );
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isFaculty && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
     }
 
@@ -203,8 +204,8 @@ router.post('/multipart/abort', protect, restrictTo('admin', 'superadmin'), asyn
   }
 });
 
-// POST /save-recording → Admin: Save metadata AFTER the browser PUT to R2 completes
-router.post('/save-recording', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// POST /save-recording → Admin/Faculty: Save metadata AFTER the browser PUT to R2 completes
+router.post('/save-recording', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { classroom, title, description, duration, isPublished, objectKey, publicUrl, chapters } = req.body;
 
@@ -264,8 +265,8 @@ router.post('/save-recording', protect, restrictTo('admin', 'superadmin'), async
   }
 });
 
-// POST /mock-upload → Admin: Local mock upload (memory-based, no disk write)
-router.post('/mock-upload', protect, restrictTo('admin', 'superadmin'), upload.single('video'), async (req, res, next) => {
+// POST /mock-upload → Admin/Faculty: Local mock upload (memory-based, no disk write)
+router.post('/mock-upload', protect, restrictTo('admin', 'superadmin', 'faculty'), upload.single('video'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No video file provided' });
@@ -281,8 +282,8 @@ router.post('/mock-upload', protect, restrictTo('admin', 'superadmin'), upload.s
   }
 });
 
-// POST /upload-cloudflare → Admin: upload recording DIRECTLY to Cloudflare R2
-router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin'), upload.single('video'), async (req, res, next) => {
+// POST /upload-cloudflare → Admin/Faculty: upload recording DIRECTLY to Cloudflare R2
+router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin', 'faculty'), upload.single('video'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No video file provided' });
@@ -354,8 +355,8 @@ router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin'), up
   }
 });
 
-// POST / → Admin: save recording metadata after Mux upload
-router.post('/', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// POST / → Admin/Faculty: save recording metadata after Mux upload
+router.post('/', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { classroom, title, description, muxAssetId, muxPlaybackId, duration, security } = req.body;
 
@@ -395,8 +396,8 @@ router.post('/', protect, restrictTo('admin', 'superadmin'), async (req, res, ne
   }
 });
 
-// POST /reuse → Admin: reuse/duplicate recording from another classroom (tracking is unique per class)
-router.post('/reuse', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// POST /reuse → Admin/Faculty: reuse/duplicate recording from another classroom (tracking is unique per class)
+router.post('/reuse', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     const { sourceRecordingId, targetClassroomId, title, description } = req.body;
 
@@ -479,13 +480,14 @@ router.get('/:id', protect, async (req, res, next) => {
 
     const classroom = await Classroom.findById(recording.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isFaculty = req.user.role === 'faculty';
     const isEnrolled = classroom
       ? classroom.students.some(
           (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
         )
       : false;
 
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isFaculty && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
@@ -514,13 +516,14 @@ router.get('/:id/stream', protect, async (req, res, next) => {
 
     const classroom = await Classroom.findById(recording.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const isFaculty = req.user.role === 'faculty';
     const isEnrolled = classroom
       ? classroom.students.some(
           (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
         )
       : false;
 
-    if (!isAdmin && !isEnrolled) {
+    if (!isAdmin && !isFaculty && !isEnrolled) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
@@ -670,8 +673,8 @@ router.post('/:id/chapters', protect, restrictTo('admin', 'superadmin'), async (
   }
 });
 
-// PUT /:id → Admin: update title, description, chapters
-router.put('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// PUT /:id → Admin/Faculty: update title, description, chapters
+router.put('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
@@ -690,8 +693,8 @@ router.put('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, 
   }
 });
 
-// PUT /:id/publish → Admin: publish recording + notify students
-router.put('/:id/publish', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// PUT /:id/publish → Admin/Faculty: publish recording + notify students
+router.put('/:id/publish', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
@@ -723,8 +726,8 @@ router.put('/:id/publish', protect, restrictTo('admin', 'superadmin'), async (re
   }
 });
 
-// DELETE /:id → Admin: delete recording
-router.delete('/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+// DELETE /:id → Admin/Faculty: delete recording
+router.delete('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });

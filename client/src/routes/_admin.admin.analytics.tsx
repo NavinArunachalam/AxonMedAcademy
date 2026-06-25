@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { DarkCard } from "@/components/portal/PortalShell";
 import { useClassroomStore, getGrade } from "@/lib/classroomStore";
 import { useMemo } from "react";
@@ -9,6 +9,10 @@ export const Route = createFileRoute("/_admin/admin/analytics")({
 });
 
 function Analytics() {
+  const { currentUser } = useClassroomStore();
+  if (currentUser?.role === "faculty") {
+    return <Navigate to="/admin/classrooms" />;
+  }
   const { classrooms, courses } = useClassroomStore();
 
   const stats = useMemo(() => {
