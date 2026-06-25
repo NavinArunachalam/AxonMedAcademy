@@ -92,7 +92,7 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
           onClick={handleLogout}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-red-500 ${isAdmin ? "hover:bg-red-500/10" : "hover:bg-red-50"}`}
         >
-          <LogOut className="w-[18px] h-[18px] shrink-0" />
+          <LogOut className="w-4.5 h-4.5 shrink-0" />
           Sign Out
         </button>
       </nav>

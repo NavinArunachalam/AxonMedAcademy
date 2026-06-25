@@ -467,15 +467,12 @@ function _MediaControllerSync({
           return;
         }
 
-        if (next && !navigator.mediaDevices?.getDisplayMedia) {
-          alert("Screen sharing is not supported by this browser or device. Please try a different browser or desktop.");
-          return;
-        }
         try {
           await localParticipant.setScreenShareEnabled(next);
           onToggleScreen(next);
         } catch (e: any) {
           console.warn('[LK] screen', e);
+          // LiveKit throws a meaningful error if screen share is unsupported on the platform
           alert("Could not start screen sharing: " + (e?.message || String(e)));
         }
       },
