@@ -50,9 +50,7 @@ export function Hero() {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="mt-6 max-w-xl text-base lg:text-lg text-foreground/70 leading-relaxed"
             >
-              Join 5,000+ paramedical professionals who trained with Axon and
-              now build careers at India's leading hospitals. Live classes,
-              proctored exams, blockchain certificates.
+              Master concepts, practice high-yield MCQs, and achieve top ranks in AIAPGET & MRB with structured, result-driven learning.
             </motion.p>
 
             <motion.div

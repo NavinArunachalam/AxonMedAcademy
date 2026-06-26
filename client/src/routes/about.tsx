@@ -55,7 +55,7 @@ function About() {
             <span className="text-plum">for the next generation</span> of clinicians.
           </h1>
           <p className="mt-8 max-w-2xl text-lg text-foreground/70 leading-relaxed">
-            Axon Academy was started in 2018 by a small group of doctors, senior nurses, and hospital
+            Axon MedAcademy was started in 2018 by a small group of doctors, senior nurses, and hospital
             administrators who saw a single truth — India needs more well-trained paramedical
             professionals, and the path to becoming one should be rigorous, transparent, and humane.
           </p>

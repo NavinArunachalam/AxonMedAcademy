@@ -405,7 +405,7 @@ function AdminClassrooms() {
           />
         </div>
         <div className="flex gap-1">
-          {(["all", "active", "archived", "draft"] as const).map((s) => (
+          {(["active", "archived", "draft"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}

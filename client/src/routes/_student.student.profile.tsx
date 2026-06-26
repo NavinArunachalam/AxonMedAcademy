@@ -359,7 +359,7 @@ function Profile() {
             {/* Card Header */}
             <div className="flex items-start justify-between mb-5">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-lime font-bold mb-1">AXON ACADEMY</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-lime font-bold mb-1">AXON MED ACADEMY</div>
                 <div className="text-[10px] text-cream/50 font-mono">Student Identity Card</div>
               </div>
               <button

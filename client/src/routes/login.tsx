@@ -65,7 +65,7 @@ function Login() {
           </p>
         </div>
 
-        <div className="relative text-xs text-cream/50">© {new Date().getFullYear()} Axon Academy</div>
+        <div className="relative text-xs text-cream/50">© {new Date().getFullYear()} Axon Med Academy</div>
       </div>
 
       {/* Right form */}

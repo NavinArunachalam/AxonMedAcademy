@@ -3,14 +3,14 @@ import { Plus, Minus } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const faqs = [
-  { q: "What are the eligibility criteria for paramedical courses?", a: "Most diploma programs require 10+2 with Biology. Certain certificate courses accept 10th-pass candidates. We assess each application individually." },
-  { q: "Are the certificates recognized by hospitals?", a: "Yes — every certificate is blockchain-verified and recognized by our 200+ hospital partners across India. Verification is instant via a QR code." },
-  { q: "What is the placement support?", a: "Dedicated placement managers, mock interviews, resume workshops, and direct interviews with partner hospitals. Our placement rate is 95% within 6 months." },
-  { q: "Can I pay in installments?", a: "Absolutely. We offer 0% EMI through partner NBFCs starting at ₹999/month. Scholarships are available for merit and need-based applicants." },
-  { q: "Are classes online or offline?", a: "We offer Online, Offline, and Hybrid modes. Live classes are recorded so you can revisit anytime. Practical labs are in-campus or at partner hospital sites." },
-  { q: "How long are the programs?", a: "From 1-month intensive certificates to 1-year diploma programs. Course duration is listed clearly on each course page." },
-  { q: "Is there a refund policy?", a: "Yes — full refund within the first 7 days, no questions asked. Pro-rated thereafter as per our policy." },
-  { q: "How are exams conducted?", a: "Through our AI-proctored online platform with identity verification, screen recording, and live invigilation. Practical exams are on-site at partner labs." },
+  { q: "What types of courses are available for AIAPGET & MRB ?"
+, a: "We offer both Regular Courses and Test Batch Programs tailored for AIAPGET & MRB preparation." },
+  { q: "Are AIAPGET & MRB conducted together or separately?", a: "Both are handled through separate classes, with different teaching patterns and strategies for each exam." },
+  { q: "Will modern study materials be provided?", a: "Yes! We provide updated and high-quality modern study materials for effective preparation." },
+  { q: "Are recorded classes available?", a: "Yes, recorded classes are available so you can learn and revise anytime." },
+  { q: "Are live classes conducted? When do they take place?", a: "Yes! Live interactive classes are conducted every Sunday. Time: 8:00 PM – 9:00 PM." },
+  { q: "Can I pay the course fee in installments (EMI)?", a: "Yes, you can pay through 3–4 flexible installments for your convenience." },
+  
 ];
 
 export function FAQ() {
