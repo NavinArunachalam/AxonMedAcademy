@@ -439,7 +439,7 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
           <h3 className="text-xs uppercase tracking-widest text-cream/60 mb-3">Past Sessions</h3>
           <DarkCard className="p-0 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[650px] text-sm">
+              <table className="w-full min-w-162.5 text-sm">
                 <thead className="bg-cream/5">
                   <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60">
                     <th className="p-4">Class</th><th>Date</th><th>Duration</th><th>Attendees</th><th>Status</th>
@@ -2032,7 +2032,7 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
 
       <DarkCard className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] text-sm">
+          <table className="w-full min-w-175 text-sm">
             <thead className="bg-cream/5">
               <tr className="text-[10px] uppercase tracking-widest text-cream/60 text-left">
                 <th className="p-4">Student</th>
@@ -2201,7 +2201,7 @@ function AdminClassroomDetail() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto bg-cream/5 rounded-2xl p-1.5 whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-1 overflow-x-auto bg-cream/5 rounded-2xl p-1.5 whitespace-nowrap [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>

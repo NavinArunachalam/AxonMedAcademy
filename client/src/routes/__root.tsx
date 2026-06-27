@@ -122,7 +122,9 @@ function RootComponent() {
           address: backendUser.address,
           avatar: backendUser.avatar,
           role,
+          userId: backendUser.userId
         };
+        
         classroomStore.setState(() => ({ currentUser, accessToken, classrooms }));
 
         // ── FCM: register push token for students after auth is confirmed ──

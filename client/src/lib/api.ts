@@ -1002,6 +1002,34 @@ export async function createClassroom(payload: {
   return normalizeBackendClassroom(result.classroom);
 }
 
+export async function updateClassroom(
+  id: string,
+  payload: {
+    name?: string;
+    description?: string;
+    thumbnail?: string;
+    code?: string;
+    program?: string;
+    batch?: string;
+    maxStudents?: number;
+    status?: 'active' | 'archived' | 'draft';
+    settings?: Record<string, any>;
+  }
+) {
+  const result = await fetchJson(`/classrooms/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  return normalizeBackendClassroom(result.classroom);
+}
+
+export async function archiveClassroom(id: string) {
+  const result = await fetchJson(`/classrooms/${encodeURIComponent(id)}/archive`, {
+    method: 'PUT',
+  });
+  return normalizeBackendClassroom(result.classroom);
+}
+
 export async function getMyClassrooms() {
   const payload = await fetchJson('/classrooms/my');
   return payload.classrooms.map(normalizeBackendClassroom);

@@ -612,18 +612,21 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
-// PUT /:id/archive → Admin: archive classroom
+// PUT /:id/archive → Admin: toggle classroom archive status (archive ↔ active)
 router.put('/:id/archive', async (req, res, next) => {
   try {
-    const classroom = await Classroom.findByIdAndUpdate(
-      req.params.id,
-      { $set: { status: 'archived' } },
-      { new: true }
-    );
-    if (!classroom) {
+    const existing = await Classroom.findById(req.params.id).select('status');
+    if (!existing) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
-    res.json({ success: true, message: 'Classroom archived successfully', classroom });
+    const newStatus = existing.status === 'archived' ? 'active' : 'archived';
+    const classroom = await Classroom.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status: newStatus } },
+      { new: true }
+    ).populate('program batch instructors');
+    const msg = newStatus === 'archived' ? 'Classroom archived successfully' : 'Classroom restored successfully';
+    res.json({ success: true, message: msg, classroom });
   } catch (error) {
     next(error);
   }

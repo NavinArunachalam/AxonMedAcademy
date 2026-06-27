@@ -12,6 +12,8 @@ import {
   X,
   ChevronRight,
   Loader2,
+  Pencil,
+  ArchiveRestore,
 } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 import {
@@ -19,7 +21,14 @@ import {
   classroomActions,
   type Classroom,
 } from "@/lib/classroomStore";
-import { createClassroom as apiCreateClassroom, getClassrooms as apiGetClassrooms, getAdminPrograms, type ProgramCourse } from "@/lib/api";
+import {
+  createClassroom as apiCreateClassroom,
+  getClassrooms as apiGetClassrooms,
+  getAdminPrograms,
+  updateClassroom as apiUpdateClassroom,
+  archiveClassroom as apiArchiveClassroom,
+  type ProgramCourse,
+} from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_admin/admin/classrooms/")({
@@ -224,7 +233,199 @@ function CreateClassroomModal({
   );
 }
 
-function ClassroomCard({ cls }: { cls: Classroom }) {
+// ─── Edit Classroom Modal ────────────────────────────────────────────────────
+function EditClassroomModal({
+  classroom,
+  onClose,
+  onUpdated,
+}: {
+  classroom: Classroom;
+  onClose: () => void;
+  onUpdated?: (updated: Classroom) => void;
+}) {
+  const [programs, setPrograms] = useState<ProgramCourse[]>([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [form, setForm] = useState({
+    name: classroom.name,
+    description: classroom.description || "",
+    code: classroom.code,
+    program: classroom.program || "",
+    maxStudents: classroom.maxStudents,
+    status: classroom.status,
+  });
+
+  useEffect(() => {
+    let active = true;
+    getAdminPrograms()
+      .then((data) => {
+        if (!active) return;
+        setPrograms(data.filter((p) => p.status === "published"));
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setLoadingPrograms(false); });
+    return () => { active = false; };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || isSubmitting) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const updated = await apiUpdateClassroom(classroom.id, {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        code: form.code.trim(),
+        program: form.program || undefined,
+        maxStudents: form.maxStudents,
+        status: form.status as Classroom["status"],
+      });
+      classroomActions.updateClassroom(classroom.id, updated);
+      onUpdated?.(updated);
+      onClose();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to update classroom");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <DarkCard className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-display text-xl font-bold text-cream">Edit Classroom</h2>
+          <button onClick={onClose} className="text-cream/50 hover:text-cream">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {submitError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
+              {submitError}
+            </div>
+          )}
+
+          <div>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Classroom Name *
+            </label>
+            <input
+              required
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. ICU Critical Care — Batch 24A"
+              className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Description
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="What will students learn in this classroom?"
+              rows={3}
+              className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+                Class Code
+              </label>
+              <input
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+                Max Students
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={form.maxStudents}
+                onChange={(e) => setForm({ ...form, maxStudents: Number(e.target.value) })}
+                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Program
+            </label>
+            {loadingPrograms ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-cream/5 border border-cream/10 rounded-xl text-cream/50 text-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading programs…
+              </div>
+            ) : (
+              <select
+                value={form.program}
+                onChange={(e) => setForm({ ...form, program: e.target.value })}
+                className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+              >
+                <option value="">— No program —</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.title}>
+                    {p.title}{p.category ? ` — ${p.category}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Status
+            </label>
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value as Classroom["status"] })}
+              className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+            >
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-50"
+            >
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </DarkCard>
+    </div>
+  );
+}
+
+function ClassroomCard({ cls, onEdit, onArchive }: { cls: Classroom; onEdit: (cls: Classroom) => void; onArchive: (id: string) => void }) {
   const activeStudents = cls.students.filter((s) => s.status === "active").length;
   const publishedRecs = cls.recordings.filter((r) => r.isPublished).length;
   const publishedQuizzes = cls.quizzes.filter((q) => q.status === "published").length;
@@ -269,13 +470,28 @@ function ClassroomCard({ cls }: { cls: Classroom }) {
           >
             Open Classroom <ChevronRight className="h-3.5 w-3.5" />
           </Link>
-          {cls.status === "active" && (
+          <button
+            onClick={() => onEdit(cls)}
+            className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 hover:bg-lime/20 hover:text-lime transition-colors"
+            title="Edit classroom"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          {cls.status !== "archived" ? (
             <button
-              onClick={() => classroomActions.archiveClassroom(cls.id)}
-              className="rounded-full bg-cream/10 text-cream/70 px-3 py-2"
+              onClick={() => onArchive(cls.id)}
+              className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 hover:bg-orange-500/20 hover:text-orange-400 transition-colors"
               title="Archive classroom"
             >
               <Archive className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => onArchive(cls.id)}
+              className="rounded-full bg-cream/10 text-cream/70 px-3 py-2 hover:bg-lime/20 hover:text-lime transition-colors"
+              title="Unarchive classroom (set active)"
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -298,7 +514,10 @@ function AdminClassrooms() {
   const [backendError, setBackendError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "archived" | "draft">("all");
+  const [filterStatus, setFilterStatus] = useState< "active" | "archived" | "draft">("active");
+  const [editingClassroom, setEditingClassroom] = useState<Classroom | null>(null);
+  const [archiveLoading, setArchiveLoading] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -324,6 +543,30 @@ function AdminClassrooms() {
     load();
     return () => { active = false; };
   }, []);
+
+  const handleEdit = (cls: Classroom) => {
+    setEditingClassroom(cls);
+  };
+
+  const handleArchive = async (id: string) => {
+    if (archiveLoading) return;
+    setArchiveLoading(id);
+    setFeedback(null);
+    try {
+      const updated = await apiArchiveClassroom(id);
+      classroomActions.updateClassroom(id, updated);
+      listLastFetchedAt = 0; // force re-sync on next visit
+      const msg = updated.status === "archived" ? "Classroom archived successfully" : "Classroom restored successfully";
+      setFeedback(msg);
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to archive classroom";
+      setFeedback(msg);
+      setTimeout(() => setFeedback(null), 3000);
+    } finally {
+      setArchiveLoading(null);
+    }
+  };
 
   // Use store directly — updated by the background fetch above
   const sourceClassrooms = classrooms;
@@ -358,6 +601,23 @@ function AdminClassrooms() {
             listLastFetchedAt = 0; // force re-sync on next visit
           }}
         />
+      )}
+
+      {editingClassroom && (
+        <EditClassroomModal
+          classroom={editingClassroom}
+          onClose={() => setEditingClassroom(null)}
+          onUpdated={(updated) => {
+            classroomActions.updateClassroom(editingClassroom.id, updated);
+            listLastFetchedAt = 0;
+          }}
+        />
+      )}
+
+      {feedback && (
+        <div className="rounded-xl border border-lime/30 bg-lime/10 px-4 py-3 text-sm text-lime shadow-lg">
+          {feedback}
+        </div>
       )}
 
       {loadingBackend && <p className="text-sm text-cream/60">Loading classrooms from MongoDB…</p>}
@@ -427,7 +687,7 @@ function AdminClassrooms() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => (
-            <ClassroomCard key={c.id} cls={c} />
+            <ClassroomCard key={c.id} cls={c} onEdit={handleEdit} onArchive={handleArchive} />
           ))}
         </div>
       )}
