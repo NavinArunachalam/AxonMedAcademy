@@ -8,7 +8,9 @@ import { setStatus, addParticipant, removeParticipant,
   resetMeeting, setRoomId, setScreenSharing,
   addRaisedHand, removeRaisedHand,
 } from '../store/slices/meetingSlice';
+import { isMobileDevice } from '../utils/deviceDetect';
 import { LiveKitRoom } from '@livekit/components-react';
+import { isNativeAppInstalled, openNativeApp } from '../utils/nativeApp';
 import VideoGrid from '../components/meeting/VideoGrid';
 import ControlBar from '../components/meeting/ControlBar';
 import ChatPanel from '../components/meeting/ChatPanel';
@@ -50,6 +52,18 @@ export default function Meeting() {
   }, []);
 
   useEffect(() => { roomIdRef.current = liveRoomId; }, [liveRoomId]);
+
+  // Check and open native app for screen sharing on mobile
+  useEffect(() => {
+    const checkNativeApp = async () => {
+      if (!isMobileDevice() || status !== 'live' || !liveRoomId || !lkToken) return;
+      const installed = await isNativeAppInstalled();
+      if (installed) {
+        openNativeApp(liveRoomId, lkToken);
+      }
+    };
+    checkNativeApp();
+  }, [status, liveRoomId, lkToken]);
 
   // Fetch LiveKit Token
   const fetchLiveKitToken = async (roomIdentifier, uName) => {

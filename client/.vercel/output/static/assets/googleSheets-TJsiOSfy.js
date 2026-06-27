@@ -1,1 +1,0 @@
-const o="https://script.google.com/macros/s/AKfycbymuXeecTAkhS_90daEZZGAFdk02FSOKkt3wFVG0xqpCZlqv5an1gL7Am9PBofhZjYZ/exec";async function n(e,t){return(await fetch(o,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({sheet:e,data:t})})).json()}export{n as s};
