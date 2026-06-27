@@ -325,7 +325,8 @@ function Profile() {
   const address   = currentUser?.address || "";
   const avatar    = currentUser?.avatar  || "";
   const studentId = currentUser?.id      || "";
-  const userId = currentUser?.userId      || "";
+  const userId = currentUser?.userId || "";
+  const displayId = userId || studentId.slice(-8).toUpperCase() || "—";
 
   const apiBase   = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "") || "/api/v1";
   const resolveUrl = (url?: string) => {
@@ -393,8 +394,8 @@ function Profile() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] uppercase tracking-widest text-cream/40 w-14 shrink-0">ID No.</span>
-                    <span className="text-xs font-mono text-lime bg-white/10 px-2 py-0.5 rounded border border-white/10">
-                      {userId}
+                    <span className="text-xs font-mono text-lime bg-white/10 px-3 py-1 rounded-lg border border-lime/30 shadow-xs shadow-lime/10">
+                      {displayId}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

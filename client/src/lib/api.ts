@@ -311,9 +311,10 @@ async function fetchJson(path: string, options: RequestInit = {}) {
 export async function loginUser(identifier: string, password: string) {
   // Server sets HttpOnly cookies (accessToken, refreshToken, session) in the response.
   // Nothing to store client-side — cookies are sent automatically on every subsequent request.
+  // Supports login by email or userId — send raw identifier, server detects which one it is.
   return fetchJson('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email: normalizeLoginIdentifier(identifier), password }),
+    body: JSON.stringify({ identifier, password }),
   });
 }
 

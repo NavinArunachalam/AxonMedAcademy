@@ -5,21 +5,21 @@ const User = require('../models/User');
 dotenv.config();
 
 const defaultUsers = [
-
   {
-    fullName: 'Admin User',
     email: 'axonmedacademy2@gmail.com',
+    fullName: 'Admin',
     password: 'axon@admin',
-    role: 'admin'
+    role: 'admin',
+    userId: 'Admin'
   },
   {
-    fullName: 'Ajay Kumar',
     email: 'navin.procols@gmail.com',
+    fullName: 'Ajay Kumar',
     password: '1111',
     role: 'student',
-    phone: '+91 98700 11110'
-  },
-
+    phone: '+91 98700 11110',
+    userId: 'Ajay'
+  }
 ];
 
 const seedDefaultUsers = async () => {
@@ -33,6 +33,7 @@ const seedDefaultUsers = async () => {
         existing.isVerified = true;
         existing.isActive = true;
         if (defaultUser.phone) existing.phone = defaultUser.phone;
+        if (defaultUser.userId) existing.userId = defaultUser.userId;
         if (!passwordMatches) existing.password = defaultUser.password;
         await existing.save();
         continue;

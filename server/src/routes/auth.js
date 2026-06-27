@@ -13,15 +13,17 @@ const { protect } = require('../middleware/auth');
 
 const defaultLoginAccounts = {
   'axonmedacademy2@gmail.com': {
-    fullName: 'Admin User',
+    fullName: 'Admin',
     password: 'axon@admin',
-    role: 'admin'
+    role: 'admin',
+    userId: 'Admin'
   },
   'navin.procols@gmail.com': {
     fullName: 'Ajay Kumar',
     password: '1111',
     role: 'student',
-    phone: '+91 98700 11110'
+    phone: '+91 98700 11110',
+     userId: 'Ajay'
   },
  
 };
@@ -38,6 +40,7 @@ const repairDefaultLoginAccount = async (user, password) => {
   user.isVerified = true;
   user.isActive = true;
   if (defaults.phone) user.phone = defaults.phone;
+  if (defaults.userId) user.userId = defaults.userId;
   await user.save();
 };
 
@@ -151,25 +154,43 @@ router.post('/register', upload.any(), async (req, res, next) => {
 // POST /login → Authenticate user with password & verification state checks
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, identifier } = req.body;
+    const loginIdentifier = identifier || email;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide email and password' });
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide email/userId and password' });
     }
 
-    const normalizedEmail = String(email).toLowerCase().trim();
-    let user = await User.findOne({ email: normalizedEmail }).select('+password');
-    const defaultAccount = defaultLoginAccounts[normalizedEmail];
+    const input = String(loginIdentifier).trim();
+    let user;
+    const defaultAccount = defaultLoginAccounts[input.toLowerCase()];
+
+    // Determine if input is an email or userId
+    if (input.includes('@')) {
+      // Login by email
+      user = await User.findOne({ email: input.toLowerCase() }).select('+password');
+    } else {
+      // Login by userId (case-insensitive)
+      const q = new RegExp(`^${input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      user = await User.findOne({ userId: q }).select('+password');
+    }
 
     if (!user && defaultAccount && password === defaultAccount.password) {
+      const yearSuffix = String(new Date().getFullYear()).slice(-2);
+      const randomLetters = String.fromCharCode(
+        65 + Math.floor(Math.random() * 26),
+        65 + Math.floor(Math.random() * 26)
+      );
+      const randomNumbers = String(Math.floor(1000 + Math.random() * 9000));
       user = await User.create({
         fullName: defaultAccount.fullName,
-        email: normalizedEmail,
+        email: input.toLowerCase(),
         phone: defaultAccount.phone,
         password: defaultAccount.password,
         role: defaultAccount.role,
         isVerified: true,
-        isActive: true
+        isActive: true,
+        userId: defaultAccount.userId || `Axon${yearSuffix}${randomLetters}${randomNumbers}`
       });
     }
 

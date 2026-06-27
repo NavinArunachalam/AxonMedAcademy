@@ -68,6 +68,10 @@ exports.sendWelcomeEmail = async (user, password) => {
                 <td style="padding: 6px 0;"><a href="${portalUrl}" style="color: #7C3AED; font-weight: 600;">${portalUrl}</a></td>
               </tr>
               <tr>
+                <td style="padding: 6px 0; color: #6b7280; font-size: 13px;">User ID</td>
+                <td style="padding: 6px 0; font-weight: 600; font-family: monospace; font-size: 15px; color: #1A0F33;">${user.userId || 'N/A'}</td>
+              </tr>
+              <tr>
                 <td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Email</td>
                 <td style="padding: 6px 0; font-weight: 600;">${user.email}</td>
               </tr>
@@ -92,10 +96,6 @@ exports.sendWelcomeEmail = async (user, password) => {
             <li>Download certificates after course completion</li>
             <li>Communicate with faculty and admins</li>
           </ul>
-
-          <p style="font-size: 13px; color: #ef4444; background: #fef2f2; padding: 12px; border-radius: 6px; border: 1px solid #fecaca;">
-            ⚠️ Please change your password after your first login for security.
-          </p>
 
           <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Academy Admin Team</strong></p>
         </div>
@@ -166,10 +166,6 @@ exports.sendFacultyWelcomeEmail = async (user, password) => {
 
           <p style="font-size: 14px; color: #6b7280;">On the portal you can manage classrooms, live sessions, recordings, quizzes, and student progress.</p>
 
-          <p style="font-size: 13px; color: #ef4444; background: #fef2f2; padding: 12px; border-radius: 6px; border: 1px solid #fecaca;">
-            Please change your password after your first login for security.
-          </p>
-
           <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Academy Admin Team</strong></p>
         </div>
 
@@ -220,6 +216,10 @@ exports.sendApprovalEmail = async (user) => {
               <tr>
                 <td style="padding: 6px 0; color: #4b5563; font-size: 13px; width: 100px;">Portal URL</td>
                 <td style="padding: 6px 0;"><a href="${portalUrl}" style="color: #059669; font-weight: 600;">${portalUrl}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #4b5563; font-size: 13px;">User ID</td>
+                <td style="padding: 6px 0; font-weight: 600; font-family: monospace; font-size: 15px; color: #065f46;">${user.userId || 'N/A'}</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; color: #4b5563; font-size: 13px;">Login Email</td>

@@ -16,8 +16,6 @@ const userSchema = new mongoose.Schema({
   },
   isVerified:   { type: Boolean, default: false },
   isActive:     { type: Boolean, default: true },
-  twoFAEnabled: { type: Boolean, default: false },
-  twoFASecret:  { type: String, select: false },
   otp:          { type: String, select: false },
   otpExpiry:    { type: Date, select: false },
   refreshTokens: [{ type: String, select: false }],

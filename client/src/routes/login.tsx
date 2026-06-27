@@ -29,12 +29,13 @@ function Login() {
         email: backendUser.email,
         phone: backendUser.phone,
         role,
+        userId: backendUser.userId || ""
       };
 
       classroomStore.setState(() => ({ currentUser, accessToken }));
       navigate({ to: role === "student" ? "/student/dashboard" : "/admin/dashboard" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid User ID or Password");
+      setError(err instanceof Error ? err.message : "Invalid Credentials. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -52,7 +53,7 @@ function Login() {
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-lime text-plum-dark">
             <Stethoscope className="h-5 w-5" />
           </span>
-          <span className="font-display text-lg font-bold">Axon.Academy</span>
+          <span className="font-display text-lg font-bold">Axon Med Academy</span>
         </Link>
 
         <div className="relative">
@@ -84,8 +85,8 @@ function Login() {
           <form onSubmit={handleLogin} className="mt-8 space-y-4">
             {error && <div className="text-red-500 text-sm font-semibold p-3 bg-red-50 rounded-lg">{error}</div>}
             <div>
-              <label className="block text-xs font-semibold text-plum-dark mb-1.5">User ID</label>
-              <input value={userId} onChange={e => setUserId(e.target.value)} type="text" placeholder="e.g. Ajay or Admin" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" required />
+              <label className="block text-xs font-semibold text-plum-dark mb-1.5">User ID/Email</label>
+              <input value={userId} onChange={e => setUserId(e.target.value)} type="text" placeholder="e.g. example@gmail.com or Admin" className="w-full rounded-full border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum" required />
             </div>
             <div>
               <div className="flex justify-between items-center mb-1.5">
