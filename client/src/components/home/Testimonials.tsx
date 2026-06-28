@@ -8,14 +8,14 @@ const API_BASE = (() => {
     import.meta.env.VITE_API_URL ||
     import.meta.env.BACKEND_URL ||
     (typeof process !== 'undefined' ? process.env.VITE_API_URL || process.env.BACKEND_URL : '');
-  const base = (runtime?.trim() || '/api/v1').replace(/\/+$/, '');
+  const base = (runtime?.trim() || '/api/v1').replace(/\/+$/,'');
   return base;
 })();
 
 const FALLBACK_ITEMS = [
   { name: "Priya Krishnan", roll: "Staff Nurse · Apollo Hospitals", review: "From classroom to a top hospital in 8 months. The proctored exams gave my employer real confidence.", initials: "PK", image: null },
-  { name: "Arjun Reddy",    roll: "OT Technician · Manipal",        review: "The hands-on OT simulation modules made my transition to the operating theatre seamless. Top-tier faculty.", initials: "AR", image: null },
-  { name: "Sneha Pillai",   roll: "Lab Technician · Fortis",        review: "I started with ₹999/month EMI and now earn 6× that monthly. The placement team was relentlessly supportive.", initials: "SP", image: null },
+  { name: "Arjun Reddy",    roll: "OT Technician · Manipal",review: "The hands-on OT simulation modules made my transition to the operating theatre seamless. Top-tier faculty.", initials: "AR", image: null },
+  { name: "Sneha Pillai",   roll: "Lab Technician · Fortis",review: "I started with ₹999/month EMI and now earn 6× that monthly. The placement team was relentlessly supportive.", initials: "SP", image: null },
 ];
 
 function VideoThumbnail({ video, streamUrl, className }: { video: any; streamUrl: string; className?: string }) {
@@ -98,7 +98,7 @@ export function Testimonials() {
             <div className="max-w-xl">
               <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— 05 / Voices</div>
               <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">
-                5,000 careers.<br />One academy.
+                500 careers.<br />One academy.
               </h2>
             </div>
             <div className="flex items-center gap-3 rounded-full bg-card border border-border px-4 py-2">
@@ -106,7 +106,7 @@ export function Testimonials() {
                 {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-lime text-lime" />)}
               </div>
               <span className="text-sm font-semibold text-plum-dark">4.9 / 5</span>
-              <span className="text-xs text-foreground/60">· 2,300+ reviews</span>
+              <span className="text-xs text-foreground/60">· 500+ reviews</span>
             </div>
           </div>
 

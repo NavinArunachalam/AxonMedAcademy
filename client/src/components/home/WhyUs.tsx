@@ -2,10 +2,10 @@ import { Video, ShieldCheck, Award, Briefcase, Users, CreditCard } from "lucide-
 
 const items = [
   { icon: Video, title: "Live + Recorded Classes", desc: "Flexible learning at your own pace with HD recordings of every session." },
-  { icon: ShieldCheck, title: "Proctored Exams", desc: "AI-monitored, tamper-proof assessments that hospitals trust." },
+  { icon: ShieldCheck, title: "Exam-Focused MCQs", desc: "Complete syllabus tests that simulate the actual (AIAPGET & MRB) exam pattern with rank analysis." },
   { icon: Award, title: "Blockchain Certificates", desc: "Lifetime-verifiable credentials with QR-based proof of authenticity." },
-  { icon: Briefcase, title: "95% Placement Rate", desc: "Industry-leading job outcomes through 200+ hospital partnerships." },
-  { icon: Users, title: "Expert Faculty", desc: "Learn from doctors and senior nurses with 15+ years clinical experience." },
+  { icon: Briefcase, title: "Supportive Community", desc: "Telegram support, regular live discussion sessions, and updated notes & materials for every student." },
+  { icon: Users, title: "Concept-Oriented Teaching", desc: "Simplify complex concepts through mnemonics, story-based learning, and bilingual explanations." },
   { icon: CreditCard, title: "Easy EMI Options", desc: "Begin your career journey for as little as ₹999/month, no hidden fees." },
 ];
 

@@ -3,10 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, Play, Sparkles, Activity, HeartPulse, Pill, Microscope } from "lucide-react";
 
 const stats = [
-  { v: "5,000+", l: "Students Trained" },
-  { v: "200+", l: "Hospital Partners" },
+  { v: "1,000+", l: "Students Trained" },
+  { v: "50+", l: "Hospital Partners" },
   { v: "95%", l: "Placement Rate" },
-  { v: "30+", l: "Specialized Courses" },
+  { v: "10+", l: "Specialized Courses" },
 ];
 
 export function Hero() {
@@ -27,7 +27,7 @@ export function Hero() {
               className="inline-flex items-center gap-2 rounded-full bg-plum-dark/5 border border-plum-dark/10 px-3 py-1.5 text-xs font-semibold text-plum-dark"
             >
               <Sparkles className="h-3.5 w-3.5 text-plum" />
-              India's #1 Paramedical Training Academy
+              India's #1 Siddha & AYUSH Academy
             </motion.div>
 
             <motion.h1
@@ -36,12 +36,12 @@ export function Hero() {
               transition={{ duration: 0.6, delay: 0.05 }}
               className="mt-5 font-display font-bold text-plum-dark text-balance text-[40px] sm:text-[56px] lg:text-[68px] leading-[1.02] tracking-[-0.03em]"
             >
-              Train. Certify.{" "}
+          Prepare. Practice.Crack{" "}
               <span className="relative inline-block">
-                <span className="relative z-10">Get placed</span>
+                <span className="relative z-10"> AIAPGET & MRB.</span>
                 <span className="absolute inset-x-0 bottom-1 h-3 lg:h-4 bg-lime -z-0 rounded-sm" />
               </span>{" "}
-              in top hospitals.
+ 
             </motion.h1>
 
             <motion.p
@@ -50,7 +50,7 @@ export function Hero() {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="mt-6 max-w-xl text-base lg:text-lg text-foreground/70 leading-relaxed"
             >
-              Master concepts, practice high-yield MCQs, and achieve top ranks in AIAPGET & MRB with structured, result-driven learning.
+              Master high-yield concepts, smart revision strategies, daily MCQs, grand tests, and expert guidance to secure top ranks in AIAPGET & MRB Siddha examinations.
             </motion.p>
 
             <motion.div
@@ -145,7 +145,7 @@ function HeroArt() {
             </div>
             <div className="flex-1">
               <div className="text-xs text-plum-dark/60 font-medium">Now Live</div>
-              <div className="text-sm font-semibold text-plum-dark">Cardiac Care Module — Dr. Sharma</div>
+              <div className="text-sm font-semibold text-plum-dark">Siddha & AYUSH Examinations</div>
             </div>
             <div className="text-[10px] font-bold uppercase text-plum-dark bg-lime rounded-full px-2 py-1">
               LIVE
