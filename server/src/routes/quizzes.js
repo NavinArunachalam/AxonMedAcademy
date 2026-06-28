@@ -12,6 +12,85 @@ const { protect, restrictTo } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const MAX_RETRY_DELAY = 10000; // 10 seconds
+
+// Helper function to sleep for a specified duration
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper function to calculate exponential backoff delay
+const calculateRetryDelay = (retryCount) => {
+  const delay = Math.min(
+    INITIAL_RETRY_DELAY * Math.pow(2, retryCount),
+    MAX_RETRY_DELAY
+  );
+  // Add jitter to prevent thundering herd
+  const jitter = Math.random() * 0.3 * delay;
+  return delay + jitter;
+};
+
+// Helper function to check if error is retryable
+const isRetryableError = (error) => {
+  const retryableStatuses = [429, 500, 502, 503, 504];
+  const errorMessage = error.message || '';
+  
+  // Check for 503 Service Unavailable
+  if (errorMessage.includes('503') || errorMessage.includes('Service Unavailable')) {
+    return true;
+  }
+  
+  // Check for rate limit errors
+  if (errorMessage.includes('429') || errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+    return true;
+  }
+  
+  // Check for network errors
+  if (errorMessage.includes('ECONNRESET') || errorMessage.includes('ETIMEDOUT') || errorMessage.includes('ENOTFOUND')) {
+    return true;
+  }
+  
+  return false;
+};
+
+// Wrapper function to execute Gemini API calls with retry logic
+const executeWithRetry = async (operation, operationName = 'Gemini API') => {
+  let lastError;
+  
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      
+      // Don't retry on the last attempt
+      if (attempt === MAX_RETRIES) {
+        break;
+      }
+      
+      // Check if error is retryable
+      if (!isRetryableError(error)) {
+        console.error(`[${operationName}] Non-retryable error:`, error.message);
+        throw error;
+      }
+      
+      // Calculate delay and wait
+      const delay = calculateRetryDelay(attempt);
+      console.warn(
+        `[${operationName}] Attempt ${attempt + 1} failed with retryable error. ` +
+        `Retrying in ${Math.round(delay)}ms... Error: ${error.message}`
+      );
+      
+      await sleep(delay);
+    }
+  }
+  
+  // All retries exhausted
+  console.error(`[${operationName}] All ${MAX_RETRIES + 1} attempts failed.`);
+  throw lastError;
+};
+
 
 // Helper to shuffle an array (Fisher-Yates)
 function shuffleArray(array) {
@@ -678,15 +757,21 @@ Important:
 - YOU MUST automatically select the correct answer(s) by setting "isCorrect": true.
 - If the language is Tamil, preserve the Tamil text exactly.`;
 
-    const response = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: 'application/pdf',
-          data: req.file.buffer.toString('base64')
-        }
-      }
-    ]);
+    // Execute with retry logic
+    const response = await executeWithRetry(
+      async () => {
+        return await model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              mimeType: 'application/pdf',
+              data: req.file.buffer.toString('base64')
+            }
+          }
+        ]);
+      },
+      'Gemini PDF Generation'
+    );
 
     let textResponse = response.response.text();
     // Strip markdown formatting if the model still includes it
@@ -697,6 +782,22 @@ Important:
     res.json({ success: true, questions });
   } catch (error) {
     console.error('PDF Generation Error:', error);
+    
+    // Provide user-friendly error messages
+    if (error.message && error.message.includes('503')) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'The AI service is currently experiencing high demand. Please try again in a few moments.' 
+      });
+    }
+    
+    if (error.message && error.message.includes('429')) {
+      return res.status(429).json({ 
+        success: false, 
+        message: 'Too many requests. Please wait a moment and try again.' 
+      });
+    }
+    
     next(error);
   }
 });
