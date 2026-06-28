@@ -21,8 +21,8 @@ export function CourseStrip() {
           <div className="max-w-xl">
             <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— 01 / Programs</div>
             <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">
-              Career-grade courses,<br/>
-              <span className="text-plum">built with hospitals.</span>
+              Courses That Help <br/>
+              <span className="text-plum">You Crack AIAPGET & MRB</span>
             </h2>
           </div>
           <Link to="/courses" className="group inline-flex items-center gap-2 text-sm font-semibold text-plum-dark hover:gap-3 transition-all">

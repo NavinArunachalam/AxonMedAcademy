@@ -1,12 +1,12 @@
 import { Video, ShieldCheck, Award, Briefcase, Users, CreditCard } from "lucide-react";
 
 const items = [
-  { icon: Video, title: "Live + Recorded Classes", desc: "Flexible learning at your own pace with HD recordings of every session." },
-  { icon: ShieldCheck, title: "Exam-Focused MCQs", desc: "Complete syllabus tests that simulate the actual (AIAPGET & MRB) exam pattern with rank analysis." },
-  { icon: Award, title: "Blockchain Certificates", desc: "Lifetime-verifiable credentials with QR-based proof of authenticity." },
-  { icon: Briefcase, title: "Supportive Community", desc: "Telegram support, regular live discussion sessions, and updated notes & materials for every student." },
-  { icon: Users, title: "Concept-Oriented Teaching", desc: "Simplify complex concepts through mnemonics, story-based learning, and bilingual explanations." },
-  { icon: CreditCard, title: "Easy EMI Options", desc: "Begin your career journey for as little as ₹999/month, no hidden fees." },
+  { icon: Video, title: "Live + Recorded Interactive Classes", desc: "Flexible learning at your own pace with HD recordings of every session." },
+  { icon: ShieldCheck, title: "AIAPGET & MRB Patern Mock Tests", desc: "Complete syllabus tests that simulate the actual (AIAPGET & MRB) exam pattern with rank analysis." },
+  { icon: Award, title: "Consise Notes & Smart Revision PDFs", desc: "Lifetime-verifiable credentials with QR-based proof of authenticity." },
+  { icon: Briefcase, title: "Rank-Oriented Preparation", desc: "Telegram support, regular live discussion sessions, and updated notes & materials for every student." },
+  { icon: Users, title: "Experienced Sidhha Faculty", desc: "Simplify complex concepts through mnemonics, story-based learning, and bilingual explanations." },
+  { icon: CreditCard, title: "Affordable Fees & EMI Available", desc: "Begin your career journey for as little as ₹999/month, no hidden fees." },
 ];
 
 export function WhyUs() {

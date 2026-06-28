@@ -1,11 +1,11 @@
 import { ClipboardCheck, GraduationCap, ScrollText, Award, Briefcase } from "lucide-react";
 
 const steps = [
-  { icon: ClipboardCheck, title: "Enroll", desc: "Pick your course and onboard in minutes." },
-  { icon: GraduationCap,  title: "Learn",  desc: "Live + recorded classes from senior clinicians." },
-  { icon: ScrollText,     title: "Exam",   desc: "AI-proctored, tamper-proof assessments." },
-  { icon: Award,          title: "Certify",desc: "Blockchain-verified lifetime credentials." },
-  { icon: Briefcase,      title: "Get Placed", desc: "95% placement rate across 200+ hospitals.", highlight: true },
+  { icon: ClipboardCheck, title: "Enroll", desc: "Choose your course and start your preparation." },
+  { icon: GraduationCap,  title: "Learn",  desc: "Attend live classes and access recorded sessions anytime." },
+  { icon: ScrollText,     title: "Practice",   desc: "Solve daily MCQs, PYQs, and full-length mock tests." },
+  { icon: Award,          title: "Revise",desc: "Rapid revision, mnemonics, and high-yield notes." },
+  { icon: Briefcase,      title: "Crack the Exam", desc: " Secure a Top Rank in AIAPGET & MRB.", highlight: true },
 ];
 
 export function LearningPath() {
@@ -15,7 +15,8 @@ export function LearningPath() {
         <div className="max-w-2xl mx-auto text-center">
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— 07 / Journey</div>
           <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">
-            Your path from <span className="text-plum">student</span> to <span className="bg-lime px-2 rounded">staff.</span>
+        
+Your Road to   MRB Success<span className="text-plum">AIAPGET Rank</span> & <span className="bg-lime px-2 rounded">MRB Success.</span>
           </h2>
         </div>
 
