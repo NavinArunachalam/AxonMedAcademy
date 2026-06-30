@@ -98,31 +98,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="lg:col-span-5 relative hidden md:block"
           >
-            <div className="relative aspect-[5/6] w-full max-w-md mx-auto rounded-[40px] overflow-hidden shadow-2xl ">
-              <video
-                src="/doctor2.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-fit"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-navy/60 via-transparent to-transparent" />
-              <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 backdrop-blur p-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-gold text-navy">
-                    <HeartPulse className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs text-navy/60 font-medium">Now Live</div>
-                    <div className="text-sm font-bold text-navy">Siddha & AYUSH Examinations</div>
-                  </div>
-                  <div className="text-[10px] font-bold uppercase text-navy bg-gold rounded-full px-2 py-1">
-                    LIVE
-                  </div>
-                </div>
-              </div>
-            </div>
+            <HeroArt />
           </motion.div>
         </div>
       </div>
@@ -133,51 +109,53 @@ export function Hero() {
 function HeroArt() {
   return (
     <div className="relative aspect-[5/6] w-full max-w-md mx-auto">
-      <div className="absolute inset-0 rounded-[40px] bg-gradient-to-br from-plum-dark via-plum to-plum-dark overflow-hidden shadow-2xl shadow-plum-dark/30">
-        <div className="absolute inset-0 bg-noise opacity-30" />
-        <div className="absolute -top-20 -right-10 h-64 w-64 rounded-full bg-lime/30 blur-3xl" />
+      <div className="absolute inset-0 rounded-[40px] overflow-hidden shadow-2xl" style={{ background: 'linear-gradient(135deg, #0B1F3A 0%, #12294D 60%, #1A3560 100%)', boxShadow: '0 25px 50px -12px rgba(11,31,58,0.5)' }}>
+        <div className="absolute inset-0 bg-noise opacity-20" />
+        <div className="absolute -top-20 -right-10 h-64 w-64 rounded-full blur-3xl" style={{ background: 'rgba(244,180,0,0.18)' }} />
+        <div className="absolute -bottom-20 -left-10 h-64 w-64 rounded-full blur-3xl" style={{ background: 'rgba(45,156,219,0.15)' }} />
 
-        {/* ECG line */}
-        <svg viewBox="0 0 400 100" className="absolute top-1/2 -translate-y-1/2 inset-x-0 w-full text-lime/60">
+        {/* ECG line in Sky color */}
+        <svg viewBox="0 0 400 100" className="absolute top-1/2 -translate-y-1/2 inset-x-0 w-full" style={{ color: '#2D9CDB', opacity: 0.6 }}>
           <motion.path
             d="M0 50 L80 50 L100 20 L120 80 L140 35 L160 50 L260 50 L280 25 L300 75 L320 40 L340 50 L400 50"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="2.5"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
             transition={{ duration: 2.5, repeat: Infinity, repeatType: "loop", ease: "linear" }}
           />
         </svg>
 
-        {/* Floating chips */}
+        {/* Floating chips with Navy & Sky accents */}
         <FloatChip icon={HeartPulse} label="Live Vitals" pos="top-8 left-6" delay={0} />
         <FloatChip icon={Activity} label="Pulse 76" pos="top-24 right-4" delay={0.4} />
         <FloatChip icon={Microscope} label="Lab Module" pos="bottom-28 left-4" delay={0.8} />
         <FloatChip icon={Pill} label="Pharma Prep" pos="bottom-8 right-6" delay={1.2} />
 
-        {/* Center card */}
+        {/* Center card themed in white/gold/navy */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.6 }}
-          className="absolute bottom-6 left-6 right-6 rounded-2xl bg-cream/95 backdrop-blur p-4"
+          className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 backdrop-blur p-4 shadow-xl"
         >
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-lime">
-              <HeartPulse className="h-5 w-5 text-plum-dark" />
+            <div className="grid h-10 w-10 place-items-center rounded-xl text-white" style={{ backgroundColor: '#0B1F3A' }}>
+              <HeartPulse className="h-5 w-5" style={{ color: '#F4B400' }} />
             </div>
             <div className="flex-1">
-              <div className="text-xs text-plum-dark/60 font-medium">Now Live</div>
-              <div className="text-sm font-semibold text-plum-dark">Siddha & AYUSH Examinations</div>
+              <div className="text-xs font-medium text-slate-500">Now Live</div>
+              <div className="text-sm font-bold text-slate-800">Siddha &amp; AYUSH Examinations</div>
             </div>
-            <div className="text-[10px] font-bold uppercase text-plum-dark bg-lime rounded-full px-2 py-1">
+            <div className="text-[10px] font-bold uppercase rounded-full px-2.5 py-1 text-[#0B1F3A]" style={{ backgroundColor: '#F4B400' }}>
               LIVE
             </div>
           </div>
-          <div className="mt-3 h-1.5 w-full rounded-full bg-plum-dark/10 overflow-hidden">
+          <div className="mt-3 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
             <motion.div
-              className="h-full bg-plum-dark rounded-full"
+              className="h-full rounded-full"
+              style={{ background: 'linear-gradient(90deg, #F4B400, #2D9CDB)' }}
               initial={{ width: "0%" }}
               animate={{ width: "62%" }}
               transition={{ duration: 1.5, delay: 0.6 }}
@@ -208,10 +186,11 @@ function FloatChip({
         opacity: { delay, duration: 0.6 },
         y: { delay, duration: 3.5, repeat: Infinity, ease: "easeInOut" },
       }}
-      className={`absolute ${pos} flex items-center gap-2 rounded-full bg-cream/95 backdrop-blur px-3 py-1.5 text-xs font-semibold text-plum-dark shadow-lg`}
+      className={`absolute ${pos} flex items-center gap-2 rounded-full bg-white/95 backdrop-blur px-3 py-1.5 text-xs font-semibold shadow-lg`}
     >
-      <Icon className="h-3.5 w-3.5 text-plum" />
-      {label}
+      <Icon className="h-3.5 w-3.5" style={{ color: '#2D9CDB' }} />
+      <span style={{ color: '#0B1F3A' }}>{label}</span>
     </motion.div>
   );
 }
+
