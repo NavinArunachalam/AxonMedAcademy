@@ -18,8 +18,8 @@ export function Hero() {
       <div className="absolute -z-10 -bottom-32 -right-20 h-[400px] w-[400px] rounded-full bg-sky/20 blur-3xl" />
 
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
-        <div className="grid lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7">
+        <div className="grid md:grid-cols-12 gap-6 md:gap-8 lg:gap-12 items-center">
+          <div className="md:col-span-7 order-1 md:order-1">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -96,32 +96,32 @@ export function Hero() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="lg:col-span-5 relative hidden md:block"
+            className="md:col-span-5 relative order-1 md:order-2 mt-6 md:mt-0"
           >
-            <div className="relative aspect-[5/6] w-full max-w-md mx-auto rounded-[40px] overflow-hidden shadow-2xl ">
+            <div className="relative aspect-[16/9] md:aspect-[5/6] w-full max-w-sm md:max-w-md mx-auto rounded-[24px] md:rounded-[40px] overflow-hidden">
               <video
-                src="/doctor2.mp4"
+                src="/doctor.mp4"
                 autoPlay
                 loop
                 muted
                 playsInline
-                className="absolute inset-0 w-full h-full object-fit"
+                className="absolute w-full h-full object-cover object-right"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-navy/60 via-transparent to-transparent" />
-              <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 backdrop-blur p-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-gold text-navy">
+             
+              {/* <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 backdrop-blur p-4">
+                <div className="flex items-center gap-3"> */}
+                  {/* <div className="grid h-10 w-10 place-items-center rounded-xl bg-gold text-navy">
                     <HeartPulse className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
+                  </div> */}
+                  {/* <div className="flex-1">
                     <div className="text-xs text-navy/60 font-medium">Now Live</div>
                     <div className="text-sm font-bold text-navy">Siddha & AYUSH Examinations</div>
-                  </div>
-                  <div className="text-[10px] font-bold uppercase text-navy bg-gold rounded-full px-2 py-1">
+                  </div> */}
+                  {/* <div className="text-[10px] font-bold uppercase text-navy bg-gold rounded-full px-2 py-1">
                     LIVE
-                  </div>
-                </div>
-              </div>
+                  </div> */}
+                {/* </div>
+              </div> */}
             </div>
           </motion.div>
         </div>

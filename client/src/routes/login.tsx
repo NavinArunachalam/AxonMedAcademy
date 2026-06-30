@@ -50,9 +50,9 @@ function Login() {
         <div className="absolute -bottom-32 -right-20 h-80 w-80 rounded-full bg-sky/20 blur-3xl" />
 
         <Link to="/" className="relative inline-flex items-center gap-2 w-fit">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gold text-navy">
-            <Stethoscope className="h-5 w-5" />
-          </span>
+
+          <img src="/logo.jpeg" className="h-18 w-18 rounded-full object-cover" />
+
           <span className="font-display text-lg font-extrabold">Axon Med Academy</span>
         </Link>
 
