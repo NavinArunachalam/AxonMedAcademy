@@ -4,7 +4,6 @@ import { Hero } from "../components/home/Hero";
 import { CourseStrip } from "../components/home/CourseStrip";
 import { WhyUs } from "../components/home/WhyUs";
 import { PlacementBanner } from "../components/home/PlacementBanner";
-import { Faculty } from "../components/home/Faculty";
 import { Testimonials } from "../components/home/Testimonials";
 import { Partners } from "../components/home/Partners";
 import { LearningPath } from "../components/home/LearningPath";
@@ -35,7 +34,6 @@ function Home() {
       <WhyUs />
       <PlacementBanner />
       <LearningPath />
-      <Faculty />
       <Testimonials />
       <Partners />
       <BlogPreview />

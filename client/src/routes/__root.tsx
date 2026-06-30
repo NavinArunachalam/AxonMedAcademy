@@ -79,7 +79,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
       },
     ],
   }),
@@ -107,10 +107,14 @@ function RootComponent() {
     // On every page load, verify the stored token is still valid with the server.
     // Also fetch live classrooms.
     Promise.all([
-      getCurrentUser(),
+      getCurrentUser().catch(() => null),
       getClassrooms().catch(() => []) // if not logged in, this might fail, default to empty
     ])
       .then(([payload, classrooms]) => {
+        if (!payload || !payload.user) {
+          classroomStore.setState(() => ({ currentUser: null, accessToken: null }));
+          return;
+        }
         const backendUser = payload.user;
         const accessToken = payload.accessToken || null;
         const role = backendUser.role === "student" ? "student" : backendUser.role;

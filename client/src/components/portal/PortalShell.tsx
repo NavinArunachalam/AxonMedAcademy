@@ -47,16 +47,17 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
   };
 
   // Tailwind classes based on variant
-  const shellClass = isAdmin ? "dark bg-[#0B0719] text-cream" : "bg-[#F5F3FF] text-slate-900";
-  const sidebarClass = isAdmin ? "bg-[#110828] border-white/5" : "bg-white border-slate-200";
+  // Student shell uses Axon Med Academy Navy/Gold palette
+  const shellClass = isAdmin ? "dark bg-[#0B0719] text-cream" : "bg-[#F0F4F8] text-slate-900";
+  const sidebarClass = isAdmin ? "bg-[#110828] border-white/5" : "bg-[#0B1F3A] border-white/10";
   const linkBaseClass = isAdmin
     ? "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/5 text-cream/70"
-    : "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-slate-100 text-slate-600";
+    : "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/10 text-white/70";
   const linkActiveClass = isAdmin
     ? "bg-lime/10 !text-lime font-medium"
-    : "bg-plum-dark/10 !text-plum-dark font-medium";
-  const brandColorClass = isAdmin ? "text-lime" : "text-plum-dark";
-  const initialsBgClass = isAdmin ? "bg-lime/15 text-lime" : "bg-plum-dark/10 text-plum-dark";
+    : "bg-[#F4B400]/15 !text-[#F4B400] font-medium";
+  const brandColorClass = isAdmin ? "text-lime" : "text-[#F4B400]";
+  const initialsBgClass = isAdmin ? "bg-lime/15 text-lime" : "bg-[#F4B400]/20 text-[#F4B400]";
 
   // Shared Sidebar Content
   const SidebarContent = () => (
@@ -102,8 +103,8 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
           {user.initials}
         </div>
         <div className="min-w-0">
-          <div className="font-semibold text-[13px] truncate">{user.name}</div>
-          <div className={`text-[11px] truncate ${isAdmin ? "text-cream/50" : "text-slate-500"}`}>{user.role}</div>
+          <div className="font-semibold text-[13px] truncate text-gold">{user.name}</div>
+          <div className={`text-[11px] truncate ${isAdmin ? "text-white" : "text-white"}`}>{user.role}</div>
         </div>
       </div>
     </>
@@ -129,7 +130,7 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto overflow-x-hidden">
         {/* Mobile Header */}
-        <div className={`md:hidden flex items-center justify-between h-16 px-4 border-b sticky top-0 z-40 ${isAdmin ? "bg-[#110828] border-white/5" : "bg-white border-slate-200"}`}>
+        <div className={`md:hidden flex items-center justify-between h-16 px-4 border-b sticky top-0 z-40 ${isAdmin ? "bg-[#110828] border-white/5" : "bg-[#0B1F3A] border-white/10"}`}>
           <div className={`font-display font-bold text-lg ${brandColorClass}`}>{brand}</div>
           <button onClick={() => setMobileMenuOpen(true)} className="p-2 -mr-2">
             <Menu className="w-5 h-5 opacity-70" />
@@ -170,11 +171,28 @@ interface StatTileProps {
   value: string | number;
   delta?: string;
   icon?: React.ComponentType<{ className?: string }>;
-  accent?: "plum" | "lime";
+  accent?: "plum" | "lime" | "navy" | "gold" | "sky" | "emerald";
 }
 
 export function StatTile({ label, value, delta, icon: Icon, accent = "plum" }: StatTileProps) {
-  const iconBg = accent === "lime" ? "bg-lime/10 text-lime" : "bg-plum/10 text-plum";
+  const iconBgMap: Record<string, string> = {
+    lime: "bg-lime/10 text-lime",
+    plum: "bg-plum/10 text-plum",
+    navy: "",
+    gold: "",
+    sky: "",
+    emerald: "",
+  };
+  const iconStyleMap: Record<string, React.CSSProperties> = {
+    navy: { background: 'rgba(11,31,58,0.1)', color: '#0B1F3A' },
+    gold: { background: 'rgba(244,180,0,0.12)', color: '#B8870A' },
+    sky:  { background: 'rgba(45,156,219,0.12)', color: '#2D9CDB' },
+    emerald: { background: 'rgba(22,163,74,0.12)', color: '#16A34A' },
+    plum: {},
+    lime: {},
+  };
+  const iconBg = iconBgMap[accent] ?? "bg-plum/10 text-plum";
+  const iconStyle = iconStyleMap[accent] ?? {};
 
   return (
     <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-sm">
@@ -183,7 +201,7 @@ export function StatTile({ label, value, delta, icon: Icon, accent = "plum" }: S
           {label}
         </div>
         {Icon && (
-          <div className={`grid h-7 w-7 sm:h-8 sm:w-8 shrink-0 place-items-center rounded-lg ${iconBg}`}>
+          <div className={`grid h-7 w-7 sm:h-8 sm:w-8 shrink-0 place-items-center rounded-lg ${iconBg}`} style={iconStyle}>
             <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </div>
         )}

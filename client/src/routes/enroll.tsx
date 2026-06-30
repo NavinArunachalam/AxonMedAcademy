@@ -1,9 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Stethoscope, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import {  getAdminPrograms, type RegisterStudentData, type ProgramCourse } from "@/lib/api";
+import { getAdminPrograms, type RegisterStudentData, type ProgramCourse } from "@/lib/api";
 import { submitToGoogleSheet } from "@/lib/googleSheets";
+
 export const Route = createFileRoute("/enroll")({ component: Enroll });
+
+const NAVY = "#0B1F3A";
+const GOLD = "#F4B400";
+const SKY  = "#2D9CDB";
+const EMERALD = "#16A34A";
 
 function Enroll() {
   const [formData, setFormData] = useState<RegisterStudentData>({
@@ -36,56 +42,57 @@ function Enroll() {
     fetchPrograms();
   }, []);
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  setError("");
-  setIsSubmitting(true);
+    setError("");
+    setIsSubmitting(true);
 
-  if (!formData.fullName || !formData.email) {
-    setError(
-      "Please fill in all required fields (Full Name, Email)"
-    );
-    setIsSubmitting(false);
-    return;
-  }
-
-  try {
-    const selectedProgram = programs.find(
-      (p) => p.id === formData.program
-    );
-
-    const result = await submitToGoogleSheet(
-      "Enrollment Registrations",
-      {
-        Timestamp: new Date().toISOString(),
-        FullName: formData.fullName,
-        Email: formData.email,
-        Phone: formData.phone,
-        Qualification: formData.qualification,
-        Address: formData.address,
-        Program: selectedProgram?.title || formData.program,
-        Message: formData.message,
-      }
-    );
-
-    if (result.success) {
-      setSuccess(true);
-    } else {
-      setError(result.message);
+    if (!formData.fullName || !formData.email) {
+      setError(
+        "Please fill in all required fields (Full Name, Email)"
+      );
+      setIsSubmitting(false);
+      return;
     }
-  } catch (error) {
-    console.error(error);
 
-    setError(
-      error instanceof Error
-        ? error.message
-        : "Registration failed"
-    );
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    try {
+      const selectedProgram = programs.find(
+        (p) => p.id === formData.program
+      );
+
+      const result = await submitToGoogleSheet(
+        "Enrollment Registrations",
+        {
+          Timestamp: new Date().toISOString(),
+          FullName: formData.fullName,
+          Email: formData.email,
+          Phone: formData.phone,
+          Qualification: formData.qualification,
+          Address: formData.address,
+          Program: selectedProgram?.title || formData.program,
+          Message: formData.message,
+        }
+      );
+
+      if (result.success) {
+        setSuccess(true);
+      } else {
+        setError(result.message);
+      }
+    } catch (error) {
+      console.error(error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Registration failed"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -95,12 +102,12 @@ function Enroll() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="w-full max-w-md text-center">
-          <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-lime/20 text-lime">
+          <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
             <CheckCircle2 className="h-10 w-10" />
           </div>
-          <h2 className="font-display text-3xl font-bold text-plum-dark">Application Received!</h2>
+          <h2 className="font-display text-3xl font-bold" style={{ color: NAVY }}>Application Received!</h2>
           <p className="mt-4 text-foreground/65">
-            Thank you for applying to AxonMedAcademy. Your registration is now under review by our admissions team.
+            Thank you for applying to Axon Med Academy. Your registration is now under review by our admissions team.
           </p>
           <p className="mt-2 text-sm text-foreground/50">
             We will contact you via email once your application has been processed.
@@ -108,7 +115,8 @@ function Enroll() {
           <div className="mt-10">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 rounded-full bg-plum-dark px-8 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition"
+              className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-95"
+              style={{ backgroundColor: NAVY }}
             >
               Return Home
             </Link>
@@ -121,24 +129,25 @@ function Enroll() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left visual */}
-      <div className="hidden lg:flex w-1/3 relative bg-plum-dark text-cream p-12 flex-col justify-between overflow-hidden">
-        <div className="absolute inset-0 bg-noise opacity-30" />
-        <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full bg-lime/30 blur-3xl" />
+      <div className="hidden lg:flex w-1/3 relative text-white p-12 flex-col justify-between overflow-hidden"
+        style={{ background: `linear-gradient(135deg, ${NAVY} 50%, #102342ff 10%)` }}>
+        <div className="absolute inset-0 bg-noise opacity-30 pointer-events-none" />
+        <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full blur-3xl pointer-events-none"
+          style={{ background: `rgba(6, 69, 105, 0.2)` }} />
         
         <Link to="/" className="relative inline-flex items-center gap-2 w-fit">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-lime text-plum-dark">
-            <Stethoscope className="h-5 w-5" />
-          </span>
-          <span className="font-display text-lg font-bold">Axon.Academy</span>
+          
+            <img src="/logo.jpeg" className="h-12 w-12 rounded-full " />
+          <span className="font-display text-lg font-bold">Axon Med Academy</span>
         </Link>
 
         <div className="relative">
           <h1 className="font-display text-4xl font-bold leading-[1.1] tracking-[-0.02em]">
             Start your<br />
-            <span className="text-lime">medical career</span><br />
+            <span style={{ color: GOLD }}>medical career</span><br />
             journey here.
           </h1>
-          <p className="mt-6 text-cream/70 text-sm leading-relaxed">
+          <p className="mt-6 text-white/70 text-sm leading-relaxed">
             Join a community of dedicated healthcare professionals. Complete the form to begin your enrollment process.
           </p>
           
@@ -149,33 +158,35 @@ function Enroll() {
               { title: "Career Support", desc: "Dedicated placement and roadmap guidance." }
             ].map((item, i) => (
               <div key={i} className="flex gap-4">
-                <div className="mt-1 h-5 w-5 shrink-0 rounded-full border border-lime/30 flex items-center justify-center">
-                  <div className="h-1.5 w-1.5 rounded-full bg-lime" />
+                <div className="mt-1 h-5 w-5 shrink-0 rounded-full flex items-center justify-center border"
+                  style={{ borderColor: `rgba(244,180,0,0.3)` }}>
+                  <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: GOLD }} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-cream">{item.title}</h4>
-                  <p className="text-xs text-cream/50 mt-0.5">{item.desc}</p>
+                  <h4 className="text-sm font-bold text-white">{item.title}</h4>
+                  <p className="text-xs text-white/50 mt-0.5">{item.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="relative text-xs text-cream/50">© {new Date().getFullYear()} Axon MedAcademy</div>
+        <div className="relative text-xs text-white/40">© {new Date().getFullYear()} Axon Med Academy</div>
       </div>
 
       {/* Right form */}
-      <div className="flex-1 overflow-y-auto bg-background p-6 lg:p-12 lg:px-20">
+      <div className="flex-1 overflow-y-auto bg-[#FBFAFC] p-6 lg:p-12 lg:px-20">
         <div className="mx-auto max-w-2xl">
           <Link to="/" className="lg:hidden inline-flex items-center gap-2 mb-8">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-plum-dark text-lime">
-              <Stethoscope className="h-5 w-5" />
+            <span className="grid h-9 w-9 place-items-center rounded-xl text-white"
+              style={{ backgroundColor: NAVY }}>
+              <Stethoscope className="h-5 w-5" style={{ color: GOLD }} />
             </span>
-            <span className="font-display font-bold text-plum-dark">AxonMedAcademy</span>
+            <span className="font-display font-bold" style={{ color: NAVY }}>AxonMedAcademy</span>
           </Link>
 
           <header>
-            <h2 className="font-display text-3xl font-bold text-plum-dark">Student Registration</h2>
+            <h2 className="font-display text-3xl font-bold" style={{ color: NAVY }}>Student Registration</h2>
             <p className="mt-2 text-sm text-foreground/65">Fill out the details below to apply for enrollment.</p>
           </header>
 
@@ -188,7 +199,7 @@ function Enroll() {
             )}
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Full Name *</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Full Name *</label>
               <input
                 required
                 name="fullName"
@@ -196,13 +207,14 @@ function Enroll() {
                 onChange={handleChange}
                 type="text"
                 placeholder="e.g. John Doe"
-                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all"
+                style={{}} onFocus={e => e.currentTarget.style.borderColor = SKY} onBlur={e => e.currentTarget.style.borderColor = ""}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Email Address *</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Email Address *</label>
                 <input
                   required
                   name="email"
@@ -210,30 +222,33 @@ function Enroll() {
                   onChange={handleChange}
                   type="email"
                   placeholder="john.doe@example.com"
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all"
+                  style={{}} onFocus={e => e.currentTarget.style.borderColor = SKY} onBlur={e => e.currentTarget.style.borderColor = ""}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Phone Number</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Phone Number</label>
                 <input
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
                   type="tel"
                   placeholder="+91 00000 00000"
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all"
+                  style={{}} onFocus={e => e.currentTarget.style.borderColor = SKY} onBlur={e => e.currentTarget.style.borderColor = ""}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Program Interest</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Program Interest</label>
                 <select
                   name="program"
                   value={formData.program}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all appearance-none"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all appearance-none"
+                  style={{}} onFocus={e => e.currentTarget.style.borderColor = SKY} onBlur={e => e.currentTarget.style.borderColor = ""}
                 >
                   <option value="">Select a program</option>
                   {isLoadingPrograms ? (
@@ -246,39 +261,42 @@ function Enroll() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Educational Qualification</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Educational Qualification</label>
                 <input
                   name="qualification"
                   value={formData.qualification}
                   onChange={handleChange}
                   type="text"
                   placeholder="e.g. MBBS, BHMS"
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all"
+                  style={{}} onFocus={e => e.currentTarget.style.borderColor = SKY} onBlur={e => e.currentTarget.style.borderColor = ""}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Address</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Address</label>
               <textarea
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
                 rows={3}
                 placeholder="Your full mailing address"
-                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all resize-none"
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all resize-none"
+                style={{}} onFocus={e => e.currentTarget.style.borderColor = SKY} onBlur={e => e.currentTarget.style.borderColor = ""}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-plum-dark/50">Message / Remarks</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Message / Remarks</label>
               <textarea
                 name="message"
                 value={formData.message}
                 onChange={handleChange}
                 rows={2}
                 placeholder="Anything else you'd like us to know?"
-                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-plum/20 focus:border-plum transition-all resize-none"
+                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all resize-none"
+                style={{}} onFocus={e => e.currentTarget.style.borderColor = SKY} onBlur={e => e.currentTarget.style.borderColor = ""}
               />
             </div>
 
@@ -286,7 +304,8 @@ function Enroll() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="group w-full md:w-fit inline-flex items-center justify-center gap-2 rounded-full bg-plum-dark px-10 py-4 text-sm font-semibold text-cream hover:bg-plum transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-plum-dark/10"
+                className="group w-full md:w-fit inline-flex items-center justify-center gap-2 rounded-full px-10 py-4 text-sm font-semibold text-white transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
+                style={{ backgroundColor: NAVY }}
               >
                 {isSubmitting ? (
                   <>
@@ -303,7 +322,7 @@ function Enroll() {
             </div>
 
             <p className="text-center text-xs text-foreground/50">
-              Already have an account? <Link to="/login" className="font-bold text-plum hover:underline">Sign in</Link>
+              Already have an account? <Link to="/login" className="font-bold hover:underline" style={{ color: SKY }}>Sign in</Link>
             </p>
           </form>
         </div>

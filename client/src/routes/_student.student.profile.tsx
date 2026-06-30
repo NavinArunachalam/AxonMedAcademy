@@ -81,7 +81,7 @@ function AvatarUploader({
         className="relative group cursor-pointer"
         onClick={() => !uploading && inputRef.current?.click()}
       >
-        <div className="w-28 h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl ring-2 ring-plum/20">
+        <div className="w-28 h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl" style={{boxShadow:'0 0 0 2px rgba(45,156,219,0.3)'}}>
           {resolveUrl(avatarSrc) ? (
             <img
               src={resolveUrl(avatarSrc)!}
@@ -89,7 +89,7 @@ function AvatarUploader({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-plum-dark to-plum flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center" style={{background:'linear-gradient(135deg,#0B1F3A,#1A3560)'}}>
               <span className="text-2xl font-bold text-white font-display">{initials}</span>
             </div>
           )}
@@ -104,7 +104,7 @@ function AvatarUploader({
         </div>
         {/* Progress Ring */}
         {uploading && (
-          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-plum-dark flex items-center justify-center text-[10px] text-white font-bold shadow">
+          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow text-white" style={{background:'#0B1F3A'}}>
             {progress}%
           </div>
         )}
@@ -124,7 +124,7 @@ function AvatarUploader({
         type="button"
         onClick={() => !uploading && inputRef.current?.click()}
         disabled={uploading}
-        className="text-xs font-semibold text-plum hover:text-plum-dark transition-colors disabled:opacity-50 flex items-center gap-1"
+        className="text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1 hover:opacity-80" style={{color:'#2D9CDB'}}
       >
         <Camera className="h-3 w-3" />
         {uploading ? `Uploading… ${progress}%` : "Change Photo"}
@@ -195,10 +195,10 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <Card className="w-full max-w-md p-0 overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-br from-plum-dark to-plum p-5 flex items-center justify-between">
+        <div className="p-5 flex items-center justify-between" style={{background:'linear-gradient(135deg,#0B1F3A 0%,#1A3560 100%)'}}>
           <div>
             <h2 className="font-display text-lg font-bold text-white">Edit Profile</h2>
-            <p className="text-xs text-white/60 mt-0.5">Update your personal details</p>
+            <p className="text-xs mt-0.5" style={{color:'rgba(255,255,255,0.5)'}}>Update your personal details</p>
           </div>
           <button
             onClick={onClose}
@@ -247,7 +247,8 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Enter your full name"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 text-sm outline-none focus:border-plum/50 focus:ring-2 focus:ring-plum/20 transition-all placeholder:text-slate-300"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 text-sm outline-none transition-all placeholder:text-slate-300"
+              style={{}} onFocus={e=>e.currentTarget.style.borderColor='#2D9CDB'} onBlur={e=>e.currentTarget.style.borderColor=''}
             />
           </div>
 
@@ -298,7 +299,8 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-plum-dark text-cream py-2.5 text-sm font-bold shadow-sm hover:bg-plum transition-colors disabled:opacity-60"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold shadow-sm transition-all hover:brightness-110 active:scale-95 disabled:opacity-60 text-white"
+              style={{background:'#0B1F3A'}}
             >
               {saving ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
@@ -349,18 +351,18 @@ function Profile() {
 
       {/* ID Card */}
       <div className="relative mx-auto max-w-lg">
-        <div className="rounded-2xl bg-gradient-to-br from-plum-dark via-plum to-[#1a0a2e] text-cream p-6 shadow-2xl border border-white/10 overflow-hidden">
-          {/* Background decorations */}
+        <div className="rounded-2xl text-white p-6 shadow-2xl border overflow-hidden relative" style={{background:'linear-gradient(135deg,#0B1F3A 0%,#12294D 60%,#1A3560 100%)',borderColor:'rgba(255,255,255,0.1)'}}>
+          {/* Decorations */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-lime/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
+            <div className="absolute top-0 right-0 w-64 h-64 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" style={{background:'rgba(244,180,0,0.3)'}} />
+            <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" style={{background:'rgba(45,156,219,0.25)'}} />
           </div>
 
           <div className="relative">
             {/* Card Header */}
             <div className="flex items-start justify-between mb-5">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-lime font-bold mb-1">AXON MED ACADEMY</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] font-bold mb-1" style={{color:'#F4B400'}}>AXON MED ACADEMY</div>
                 <div className="text-[10px] text-cream/50 font-mono">Student Identity Card</div>
               </div>
               <button
@@ -374,18 +376,18 @@ function Profile() {
             {/* Photo & Name */}
             <div className="flex items-center gap-5">
               <div className="relative shrink-0">
-                <div className="w-24 h-28 sm:w-28 sm:h-32 rounded-xl border-2 border-lime/40 shadow-lg overflow-hidden">
+                <div className="w-24 h-28 sm:w-28 sm:h-32 rounded-xl border-2 shadow-lg overflow-hidden" style={{borderColor:'rgba(244,180,0,0.4)'}}>
                   {resolvedAvatar ? (
                     <img src={resolvedAvatar} alt={name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-lime/30 to-lime/10 flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center" style={{background:'linear-gradient(135deg,rgba(244,180,0,0.25),rgba(244,180,0,0.1))'}}>
                       <div className="text-center">
-                        <span className="text-3xl font-bold text-lime">{initials}</span>
+                        <span className="text-3xl font-bold font-display" style={{color:'#F4B400'}}>{initials}</span>
                       </div>
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-1 left-0 right-0 h-1 bg-gradient-to-r from-lime via-lime/80 to-lime/60 rounded-full" />
+                <div className="absolute -bottom-1 left-0 right-0 h-1 rounded-full" style={{background:'linear-gradient(90deg,#F4B400,#2D9CDB,rgba(244,180,0,0.4))'}} />
               </div>
 
               <div className="flex-1 min-w-0 pt-1">
@@ -394,7 +396,7 @@ function Profile() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-[9px] uppercase tracking-widest text-cream/40 w-14 shrink-0">ID No.</span>
-                    <span className="text-xs font-mono text-lime bg-white/10 px-3 py-1 rounded-lg border border-lime/30 shadow-xs shadow-lime/10">
+                    <span className="text-xs font-mono px-3 py-1 rounded-lg border" style={{color:'#F4B400',background:'rgba(255,255,255,0.1)',borderColor:'rgba(244,180,0,0.3)'}}>
                       {displayId}
                     </span>
                   </div>
@@ -420,7 +422,7 @@ function Profile() {
                   <div className="flex flex-wrap gap-1.5">
                     {programsEnrolled.length > 0
                       ? programsEnrolled.map((p) => (
-                          <span key={p} className="bg-lime/15 text-lime text-[10px] font-semibold px-2 py-0.5 rounded-md border border-lime/20">
+                          <span key={p} className="text-[10px] font-semibold px-2 py-0.5 rounded-md border" style={{background:'rgba(244,180,0,0.15)',color:'#B8870A',borderColor:'rgba(244,180,0,0.25)'}}>
                             {p}
                           </span>
                         ))
@@ -442,12 +444,13 @@ function Profile() {
         <Card className="lg:col-span-2 border border-slate-100 shadow-sm p-0 overflow-hidden">
           <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <div>
-              <h3 className="font-display font-bold text-plum-dark text-lg">Personal Information</h3>
+              <h3 className="font-display font-bold text-lg" style={{color:'#0B1F3A'}}>Personal Information</h3>
               <p className="text-xs text-slate-500 mt-0.5">Details used for certificates and official communications.</p>
             </div>
             <button
               onClick={() => setShowEdit(true)}
-              className="flex items-center gap-1.5 bg-plum-dark text-cream text-xs font-semibold px-3 py-2 rounded-full hover:bg-plum transition-all hover:scale-105 active:scale-95 shadow-sm"
+              className="flex items-center gap-1.5 text-white text-xs font-semibold px-3 py-2 rounded-full transition-all hover:brightness-110 active:scale-95 shadow-sm"
+              style={{background:'#0B1F3A'}}
             >
               <Edit3 className="h-3 w-3" /> Edit
             </button>
@@ -470,24 +473,24 @@ function Profile() {
         </Card>
 
         <Card className="border border-slate-100 shadow-sm">
-          <h3 className="font-display font-bold text-plum-dark text-lg">Contact Details</h3>
+          <h3 className="font-display font-bold text-lg" style={{color:'#0B1F3A'}}>Contact Details</h3>
           <ul className="mt-5 space-y-4 text-sm text-slate-600">
             <li className="flex items-center gap-3">
-              <div className="bg-slate-100 p-2 rounded-lg text-plum shrink-0"><Mail className="h-4 w-4" /></div>
+              <div className="p-2 rounded-lg shrink-0" style={{background:'rgba(45,156,219,0.1)',color:'#2D9CDB'}}><Mail className="h-4 w-4" /></div>
               <span className="font-medium text-slate-800 break-all">{email}</span>
             </li>
             <li className="flex items-center gap-3">
-              <div className="bg-slate-100 p-2 rounded-lg text-plum shrink-0"><Phone className="h-4 w-4" /></div>
+              <div className="p-2 rounded-lg shrink-0" style={{background:'rgba(45,156,219,0.1)',color:'#2D9CDB'}}><Phone className="h-4 w-4" /></div>
               <span className="font-medium text-slate-800">{phone || <span className="text-slate-400 font-normal italic">Not added</span>}</span>
             </li>
             <li className="flex items-start gap-3">
-              <div className="bg-slate-100 p-2 rounded-lg text-plum shrink-0"><MapPin className="h-4 w-4" /></div>
+              <div className="p-2 rounded-lg shrink-0" style={{background:'rgba(45,156,219,0.1)',color:'#2D9CDB'}}><MapPin className="h-4 w-4" /></div>
               <span className="font-medium text-slate-800 mt-0.5 whitespace-pre-wrap">
                 {address || (
                   <>
                     <span className="text-slate-400 font-normal italic">Not provided.</span>
                     <br />
-                    <button onClick={() => setShowEdit(true)} className="text-xs text-plum hover:underline font-semibold mt-1">Add address →</button>
+                    <button onClick={() => setShowEdit(true)} className="text-xs font-semibold mt-1 hover:underline" style={{color:'#2D9CDB'}}>Add address →</button>
                   </>
                 )}
               </span>
@@ -499,8 +502,8 @@ function Profile() {
       {/* Enrollment & Academic Standing */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border border-slate-100 shadow-sm">
-          <h3 className="font-display font-bold text-plum-dark text-lg flex items-center gap-2">
-            <GraduationCap className="h-5 w-5 text-plum" /> Enrollment History
+          <h3 className="font-display font-bold text-lg flex items-center gap-2" style={{color:'#0B1F3A'}}>
+            <GraduationCap className="h-5 w-5" style={{color:'#2D9CDB'}} /> Enrollment History
           </h3>
           <ul className="mt-5 space-y-5">
             {enrolled.map((c) => {
@@ -508,8 +511,8 @@ function Profile() {
               return (
                 <li key={c.id} className="relative pl-5">
                   <div className="absolute left-0 top-[7px] bottom-[-20px] w-px bg-slate-200 last:hidden" />
-                  <div className={`absolute left-[-4.5px] top-[7px] h-[10px] w-[10px] rounded-full border-2 border-white shadow-sm ${me.status === "active" ? "bg-lime" : "bg-slate-400"}`} />
-                  <div className="font-semibold text-plum-dark">{c.program}</div>
+                  <div className={`absolute left-[-4.5px] top-[7px] h-[10px] w-[10px] rounded-full border-2 border-white shadow-sm`} style={{background: me.status === 'active' ? '#F4B400' : '#94A3B8'}} />
+                  <div className="font-semibold" style={{color:'#0B1F3A'}}>{c.program}</div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     {c.name} · Enrolled {new Date(me.addedAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
                   </div>
@@ -524,27 +527,27 @@ function Profile() {
         </Card>
 
         <Card className="border border-slate-100 shadow-sm">
-          <h3 className="font-display font-bold text-plum-dark text-lg flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-plum" /> Academic Standing
+          <h3 className="font-display font-bold text-lg flex items-center gap-2" style={{color:'#0B1F3A'}}>
+            <Briefcase className="h-5 w-5" style={{color:'#F4B400'}} /> Academic Standing
           </h3>
           <div className="mt-5 space-y-4 text-sm">
             {activeClassrooms.map((c) => {
               const me = c.students.find((s) => s.id === studentId)!;
               return (
                 <div key={c.id} className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
-                  <div className="font-semibold text-plum-dark text-sm mb-3">{c.program}</div>
+                  <div className="font-semibold text-sm mb-3" style={{color:'#0B1F3A'}}>{c.program}</div>
                   <div className="grid grid-cols-3 gap-2 text-center divide-x divide-slate-200">
                     <div>
                       <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Progress</div>
-                      <div className="font-mono font-bold text-plum-dark">{me.progress}%</div>
+                      <div className="font-mono font-bold" style={{color:'#0B1F3A'}}>{me.progress}%</div>
                     </div>
                     <div>
                       <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Attendance</div>
-                      <div className="font-mono font-bold text-plum-dark">{me.attendance}%</div>
+                      <div className="font-mono font-bold" style={{color:'#0B1F3A'}}>{me.attendance}%</div>
                     </div>
                     <div>
                       <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Quiz Avg</div>
-                      <div className="font-mono font-bold text-plum-dark">{me.quizAvg}%</div>
+                      <div className="font-mono font-bold" style={{color:'#0B1F3A'}}>{me.quizAvg}%</div>
                     </div>
                   </div>
                 </div>

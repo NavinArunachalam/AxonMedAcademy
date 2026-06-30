@@ -45,16 +45,16 @@ function About() {
   return (
     <PublicLayout>
       {/* Hero */}
-      <section className="relative overflow-hidden py-20 lg:py-28">
-        <div className="absolute inset-0 -z-10 bg-grid opacity-60" />
-        <div className="absolute -z-10 top-0 right-0 h-[500px] w-[500px] rounded-full bg-lime/25 blur-3xl" />
+      <section className="relative overflow-hidden py-20 lg:py-28 bg-navy">
+        <div className="absolute inset-0 -z-10 bg-grid opacity-20" />
+        <div className="absolute -z-10 top-0 right-0 h-[500px] w-[500px] rounded-full bg-gold/20 blur-3xl" />
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— About Axon</div>
-          <h1 className="mt-3 max-w-4xl font-display text-4xl lg:text-7xl font-bold text-plum-dark tracking-[-0.03em] leading-[1.02]">
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— About Axon</div>
+          <h1 className="mt-3 max-w-4xl font-display text-4xl lg:text-7xl font-extrabold text-white tracking-[-0.03em] leading-[1.02]">
             Built by clinicians,<br />
-            <span className="text-plum">for the next generation</span> of clinicians.
+            <span className="text-gold">for the next generation</span> of clinicians.
           </h1>
-          <p className="mt-8 max-w-2xl text-lg text-foreground/70 leading-relaxed">
+          <p className="mt-8 max-w-2xl text-lg text-white/80 leading-relaxed">
             Axon MedAcademy was started in 2018 by a small group of doctors, senior nurses, and hospital
             administrators who saw a single truth — India needs more well-trained paramedical
             professionals, and the path to becoming one should be rigorous, transparent, and humane.
@@ -63,7 +63,7 @@ function About() {
       </section>
 
       {/* Stat row */}
-      <section className="border-y border-border bg-card">
+      <section className="border-y border-gray-200 bg-white">
         <div className="mx-auto max-w-7xl px-5 lg:px-8 py-12 grid grid-cols-2 lg:grid-cols-4 gap-8">
           {[
             { v: "8 yrs", l: "Operating" },
@@ -72,24 +72,24 @@ function About() {
             { v: "98%", l: "Student satisfaction" },
           ].map(s => (
             <div key={s.l}>
-              <div className="font-display text-3xl lg:text-5xl font-bold text-plum-dark">{s.v}</div>
-              <div className="mt-2 text-sm text-foreground/60">{s.l}</div>
+              <div className="font-display text-3xl lg:text-5xl font-extrabold text-navy">{s.v}</div>
+              <div className="mt-2 text-sm text-gray-500">{s.l}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* Mission Vision Values */}
-      <section className="py-20 lg:py-28">
+      <section className="py-20 lg:py-28 bg-light-gray">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-3">
             {valuesData.map((v, i) => (
-              <div key={v.t} className={`rounded-3xl p-8 ${i === 1 ? "bg-plum-dark text-cream" : "bg-card border border-border"}`}>
-                <div className={`grid h-12 w-12 place-items-center rounded-xl ${i === 1 ? "bg-lime text-plum-dark" : "bg-secondary text-plum-dark"}`}>
+              <div key={v.t} className={`rounded-2xl p-8 ${i === 1 ? "bg-navy text-white border border-navy" : "bg-white border border-gray-100"}`}>
+                <div className={`grid h-12 w-12 place-items-center rounded-full ${i === 1 ? "bg-gold text-navy" : "bg-navy/10 text-navy"}`}>
                   <v.icon className="h-5 w-5" />
                 </div>
-                <h3 className={`mt-6 font-display text-2xl font-bold ${i === 1 ? "text-cream" : "text-plum-dark"}`}>{v.t}</h3>
-                <p className={`mt-3 leading-relaxed ${i === 1 ? "text-cream/80" : "text-foreground/70"}`}>{v.d}</p>
+                <h3 className={`mt-6 font-display text-2xl font-extrabold ${i === 1 ? "text-white" : "text-navy"}`}>{v.t}</h3>
+                <p className={`mt-3 leading-relaxed ${i === 1 ? "text-white/80" : "text-gray-600"}`}>{v.d}</p>
               </div>
             ))}
           </div>
@@ -97,21 +97,21 @@ function About() {
       </section>
 
       {/* Timeline */}
-      <section className="py-20 lg:py-28 bg-secondary/40">
+      <section className="py-20 lg:py-28 bg-white">
         <div className="mx-auto max-w-4xl px-5 lg:px-8">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— Our Story</div>
-          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">From a single classroom to a national academy.</h2>
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— Our Story</div>
+          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-extrabold text-navy tracking-tight">From a single classroom to a national academy.</h2>
 
           <div className="mt-14 relative">
-            <div className="absolute left-[27px] top-2 bottom-2 w-px bg-plum/30" />
+            <div className="absolute left-[27px] top-2 bottom-2 w-px bg-navy/20" />
             {milestones.map((m) => (
               <div key={m._id || m.year} className="relative flex gap-6 pb-10 last:pb-0">
-                <div className="relative z-10 grid h-14 w-14 shrink-0 place-items-center rounded-full bg-plum-dark text-lime font-mono text-xs font-bold">
+                <div className="relative z-10 grid h-14 w-14 shrink-0 place-items-center rounded-full bg-navy text-gold font-mono text-xs font-bold">
                   {m.year}
                 </div>
                 <div className="pt-3">
-                  <h3 className="font-display text-lg font-semibold text-plum-dark">{m.t || m.title}</h3>
-                  <p className="mt-1 text-sm text-foreground/70">{m.d || m.description}</p>
+                  <h3 className="font-display text-lg font-bold text-navy">{m.t || m.title}</h3>
+                  <p className="mt-1 text-sm text-gray-600">{m.d || m.description}</p>
                 </div>
               </div>
             ))}
@@ -120,15 +120,15 @@ function About() {
       </section>
 
       {/* Accreditations */}
-      <section className="py-20 lg:py-28">
+      <section className="py-20 lg:py-28 bg-light-gray">
         <div className="mx-auto max-w-7xl px-5 lg:px-8 text-center">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— Trust</div>
-          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">Recognized & accredited.</h2>
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— Trust</div>
+          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-extrabold text-navy tracking-tight">Recognized & accredited.</h2>
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {["ISO 9001:2015", "NSDC Aligned", "Skill India", "AICTE Approved"].map((a) => (
-              <div key={a} className="rounded-2xl border border-border bg-card p-8">
-                <Award className="h-8 w-8 mx-auto text-plum" />
-                <div className="mt-4 font-display font-semibold text-plum-dark">{a}</div>
+              <div key={a} className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
+                <Award className="h-8 w-8 mx-auto text-gold" />
+                <div className="mt-4 font-display font-bold text-navy">{a}</div>
               </div>
             ))}
           </div>

@@ -576,10 +576,10 @@ function AdminClassrooms() {
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.code.toLowerCase().includes(search.toLowerCase()) ||
         c.program.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = filterStatus === "all" || c.status === filterStatus;
+      const matchStatus = filterStatus === "active" || c.status === filterStatus;
       return matchSearch && matchStatus;
     }),
-    [sourceClassrooms, search, filterStatus]
+    [sourceClassrooms, search, filterStatus] 
   );
 
   const { totalStudents, totalRecordings } = React.useMemo(() => ({

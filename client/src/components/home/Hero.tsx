@@ -11,11 +11,11 @@ const stats = [
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-6 lg:pt-10 pb-12 lg:pb-16">
+    <section className="relative overflow-hidden pt-6 lg:pt-10 pb-12 lg:pb-16 bg-navy">
       {/* Background art */}
-      <div className="absolute inset-0 -z-10 bg-grid opacity-60" />
-      <div className="absolute -z-10 top-0 left-1/2 -translate-x-1/2 h-[600px] w-[1100px] rounded-full bg-lime/25 blur-3xl" />
-      <div className="absolute -z-10 -bottom-32 -right-20 h-[400px] w-[400px] rounded-full bg-plum/20 blur-3xl" />
+      <div className="absolute inset-0 -z-10 bg-grid opacity-20" />
+      <div className="absolute -z-10 top-0 left-1/2 -translate-x-1/2 h-[600px] w-[1100px] rounded-full bg-gold/15 blur-3xl" />
+      <div className="absolute -z-10 -bottom-32 -right-20 h-[400px] w-[400px] rounded-full bg-sky/20 blur-3xl" />
 
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
         <div className="grid lg:grid-cols-12 gap-12 items-center">
@@ -24,9 +24,9 @@ export function Hero() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 rounded-full bg-plum-dark/5 border border-plum-dark/10 px-3 py-1.5 text-xs font-semibold text-plum-dark"
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1.5 text-xs font-bold text-gold"
             >
-              <Sparkles className="h-3.5 w-3.5 text-plum" />
+              <Sparkles className="h-3.5 w-3.5 text-gold" />
               India's #1 Siddha & AYUSH Academy
             </motion.div>
 
@@ -34,21 +34,21 @@ export function Hero() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.05 }}
-              className="mt-5 font-display font-bold text-plum-dark text-balance text-[40px] sm:text-[56px] lg:text-[68px] leading-[1.02] tracking-[-0.03em]"
+              className="mt-5 font-display font-extrabold text-white text-balance text-[40px] sm:text-[56px] lg:text-[68px] leading-[1.02] tracking-[-0.03em]"
             >
           Prepare. Practice.Crack{" "}
               <span className="relative inline-block">
-                <span className="relative z-10"> AIAPGET & MRB.</span>
-                <span className="absolute inset-x-0 bottom-1 h-3 lg:h-4 bg-lime -z-0 rounded-sm" />
+                <span className="relative z-10 text-gold"> AIAPGET & MRB.</span>
+                <span className="absolute inset-x-0 bottom-1 h-3 lg:h-4 bg-gold/30 -z-0 rounded-sm" />
               </span>{" "}
- 
+  
             </motion.h1>
 
             <motion.p
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="mt-6 max-w-xl text-base lg:text-lg text-foreground/70 leading-relaxed"
+              className="mt-6 max-w-xl text-base lg:text-lg text-white/80 leading-relaxed"
             >
               Master high-yield concepts, smart revision strategies, daily MCQs, grand tests, and expert guidance to secure top ranks in AIAPGET & MRB Siddha examinations.
             </motion.p>
@@ -61,16 +61,16 @@ export function Hero() {
             >
               <Link
                 to="/courses"
-                className="group inline-flex items-center gap-2 rounded-full bg-plum-dark px-6 py-3.5 text-sm font-semibold text-cream hover:bg-plum transition"
+                className="group inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3.5 text-sm font-bold text-navy hover:bg-gold/90 transition"
               >
-                Explore Courses
+                Start Learning Today
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
-              <button className="inline-flex items-center gap-2 rounded-full border border-plum-dark/15 bg-white/50 backdrop-blur px-6 py-3.5 text-sm font-semibold text-plum-dark hover:bg-white transition">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-lime text-plum-dark">
+              <button className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/5 backdrop-blur px-6 py-3.5 text-sm font-bold text-white hover:bg-white/10 transition">
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-gold text-navy">
                   <Play className="h-3 w-3 fill-current" />
                 </span>
-                Book a Free Demo
+                Explore Courses
               </button>
             </motion.div>
 
@@ -82,10 +82,10 @@ export function Hero() {
             >
               {stats.map((s) => (
                 <div key={s.l}>
-                  <div className="font-display text-2xl lg:text-3xl font-bold text-plum-dark">
+                  <div className="font-display text-2xl lg:text-3xl font-bold text-gold">
                     {s.v}
                   </div>
-                  <div className="mt-1 text-xs lg:text-sm text-foreground/60">{s.l}</div>
+                  <div className="mt-1 text-xs lg:text-sm text-white/70">{s.l}</div>
                 </div>
               ))}
             </motion.div>
@@ -98,7 +98,31 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="lg:col-span-5 relative hidden md:block"
           >
-            <HeroArt />
+            <div className="relative aspect-[5/6] w-full max-w-md mx-auto rounded-[40px] overflow-hidden shadow-2xl ">
+              <video
+                src="/doctor2.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-fit"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-navy/60 via-transparent to-transparent" />
+              <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 backdrop-blur p-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-gold text-navy">
+                    <HeartPulse className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-navy/60 font-medium">Now Live</div>
+                    <div className="text-sm font-bold text-navy">Siddha & AYUSH Examinations</div>
+                  </div>
+                  <div className="text-[10px] font-bold uppercase text-navy bg-gold rounded-full px-2 py-1">
+                    LIVE
+                  </div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>

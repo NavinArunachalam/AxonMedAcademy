@@ -37,17 +37,17 @@ export function PlacementBanner() {
   }, []);
 
   return (
-    <section ref={ref} className="relative py-12 lg:py-20 overflow-hidden bg-plum-dark text-cream">
+    <section ref={ref} className="relative py-12 lg:py-20 overflow-hidden bg-navy text-white">
       <div className="absolute inset-0 bg-noise opacity-30 pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-125 w-225 rounded-full bg-lime/15 blur-3xl" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-125 w-225 rounded-full bg-gold/15 blur-3xl" />
       <CrossPattern />
 
       <div className="relative mx-auto w-full max-w-[1400px] px-5 lg:px-8">
         <div className="max-w-2xl mb-14">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-lime">— 03 / Outcomes</div>
-          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold tracking-tight">
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— 03 / Outcomes</div>
+          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-extrabold tracking-tight">
           Results That Speak for Our <br/>
-            <span className="text-lime">Students' Success</span>
+            <span className="text-gold">Students' Success</span>
           </h2>
         </div>
 
@@ -62,11 +62,11 @@ export function PlacementBanner() {
 function StatCell({ v, suffix, l, active }: { v: number ; suffix: string; l: string; active: boolean }) {
   const count = useCountUp(v, active);
   return (
-    <div className="border-t border-cream/15 pt-6">
-      <div className="font-display text-5xl lg:text-6xl font-bold text-cream tracking-tight">
-        {count.toLocaleString()}<span className="text-lime">{suffix}</span>
+    <div className="border-t border-gold/20 pt-6">
+      <div className="font-display text-5xl lg:text-6xl font-bold text-white tracking-tight">
+        {count.toLocaleString()}<span className="text-gold">{suffix}</span>
       </div>
-      <div className="mt-3 text-sm text-cream/65">{l}</div>
+      <div className="mt-3 text-sm text-white/70">{l}</div>
     </div>
   );
 }

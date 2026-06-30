@@ -11,25 +11,27 @@ const items = [
 
 export function WhyUs() {
   return (
-    <section className="py-10 lg:py-16 bg-secondary/40">
+    <section className="py-10 lg:py-16 bg-light-gray">
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
         <div className="max-w-2xl">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— 02 / Why Axon</div>
-          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— 02 / Why Axon</div>
+          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-extrabold text-navy tracking-tight">
             Built for the realities<br />of modern healthcare.
           </h2>
         </div>
 
-        <div className="mt-14 grid gap-px bg-border rounded-3xl overflow-hidden lg:grid-cols-3 sm:grid-cols-2">
+        <div className="mt-14 grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
           {items.map((it) => (
-            <div key={it.title} className="group bg-card p-8 hover:bg-plum-dark transition-colors duration-300">
-              <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary group-hover:bg-lime transition-colors">
-                <it.icon className="h-5 w-5 text-plum-dark" />
+            <div key={it.title} className="group bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100">
+              <div className="group-hover:scale-110 transition-transform duration-300">
+                <div className="grid h-12 w-12 place-items-center rounded-full bg-navy text-white">
+                  <it.icon className="h-5 w-5" />
+                </div>
               </div>
-              <h3 className="mt-6 font-display text-lg font-semibold text-plum-dark group-hover:text-cream transition-colors">
+              <h3 className="mt-6 font-display text-lg font-bold text-navy group-hover:text-gold transition-colors">
                 {it.title}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-foreground/65 group-hover:text-cream/75 transition-colors">
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">
                 {it.desc}
               </p>
             </div>

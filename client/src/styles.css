@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -43,6 +43,12 @@
   --color-lime-soft: var(--lime-soft);
   --color-cream: var(--cream);
   --color-ink: var(--ink);
+
+  --color-navy: #0B1437;
+  --color-gold: #F4B400;
+  --color-sky: #2D9CDB;
+  --color-emerald: #16A34A;
+  --color-light-gray: #FBFAFC;
 }
 
 :root {
@@ -56,6 +62,13 @@
   --lime-soft: oklch(0.96 0.10 124);
   --cream: oklch(0.97 0.012 80);       /* #FAF7F2 */
   --ink: oklch(0.18 0.04 305);
+
+  /* New Design System Colors */
+  --navy: #0B1F3A;
+  --gold: #F4B400;
+  --sky: #2D9CDB;
+  --emerald: #16A34A;
+  --light-gray: #FBFAFC;
 
   --background: var(--cream);
   --foreground: var(--ink);

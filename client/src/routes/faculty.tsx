@@ -11,22 +11,35 @@ function FacultyPage() {
 
   useEffect(() => {
     api.get("/public/faculty")
-      .then((res) => { if (res.success) setFaculty(res.facultyList || []); })
+      .then((res) => {
+        if (res.success) {
+          const list = res.facultyList || [];
+          // Deduplicate by _id or name
+          const seen = new Map<string, any>();
+          const unique = list.filter((f: any) => {
+            const key = f._id || f.name;
+            if (seen.has(key)) return false;
+            seen.set(key, f);
+            return true;
+          });
+          setFaculty(unique);
+        }
+      })
       .catch(() => {});
   }, []);
 
   return (
     <PublicLayout>
       {/* Hero */}
-      <section className="relative overflow-hidden py-20 lg:py-28">
-        <div className="absolute inset-0 -z-10 bg-grid opacity-60" />
-        <div className="absolute -z-10 top-0 right-0 h-[500px] w-[500px] rounded-full bg-lime/25 blur-3xl" />
+      <section className="relative overflow-hidden py-20 lg:py-28 bg-navy">
+        <div className="absolute inset-0 -z-10 bg-grid opacity-20" />
+        <div className="absolute -z-10 top-0 right-0 h-[500px] w-[500px] rounded-full bg-gold/20 blur-3xl" />
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— Faculty</div>
-          <h1 className="mt-3 max-w-4xl font-display text-4xl lg:text-7xl font-bold text-plum-dark tracking-[-0.03em] leading-[1.02]">
-            Learn from the <span className="text-plum">best</span> in the industry.
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— Faculty</div>
+          <h1 className="mt-3 max-w-4xl font-display text-4xl lg:text-7xl font-extrabold text-white tracking-[-0.03em] leading-[1.02]">
+            Learn from the <span className="text-gold">best</span> in the industry.
           </h1>
-          <p className="mt-8 max-w-2xl text-lg text-foreground/70 leading-relaxed">
+          <p className="mt-8 max-w-2xl text-lg text-white/80 leading-relaxed">
             Our faculty includes experienced doctors, senior nurses, and hospital administrators
             who bring real-world expertise to every lesson.
           </p>
@@ -34,19 +47,19 @@ function FacultyPage() {
       </section>
 
       {/* Faculty Grid */}
-      <section className="py-20 lg:py-28 bg-secondary/40">
+      <section className="py-20 lg:py-28 bg-light-gray">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           {faculty.length === 0 ? (
-            <div className="text-center py-20 text-foreground/60">Loading faculty...</div>
+            <div className="text-center py-20 text-gray-400">Loading faculty...</div>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {faculty.map((f: any) => (
                 <div
                   key={f._id || f.name}
-                  className="rounded-3xl bg-card border border-border p-6 flex flex-col items-center text-center hover:shadow-lg transition-shadow"
+                  className="rounded-2xl bg-white border border-gray-100 p-6 flex flex-col items-center text-center hover:shadow-xl transition-shadow hover:-translate-y-1"
                 >
                   {/* Avatar */}
-                  <div className="h-20 w-20 overflow-hidden rounded-full bg-gradient-to-br from-plum to-plum-dark flex items-center justify-center font-display font-bold text-2xl text-lime shrink-0">
+                  <div className="h-20 w-20 overflow-hidden rounded-full bg-gradient-to-br from-navy to-sky flex items-center justify-center font-display font-bold text-2xl text-white shrink-0">
                     {f.image ? (
                       <img src={f.image} alt={f.name} className="h-full w-full object-cover" />
                     ) : (
@@ -55,26 +68,26 @@ function FacultyPage() {
                   </div>
 
                   {/* Name & Role */}
-                  <h3 className="mt-4 font-display font-bold text-plum-dark text-lg">{f.name}</h3>
-                  <p className="text-sm text-foreground/60">{f.role}</p>
+                  <h3 className="mt-4 font-display font-extrabold text-navy text-lg">{f.name}</h3>
+                  <p className="text-sm text-gray-500">{f.role}</p>
 
                   {/* Specialty */}
                   {f.specialty && (
-                    <div className="mt-3 flex items-center gap-1.5 text-xs text-foreground/70 bg-secondary rounded-full px-3 py-1.5">
+                    <div className="mt-3 flex items-center gap-1.5 text-xs text-navy bg-navy/10 rounded-full px-3 py-1.5">
                       <GraduationCap className="h-3.5 w-3.5" />
                       {f.specialty}
                     </div>
                   )}
 
                   {/* Years & Rating */}
-                  <div className="mt-4 w-full flex items-center justify-between border-t border-border pt-4">
-                    <div className="flex items-center gap-1 text-xs text-foreground/60">
+                  <div className="mt-4 w-full flex items-center justify-between border-t border-gray-100 pt-4">
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
                       <Award className="h-3.5 w-3.5" />
                       {f.years || 0}+ yrs
                     </div>
                     {f.rating && (
-                      <div className="flex items-center gap-1 text-xs font-semibold text-plum-dark">
-                        <Star className="h-3.5 w-3.5 fill-lime text-lime" />
+                      <div className="flex items-center gap-1 text-xs font-bold text-navy">
+                        <Star className="h-3.5 w-3.5 fill-gold text-gold" />
                         {f.rating}
                       </div>
                     )}

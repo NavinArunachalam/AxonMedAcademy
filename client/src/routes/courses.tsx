@@ -70,19 +70,19 @@ function CoursesPage() {
   return (
     <PublicLayout>
       {/* Page header */}
-      <section className="bg-secondary/40 border-b border-border">
+      <section className="bg-navy border-b border-navy-800">
         <div className="mx-auto max-w-7xl px-5 lg:px-8 py-14 lg:py-20">
-          <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— Catalog</div>
-          <h1 className="mt-3 font-display text-4xl lg:text-6xl font-bold text-plum-dark tracking-tight">
+          <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— Catalog</div>
+          <h1 className="mt-3 font-display text-4xl lg:text-6xl font-extrabold text-white tracking-tight">
             Find the course that<br/>becomes your career.
           </h1>
           <div className="mt-8 relative max-w-xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-plum-dark/50" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gold" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search courses…"
-              className="w-full rounded-full border border-border bg-card pl-12 pr-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-plum"
+              className="w-full rounded-full border border-white/10 bg-white/5 pl-12 pr-4 py-3.5 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-gold"
             />
           </div>
         </div>
@@ -96,12 +96,12 @@ function CoursesPage() {
 
           <div className="flex-1">
             <div className="flex items-center justify-between mb-6 gap-3">
-              <div className="text-sm text-foreground/70">{filtered.length} courses</div>
+              <div className="text-sm text-gray-500">{filtered.length} courses</div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setOpen(true)} className="lg:hidden inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold">
+                <button onClick={() => setOpen(true)} className="lg:hidden inline-flex items-center gap-2 rounded-full border border-navy/20 px-4 py-2 text-sm font-bold text-navy">
                   <SlidersHorizontal className="h-4 w-4" /> Filters
                 </button>
-                <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold focus:outline-none">
+                <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold focus:outline-none text-navy">
                   <option value="popular">Most Popular</option>
                   <option value="price-asc">Price: Low to High</option>
                   <option value="price-desc">Price: High to Low</option>
@@ -112,9 +112,9 @@ function CoursesPage() {
 
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {loading ? (
-                <div className="col-span-full py-12 text-center text-foreground/50">Loading courses...</div>
+                <div className="col-span-full py-12 text-center text-gray-400">Loading courses...</div>
               ) : filtered.length === 0 ? (
-                <div className="col-span-full py-12 text-center text-foreground/50">No courses match your criteria.</div>
+                <div className="col-span-full py-12 text-center text-gray-400">No courses match your criteria.</div>
               ) : (
                 filtered.map(c => <CourseCard key={c.id} c={c} />)
               )}
@@ -125,11 +125,11 @@ function CoursesPage() {
 
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-plum-dark/40" onClick={() => setOpen(false)} />
-          <div className="absolute bottom-0 inset-x-0 max-h-[85vh] overflow-auto rounded-t-3xl bg-cream p-6">
+          <div className="absolute inset-0 bg-navy/60" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-0 inset-x-0 max-h-[85vh] overflow-auto rounded-t-3xl bg-white p-6">
             <div className="flex justify-between items-center mb-6">
-              <span className="font-display font-bold text-plum-dark text-lg">Filters</span>
-              <button onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-secondary"><X className="h-4 w-4" /></button>
+              <span className="font-display font-extrabold text-navy text-lg">Filters</span>
+              <button onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-navy/10 text-navy"><X className="h-4 w-4" /></button>
             </div>
             {FilterPanel}
           </div>
@@ -142,17 +142,17 @@ function CoursesPage() {
 function FilterGroup({ label, options, selected, onChange }: { label: string; options: string[]; selected: string[]; onChange: (v: string[]) => void; }) {
   return (
     <div>
-      <h4 className="font-display font-semibold text-sm text-plum-dark uppercase tracking-wider mb-3">{label}</h4>
+      <h4 className="font-display font-bold text-sm text-navy uppercase tracking-wider mb-3">{label}</h4>
       <div className="space-y-2">
         {options.map(o => {
           const on = selected.includes(o);
           return (
             <label key={o} className="flex items-center gap-3 cursor-pointer text-sm group">
-              <span className={`grid h-5 w-5 place-items-center rounded-md border transition ${on ? "bg-plum-dark border-plum-dark" : "border-border group-hover:border-plum-dark/50"}`}>
-                {on && <span className="h-2 w-2 bg-lime rounded-sm" />}
+              <span className={`grid h-5 w-5 place-items-center rounded-md border transition ${on ? "bg-navy border-navy" : "border-gray-300 group-hover:border-navy/50"}`}>
+                {on && <span className="h-2 w-2 bg-gold rounded-sm" />}
               </span>
               <input type="checkbox" className="sr-only" checked={on} onChange={() => onChange(on ? selected.filter(s => s !== o) : [...selected, o])} />
-              <span className={on ? "text-plum-dark font-semibold" : "text-foreground/75"}>{o}</span>
+              <span className={on ? "text-navy font-bold" : "text-gray-600"}>{o}</span>
             </label>
           );
         })}

@@ -92,32 +92,32 @@ export function Testimonials() {
 
   return (
     <>
-      <section className="py-10 lg:py-16 bg-secondary/40">
+      <section className="py-10 lg:py-16 bg-light-gray">
         <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
           <div className="flex items-end justify-between flex-wrap gap-6 mb-12">
             <div className="max-w-xl">
-              <div className="text-xs font-mono uppercase tracking-[0.2em] text-plum">— 05 / Voices</div>
-              <h2 className="mt-3 font-display text-3xl lg:text-5xl font-bold text-plum-dark tracking-tight">
+              <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— 05 / Voices</div>
+              <h2 className="mt-3 font-display text-3xl lg:text-5xl font-extrabold text-navy tracking-tight">
                 500 careers.<br />One academy.
               </h2>
             </div>
-            <div className="flex items-center gap-3 rounded-full bg-card border border-border px-4 py-2">
+            <div className="flex items-center gap-3 rounded-full bg-white border border-gray-200 px-4 py-2">
               <div className="flex">
-                {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-lime text-lime" />)}
+                {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-gold text-gold" />)}
               </div>
-              <span className="text-sm font-semibold text-plum-dark">4.9 / 5</span>
-              <span className="text-xs text-foreground/60">· 500+ reviews</span>
+              <span className="text-sm font-bold text-navy">4.9 / 5</span>
+              <span className="text-xs text-gray-500">· 500+ reviews</span>
             </div>
           </div>
 
           {/* Written testimonials grid */}
           <div className="grid gap-6 lg:grid-cols-3">
             {displayItems.slice(0, 3).map((t: any, i: number) => (
-              <div key={t._id || t.name} className={`relative rounded-3xl p-7 border ${i === 1 ? "bg-plum-dark text-cream border-plum-dark" : "bg-card border-border"}`}>
-                <Quote className={`h-8 w-8 ${i === 1 ? "text-lime" : "text-plum/40"}`} />
-                <p className={`mt-5 text-base leading-relaxed ${i === 1 ? "text-cream/90" : "text-foreground/80"}`}>"{t.review}"</p>
+              <div key={t._id || t.name} className={`relative rounded-2xl p-7 border ${i === 1 ? "bg-navy text-white border-navy" : "bg-white border-gray-100"}`}>
+                <Quote className={`h-8 w-8 ${i === 1 ? "text-gold" : "text-navy/20"}`} />
+                <p className={`mt-5 text-base leading-relaxed ${i === 1 ? "text-white/90" : "text-gray-700"}`}>"{t.review}"</p>
                 <div className="mt-8 flex items-center gap-3">
-                  <div className={`h-11 w-11 overflow-hidden rounded-full flex items-center justify-center font-display font-bold text-sm shrink-0 ${i === 1 ? "bg-lime text-plum-dark" : "bg-plum-dark text-lime"}`}>
+                  <div className={`h-11 w-11 overflow-hidden rounded-full flex items-center justify-center font-display font-bold text-sm shrink-0 ${i === 1 ? "bg-gold text-navy" : "bg-navy text-white"}`}>
                     {t.image ? (
                       <img src={t.image} alt={t.name} className="h-full w-full object-cover rounded-full" />
                     ) : (
@@ -125,8 +125,8 @@ export function Testimonials() {
                     )}
                   </div>
                   <div>
-                    <div className={`font-semibold text-sm ${i === 1 ? "text-cream" : "text-plum-dark"}`}>{t.name}</div>
-                    <div className={`text-xs ${i === 1 ? "text-cream/65" : "text-foreground/60"}`}>{t.roll}</div>
+                    <div className={`font-semibold text-sm ${i === 1 ? "text-white" : "text-navy"}`}>{t.name}</div>
+                    <div className={`text-xs ${i === 1 ? "text-white/65" : "text-gray-500"}`}>{t.roll}</div>
                   </div>
                 </div>
               </div>
@@ -150,7 +150,7 @@ export function Testimonials() {
                   />
                   {/* Play button overlay */}
                   <div className="absolute inset-0 grid place-items-center">
-                    <div className="grid h-14 w-14 place-items-center rounded-full bg-lime text-plum-dark group-hover:scale-110 transition-transform">
+                    <div className="grid h-14 w-14 place-items-center rounded-full bg-gold text-navy group-hover:scale-110 transition-transform">
                       <Play className="h-5 w-5 fill-current" />
                     </div>
                   </div>
@@ -170,14 +170,14 @@ export function Testimonials() {
           {reviewVideos.length === 0 && (
             <div className="mt-8 grid gap-5 sm:grid-cols-3">
               {[1, 2, 3].map((i) => (
-                <button key={i} className="group relative aspect-video overflow-hidden rounded-2xl bg-gradient-to-br from-plum to-plum-dark">
+                <button key={i} className="group relative aspect-video overflow-hidden rounded-2xl bg-gradient-to-br from-navy to-navy">
                   <div className="absolute inset-0 bg-noise opacity-30" />
                   <div className="absolute inset-0 grid place-items-center">
-                    <div className="grid h-14 w-14 place-items-center rounded-full bg-lime text-plum-dark group-hover:scale-110 transition-transform">
+                    <div className="grid h-14 w-14 place-items-center rounded-full bg-gold text-navy group-hover:scale-110 transition-transform">
                       <Play className="h-5 w-5 fill-current" />
                     </div>
                   </div>
-                  <div className="absolute bottom-3 left-3 right-3 text-cream text-xs font-semibold">Watch student story #{i}</div>
+                  <div className="absolute bottom-3 left-3 right-3 text-white text-xs font-semibold">Watch student story #{i}</div>
                 </button>
               ))}
             </div>
@@ -192,13 +192,13 @@ export function Testimonials() {
           onClick={() => setActiveVideo(null)}
         >
           <div
-            className="relative w-full max-w-3xl bg-plum-dark rounded-3xl overflow-hidden shadow-2xl"
+            className="relative w-full max-w-3xl bg-navy rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
             <button
               onClick={() => setActiveVideo(null)}
-              className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/50 text-cream flex items-center justify-center hover:bg-black/70 transition-colors"
+              className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -215,16 +215,16 @@ export function Testimonials() {
               />
               {videoError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                  <p className="text-cream text-sm px-4 text-center">{videoError}</p>
+                  <p className="text-white text-sm px-4 text-center">{videoError}</p>
                 </div>
               )}
             </div>
 
             {/* Video info */}
             <div className="px-6 py-4">
-              <h3 className="font-display font-bold text-cream text-base">{activeVideo.title}</h3>
+              <h3 className="font-display font-bold text-white text-base">{activeVideo.title}</h3>
               {activeVideo.studentName && (
-                <p className="text-cream/60 text-xs mt-1">
+                <p className="text-white/60 text-xs mt-1">
                   {activeVideo.studentName}{activeVideo.roll ? ` · ${activeVideo.roll}` : ""}
                 </p>
               )}

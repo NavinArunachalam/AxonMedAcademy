@@ -6,6 +6,10 @@ export const Route = createFileRoute("/_student/student/classrooms/")({
   component: StudentClassrooms,
 });
 
+const NAVY = "#0B1F3A";
+const GOLD = "#F4B400";
+const SKY  = "#2D9CDB";
+
 function StudentClassrooms() {
   const { classrooms, currentUser } = useClassroomStore();
   const currentStudentId = currentUser?.id || "";
@@ -17,8 +21,8 @@ function StudentClassrooms() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold text-plum-dark flex items-center gap-3">
-          <School className="h-8 w-8 text-plum" /> My Classrooms
+        <h1 className="font-display text-3xl font-bold flex items-center gap-3" style={{ color: NAVY }}>
+          <School className="h-8 w-8" style={{ color: GOLD }} /> My Classrooms
         </h1>
         <p className="text-slate-500 text-sm mt-1">
           {myClassrooms.length} classroom{myClassrooms.length !== 1 ? "s" : ""} enrolled
@@ -42,29 +46,33 @@ function StudentClassrooms() {
             return (
               <div
                 key={cls.id}
-                className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:border-plum/30 hover:shadow-md transition-all group"
+                className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition-all group"
+                style={{ borderColor: 'rgba(45,156,219,0.2)' }}
               >
-                <div className="h-2 bg-gradient-to-r from-plum to-plum-dark" />
+                {/* Gold top accent bar */}
+                <div className="h-2" style={{ background: `linear-gradient(90deg, ${GOLD}, ${SKY})` }} />
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
-                      <h3 className="font-display font-bold text-plum-dark text-base leading-snug">{cls.name}</h3>
+                      <h3 className="font-display font-bold text-base leading-snug" style={{ color: NAVY }}>{cls.name}</h3>
                       <span className="font-mono text-[10px] text-slate-400">{cls.code}</span>
                     </div>
-                    <span className="bg-plum-dark/10 text-plum-dark text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded shrink-0">
+                    <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded shrink-0"
+                      style={{ background: `rgba(244,180,0,0.12)`, color: '#B8870A' }}>
                       {cls.status}
                     </span>
                   </div>
                   <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 mb-4">{cls.description}</p>
 
                   {myInfo && (
-                    <div className="mb-4 p-3 rounded-xl bg-plum-dark/5">
+                    <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(11,31,58,0.04)' }}>
                       <div className="flex justify-between text-xs mb-1.5">
                         <span className="text-slate-600 font-medium">My Progress</span>
-                        <span className="text-plum-dark font-bold font-mono">{myInfo.progress}%</span>
+                        <span className="font-bold font-mono" style={{ color: NAVY }}>{myInfo.progress}%</span>
                       </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-plum rounded-full transition-all" style={{ width: `${myInfo.progress}%` }} />
+                        <div className="h-full rounded-full transition-all"
+                          style={{ width: `${myInfo.progress}%`, background: `linear-gradient(90deg, ${GOLD}, ${SKY})` }} />
                       </div>
                       <div className="flex justify-between mt-2 text-[10px] text-slate-400">
                         <span>Attendance: {myInfo.attendance}%</span>
@@ -80,9 +88,9 @@ function StudentClassrooms() {
                       { icon: ClipboardList, val: publishedQuizzes, label: "Tests" },
                       { icon: Users, val: cls.students.filter((s) => s.status === "active").length, label: "Peers" },
                     ].map(({ icon: Icon, val, label }) => (
-                      <div key={label} className="bg-slate-50 rounded-lg p-2 text-center">
-                        <Icon className="h-3.5 w-3.5 text-plum mx-auto mb-0.5" />
-                        <div className="font-display font-bold text-plum-dark text-sm">{val}</div>
+                      <div key={label} className="rounded-lg p-2 text-center" style={{ background: 'rgba(45,156,219,0.07)' }}>
+                        <Icon className="h-3.5 w-3.5 mx-auto mb-0.5" style={{ color: SKY }} />
+                        <div className="font-display font-bold text-sm" style={{ color: NAVY }}>{val}</div>
                         <div className="text-[9px] text-slate-400 uppercase tracking-wider">{label}</div>
                       </div>
                     ))}
@@ -91,7 +99,8 @@ function StudentClassrooms() {
                   <Link
                     to="/student/classroom/$id"
                     params={{ id: cls.id }}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-full bg-plum-dark text-cream px-4 py-2.5 text-sm font-bold group-hover:bg-plum transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-full text-white px-4 py-2.5 text-sm font-bold transition-all hover:brightness-110 active:scale-95"
+                    style={{ background: `linear-gradient(135deg, ${NAVY}, #1A3560)` }}
                   >
                     Open Classroom <ChevronRight className="h-4 w-4" />
                   </Link>

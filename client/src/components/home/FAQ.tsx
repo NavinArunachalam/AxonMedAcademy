@@ -35,7 +35,7 @@ export function FAQ() {
                   className="w-full flex items-center justify-between gap-4 p-5 text-left"
                 >
                   <span className="font-display font-semibold text-plum-dark">{f.q}</span>
-                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors ${isOpen ? "bg-lime text-plum-dark" : "bg-secondary text-plum-dark"}`}>
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors ${isOpen ? "bg-gold text-plum-dark" : "bg-secondary text-plum-dark"}`}>
                     {isOpen ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                   </span>
                 </button>
