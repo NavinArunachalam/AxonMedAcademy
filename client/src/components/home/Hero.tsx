@@ -11,20 +11,25 @@ const stats = [
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-6 lg:pt-10 pb-12 lg:pb-16 bg-navy">
-      {/* Background art */}
-      <div className="absolute inset-0 -z-10 bg-grid opacity-20" />
-      <div className="absolute -z-10 top-0 left-1/2 -translate-x-1/2 h-[600px] w-[1100px] rounded-full bg-gold/15 blur-3xl" />
-      <div className="absolute -z-10 -bottom-32 -right-20 h-[400px] w-[400px] rounded-full bg-sky/20 blur-3xl" />
+    <section className="relative overflow-hidden pt-6 lg:pt-3 pb-2 lg:pb-16">
+      {/* Background Video */}
+      <video
+        src="/doctor2.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 -z-10 w-full h-full object-cover"
+      />
 
-      <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
+      <div className="relative z-10 mx-auto w-full max-w-[1400px] px-5 lg:px-8">
         <div className="grid md:grid-cols-12 gap-6 md:gap-8 lg:gap-12 items-center">
           <div className="md:col-span-7 order-1 md:order-1">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1.5 text-xs font-bold text-gold"
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1.5 text-xs font-bold text-gold shadow-black/40 shadow-lg"
             >
               <Sparkles className="h-3.5 w-3.5 text-gold" />
               India's #1 Siddha & AYUSH Academy
@@ -35,6 +40,7 @@ export function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.05 }}
               className="mt-5 font-display font-extrabold text-white text-balance text-[40px] sm:text-[56px] lg:text-[68px] leading-[1.02] tracking-[-0.03em]"
+              style={{ textShadow: '0 4px 12px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.6)' }}
             >
           Prepare. Practice.Crack{" "}
               <span className="relative inline-block">
@@ -48,7 +54,8 @@ export function Hero() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="mt-6 max-w-xl text-base lg:text-lg text-white/80 leading-relaxed"
+              className="mt-6 max-w-xl text-base lg:text-lg text-white font-semibold leading-relaxed"
+              style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 1px 4px rgba(0,0,0,0.6)' }}
             >
               Master high-yield concepts, smart revision strategies, daily MCQs, grand tests, and expert guidance to secure top ranks in AIAPGET & MRB Siddha examinations.
             </motion.p>
@@ -66,7 +73,7 @@ export function Hero() {
                 Start Learning Today
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
-              <button className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/5 backdrop-blur px-6 py-3.5 text-sm font-bold text-white hover:bg-white/10 transition">
+              <button className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/20 backdrop-blur px-6 py-3.5 text-sm font-bold text-white hover:bg-black/30 transition">
                 <span className="grid h-7 w-7 place-items-center rounded-full bg-gold text-navy">
                   <Play className="h-3 w-3 fill-current" />
                 </span>
@@ -82,136 +89,16 @@ export function Hero() {
             >
               {stats.map((s) => (
                 <div key={s.l}>
-                  <div className="font-display text-2xl lg:text-3xl font-bold text-gold">
+                  <div className="font-display text-2xl lg:text-3xl font-bold text-gold" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
                     {s.v}
                   </div>
-                  <div className="mt-1 text-xs lg:text-sm text-white/70">{s.l}</div>
+                  <div className="mt-1 text-xs lg:text-sm text-white font-medium" style={{ textShadow: '0 1px 5px rgba(0,0,0,0.8)' }}>{s.l}</div>
                 </div>
               ))}
             </motion.div>
           </div>
-
-          {/* Illustration */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="md:col-span-5 relative order-1 md:order-2 mt-6 md:mt-0"
-          >
-            <div className="relative aspect-[16/9] md:aspect-[5/6] w-full max-w-sm md:max-w-md mx-auto rounded-[24px] md:rounded-[40px] overflow-hidden">
-              <video
-                src="/doctor.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute w-full h-full object-cover object-right"
-              />
-             
-              {/* <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-white/95 backdrop-blur p-4">
-                <div className="flex items-center gap-3"> */}
-                  {/* <div className="grid h-10 w-10 place-items-center rounded-xl bg-gold text-navy">
-                    <HeartPulse className="h-5 w-5" />
-                  </div> */}
-                  {/* <div className="flex-1">
-                    <div className="text-xs text-navy/60 font-medium">Now Live</div>
-                    <div className="text-sm font-bold text-navy">Siddha & AYUSH Examinations</div>
-                  </div> */}
-                  {/* <div className="text-[10px] font-bold uppercase text-navy bg-gold rounded-full px-2 py-1">
-                    LIVE
-                  </div> */}
-                {/* </div>
-              </div> */}
-            </div>
-          </motion.div>
         </div>
       </div>
     </section>
-  );
-}
-
-function HeroArt() {
-  return (
-    <div className="relative aspect-[5/6] w-full max-w-md mx-auto">
-      <div className="absolute inset-0 rounded-[40px] bg-gradient-to-br from-plum-dark via-plum to-plum-dark overflow-hidden shadow-2xl shadow-plum-dark/30">
-        <div className="absolute inset-0 bg-noise opacity-30" />
-        <div className="absolute -top-20 -right-10 h-64 w-64 rounded-full bg-lime/30 blur-3xl" />
-
-        {/* ECG line */}
-        <svg viewBox="0 0 400 100" className="absolute top-1/2 -translate-y-1/2 inset-x-0 w-full text-lime/60">
-          <motion.path
-            d="M0 50 L80 50 L100 20 L120 80 L140 35 L160 50 L260 50 L280 25 L300 75 L320 40 L340 50 L400 50"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 2.5, repeat: Infinity, repeatType: "loop", ease: "linear" }}
-          />
-        </svg>
-
-        {/* Floating chips */}
-        <FloatChip icon={HeartPulse} label="Live Vitals" pos="top-8 left-6" delay={0} />
-        <FloatChip icon={Activity} label="Pulse 76" pos="top-24 right-4" delay={0.4} />
-        <FloatChip icon={Microscope} label="Lab Module" pos="bottom-28 left-4" delay={0.8} />
-        <FloatChip icon={Pill} label="Pharma Prep" pos="bottom-8 right-6" delay={1.2} />
-
-        {/* Center card */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-          className="absolute bottom-6 left-6 right-6 rounded-2xl bg-cream/95 backdrop-blur p-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-lime">
-              <HeartPulse className="h-5 w-5 text-plum-dark" />
-            </div>
-            <div className="flex-1">
-              <div className="text-xs text-plum-dark/60 font-medium">Now Live</div>
-              <div className="text-sm font-semibold text-plum-dark">Siddha & AYUSH Examinations</div>
-            </div>
-            <div className="text-[10px] font-bold uppercase text-plum-dark bg-lime rounded-full px-2 py-1">
-              LIVE
-            </div>
-          </div>
-          <div className="mt-3 h-1.5 w-full rounded-full bg-plum-dark/10 overflow-hidden">
-            <motion.div
-              className="h-full bg-plum-dark rounded-full"
-              initial={{ width: "0%" }}
-              animate={{ width: "62%" }}
-              transition={{ duration: 1.5, delay: 0.6 }}
-            />
-          </div>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-function FloatChip({
-  icon: Icon,
-  label,
-  pos,
-  delay,
-}: {
-  icon: typeof HeartPulse;
-  label: string;
-  pos: string;
-  delay: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: [0, -8, 0] }}
-      transition={{
-        opacity: { delay, duration: 0.6 },
-        y: { delay, duration: 3.5, repeat: Infinity, ease: "easeInOut" },
-      }}
-      className={`absolute ${pos} flex items-center gap-2 rounded-full bg-cream/95 backdrop-blur px-3 py-1.5 text-xs font-semibold text-plum-dark shadow-lg`}
-    >
-      <Icon className="h-3.5 w-3.5 text-plum" />
-      {label}
-    </motion.div>
   );
 }
