@@ -3,10 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, Play, Sparkles, Activity, HeartPulse, Pill, Microscope } from "lucide-react";
 
 const stats = [
-  { v: "5,000+", l: "Sidhha Aspirants Mentored " },
-  { v: "1,00,000", l: "MCQs Practiced" },
-  { v: "500+", l: "Government Selection/Rank Holders" },
-  { v: "10+", l: "AIAPGET.MRB.Crash Courses.Test Series" },
+  { v: "1,000+", l: "Sidhha Aspirants Mentored " },
+  { v: "15,000", l: "MCQs Practiced" },
+  { v: "70+", l: "PG Rank holders / AMO selection" },
+  
 ];
 
 export function Hero() {

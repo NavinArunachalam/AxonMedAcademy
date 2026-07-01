@@ -8,17 +8,19 @@ const items = [
   { icon: Users, title: "Experienced Sidhha Faculty", desc: "Simplify complex concepts through mnemonics, story-based learning, and bilingual explanations." },
   { icon: CreditCard, title: "Affordable Fees & EMI Available", desc: "Begin your career journey for as little as ₹999/month, no hidden fees." },
 ];
-
+  const NAVY = "#0B1F3A";
+const GOLD = "#F4B400";
+const SKY  = "#2D9CDB";
 export function WhyUs() {
   return (
     <section className="py-10 lg:py-16 bg-light-gray">
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
         <div className="">
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— 02 / Why Axon</div>
-          <h2 className="mt-3 font-display text-3xl lg:text-5xl font-extrabold text-navy tracking-tight">
-           Proven Result. Expert Mentorship. Strategic Preparation.
-<br />Empowering Siddha aspirants to achive Top ranks, AMO Selectikn and PG admission with Confidence...
-          </h2>
+           <h2 className="mt-3 font-display text-2xl lg:text-5xl font-bold tracking-tight" style={{ color: NAVY }}>
+             Proven Result. Expert Mentorship. Strategic Preparation.<br/>
+              <span style={{ color: GOLD }}>Empowering Siddha aspirants to achive Top ranks, AMO Selectikn and PG admission with Confidence...</span>
+            </h2>
         </div>
 
         <div className="mt-14 grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
