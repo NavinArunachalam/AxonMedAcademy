@@ -38,7 +38,6 @@ function Home() {
       <Partners />
       <BlogPreview />
       <FAQ />
-      <CtaBlock />
     </PublicLayout>
   );
 }

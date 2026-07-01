@@ -14,12 +14,20 @@ export function Hero() {
     <section className="relative overflow-hidden pt-6 lg:pt-3 pb-2 lg:pb-16">
       {/* Background Video */}
       <video
-        src="/doctor2.mp4"
+        src="/doctormobile.mp4"
         autoPlay
         loop
         muted
         playsInline
-        className="absolute inset-0 -z-10 w-full h-full object-cover"
+        className="absolute inset-0 -z-10 w-full h-full object-cover md:hidden"
+      />
+      <video
+        src="/doctorforlaptop.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 -z-10 w-full h-full object-cover hidden md:block"
       />
 
       <div className="relative z-10 mx-auto w-full max-w-[1400px] px-5 lg:px-8">

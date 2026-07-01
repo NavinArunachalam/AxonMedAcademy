@@ -51,13 +51,11 @@ function About() {
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— About Axon</div>
           <h1 className="mt-3 max-w-4xl font-display text-4xl lg:text-7xl font-extrabold text-white tracking-[-0.03em] leading-[1.02]">
-            Built by clinicians,<br />
-            <span className="text-gold">for the next generation</span> of clinicians.
+          Built by mentors,<br />
+            <span className="text-gold"> for future Siddha leaders</span> 
           </h1>
           <p className="mt-8 max-w-2xl text-lg text-white/80 leading-relaxed">
-            Axon MedAcademy was started in 2018 by a small group of doctors, senior nurses, and hospital
-            administrators who saw a single truth — India needs more well-trained paramedical
-            professionals, and the path to becoming one should be rigorous, transparent, and humane.
+            Axon Med Academy was founded with a single mission — to help Siddha aspirants achieve excellence through strategic preparation, expert mentorship, and result-oriented learning. From AIAPGET rank holders to Government AMO selections, every success story reflects our commitment to building the next generation of Siddha professionals
           </p>
         </div>
       </section>

@@ -13,10 +13,11 @@ export function WhyUs() {
   return (
     <section className="py-10 lg:py-16 bg-light-gray">
       <div className="mx-auto w-full max-w-[1400px] px-5 lg:px-8">
-        <div className="max-w-2xl">
+        <div className="">
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— 02 / Why Axon</div>
           <h2 className="mt-3 font-display text-3xl lg:text-5xl font-extrabold text-navy tracking-tight">
-            Built for the realities<br />of modern healthcare.
+           Proven Result. Expert Mentorship. Strategic Preparation.
+<br />Empowering Siddha aspirants to achive Top ranks, AMO Selectikn and PG admission with Confidence...
           </h2>
         </div>
 

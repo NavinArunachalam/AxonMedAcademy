@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 const stats = [
-  { v: 100, suffix: "+", l: "Government Selections" },
-  { v: 250, suffix: "+", l: "Success Stories" },
-  { v: 15, suffix: "+", l: "15+ Experts Faculties" },
-  { v: 1000, suffix: "+", l: "Students Across Tamil Nadu & India" },
+  { v: 15, suffix: "+", l: "Government Selections" },
+  { v: 200, suffix: "+", l: "Success Stories" },
+  { v: 10, suffix: "+", l: " Experts Faculties" },
 ];
 
 function useCountUp(target: number, active: boolean) {
@@ -51,7 +50,7 @@ export function PlacementBanner() {
           </h2>
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {stats.map((s) => <StatCell key={s.l} {...s} active={active} />)}
         </div>
       </div>
