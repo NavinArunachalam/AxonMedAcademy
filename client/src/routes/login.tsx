@@ -58,11 +58,11 @@ function Login() {
 
         <div className="relative">
           <h1 className="font-display text-4xl lg:text-5xl font-extrabold leading-[1.05] tracking-[-0.02em]">
-            Welcome back.<br />
-            Your <span className="bg-gold text-navy px-2 rounded">cohort</span> is waiting.
+          Welcome back,dream PG seat and your <br />
+            Your <span className="bg-gold text-navy px-2 rounded"> MRB-AMO  </span>   government order are waiting to be claimed.
           </h1>
           <p className="mt-5 text-white/80 max-w-md">
-            Pick up where you left off — live classes, recorded modules, exam prep, and your career roadmap.
+         
           </p>
         </div>
 

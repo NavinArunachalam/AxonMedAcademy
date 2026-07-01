@@ -7,7 +7,7 @@ export function Footer() {
   const addressLines = organization.address.split(/\r?\n|,\s*/).filter(Boolean);
 
   return (
-    <footer className="mt-24 bg-navy text-white/85 relative overflow-hidden">
+    <footer className="mt-0 bg-navy text-white/85 relative overflow-hidden">
       <div className="absolute inset-0 bg-noise opacity-50 pointer-events-none" />
       <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-gold/20 blur-3xl" />
 

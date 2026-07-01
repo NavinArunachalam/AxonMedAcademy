@@ -64,14 +64,14 @@ function About() {
       <section className="border-y border-gray-200 bg-white">
         <div className="mx-auto max-w-7xl px-5 lg:px-8 py-12 grid grid-cols-2 lg:grid-cols-4 gap-8">
           {[
-            { v: "8 yrs", l: "Operating" },
-            { v: "5,200+", l: "Alumni placed" },
-            { v: "215", l: "Hospital partners" },
+            { v: "4 yrs", l: "Operating" },
+            { v: " 2024 ", l: "AIAPGET 1st Rank" },
+            { v: "2025", l: " MRB 1st Rank" },
             { v: "98%", l: "Student satisfaction" },
           ].map(s => (
             <div key={s.l}>
               <div className="font-display text-3xl lg:text-5xl font-extrabold text-navy">{s.v}</div>
-              <div className="mt-2 text-sm text-gray-500">{s.l}</div>
+              <div className="mt-2 text-lg text-gold">{s.l}</div>
             </div>
           ))}
         </div>

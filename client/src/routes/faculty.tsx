@@ -37,11 +37,11 @@ function FacultyPage() {
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-gold">— Faculty</div>
           <h1 className="mt-3 max-w-4xl font-display text-4xl lg:text-7xl font-extrabold text-white tracking-[-0.03em] leading-[1.02]">
-            Learn from the <span className="text-gold">best</span> in the industry.
+           Crack  with the Best Mindset. <span className="text-gold">AIAPGET & MRB</span> industry.
           </h1>
           <p className="mt-8 max-w-2xl text-lg text-white/80 leading-relaxed">
-            Our faculty includes experienced doctors, senior nurses, and hospital administrators
-            who bring real-world expertise to every lesson.
+
+​Learn from elite SIDDHA professionals and veteran educators who transform complex medical concepts into easy mnemonics and high-yield insights.
           </p>
         </div>
       </section>

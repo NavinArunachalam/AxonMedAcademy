@@ -7,7 +7,7 @@ const NAV = [
   { label: "Courses", to: "/courses" },
   { label: "About", to: "/about" },
   { label: "Faculty", to: "/faculty" },
-  { label: "Placements", to: "/placements" },
+  { label: "Results", to: "/placements" },
   { label: "Blog", to: "/blog" },
   { label: "Contact", to: "/contact" },
 ];
