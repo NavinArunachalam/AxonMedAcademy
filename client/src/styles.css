@@ -154,3 +154,86 @@
     box-shadow: 0 0 0 1px oklch(0.93 0.20 124 / 0.4), 0 10px 40px -10px oklch(0.93 0.20 124 / 0.5);
   }
 }
+
+/* ─── Admin Portal Light Theme Overrides ────────────────────────────────────── */
+.admin-portal {
+  /* Re-map dark theme tokens to light Navy/Gold theme tokens */
+  --cream: #0B1F3A;         /* Mapped to Navy for dark text/elements */
+  --plum-dark: #0B1F3A;     /* Mapped to Navy */
+  --plum: #0B1F3A;          /* Mapped to Navy */
+  --lime: #F4B400;          /* Mapped to Gold/Yellow for backgrounds and badges */
+  --border: #E2E8F0;
+  --input: #F1F5F9;
+  --card: #FFFFFF;
+}
+
+/* Ensure text and icons styled with lime/gold color are high-contrast on light background */
+.admin-portal .text-lime,
+.admin-portal [class*="text-lime"],
+.admin-portal .text-gold,
+.admin-portal [class*="text-gold"] {
+  color: #B8870A !important;
+}
+
+/* Override inline color styles that use the bright gold color */
+.admin-portal [style*="color: rgb(244, 180, 0)"],
+.admin-portal [style*="color: #F4B400"],
+.admin-portal [style*="color:#F4B400"],
+.admin-portal [style*="color: '#F4B400'"] {
+  color: #B8870A !important;
+}
+
+/* Override hardcoded dark background panels/cards to use the light-themed card background */
+.admin-portal [class*="bg-[#1A0F33]"],
+.admin-portal [class*="bg-[#0f0820]"],
+.admin-portal [class*="bg-[#110D26]"] {
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
+}
+
+/* Handle opacity-based bg-lime classes to prevent them from becoming dark gold */
+.admin-portal [class*="bg-lime/15"],
+.admin-portal [class*="bg-lime/10"] {
+  background-color: rgba(244, 180, 0, 0.12) !important;
+  color: #B8870A !important;
+}
+
+/* Overrides for background opacity-based cream styles */
+.admin-portal [class*="bg-cream/10"],
+.admin-portal [class*="bg-cream/5"] {
+  background-color: rgba(11, 31, 58, 0.05) !important;
+}
+
+/* Override input select box background colors */
+.admin-portal [class*="bg-[#1A0F45]"] {
+  background-color: var(--input) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+/* Overrides for border styling */
+.admin-portal [class*="border-cream/10"],
+.admin-portal [class*="border-white/10"],
+.admin-portal [class*="border-white/5"] {
+  border-color: var(--border) !important;
+}
+
+.admin-portal [class*="divide-cream/5"],
+.admin-portal [class*="divide-white/10"] {
+  border-color: var(--border) !important;
+}
+
+/* Specific button text fixes inside overridden card backgrounds */
+.admin-portal [class*="hover:bg-cream/10"]:hover {
+  background-color: rgba(11, 31, 58, 0.1) !important;
+}
+.admin-portal button[class*="text-cream/80"] {
+  color: #0B1F3A !important;
+}
+.admin-portal button[class*="border-cream/15"] {
+  border-color: var(--border) !important;
+}
+.admin-portal a[class*="border-cream/15"] {
+  border-color: var(--border) !important;
+}
+

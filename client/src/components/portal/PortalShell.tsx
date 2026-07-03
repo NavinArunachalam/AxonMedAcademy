@@ -47,22 +47,18 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
   };
 
   // Tailwind classes based on variant
-  // Student shell uses Axon Med Academy Navy/Gold palette
-  const shellClass = isAdmin ? "dark bg-[#0B0719] text-cream" : "bg-[#F0F4F8] text-slate-900";
-  const sidebarClass = isAdmin ? "bg-[#110828] border-white/5" : "bg-[#0B1F3A] border-white/10";
-  const linkBaseClass = isAdmin
-    ? "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/5 text-cream/70"
-    : "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/10 text-white/70";
-  const linkActiveClass = isAdmin
-    ? "bg-lime/10 !text-lime font-medium"
-    : "bg-[#F4B400]/15 !text-[#F4B400] font-medium";
-  const brandColorClass = isAdmin ? "text-lime" : "text-[#F4B400]";
-  const initialsBgClass = isAdmin ? "bg-lime/15 text-lime" : "bg-[#F4B400]/20 text-[#F4B400]";
+  // Both Student and Admin shells use Axon Med Academy Navy/Gold palette
+  const shellClass = "bg-[#F0F4F8] text-slate-900";
+  const sidebarClass = "bg-[#0B1F3A] border-white/10";
+  const linkBaseClass = "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/10 text-white/70";
+  const linkActiveClass = "bg-[#F4B400]/15 !text-[#F4B400] font-medium";
+  const brandColorClass = "text-[#F4B400]";
+  const initialsBgClass = "bg-[#F4B400]/20 text-[#F4B400]";
 
   // Shared Sidebar Content
   const SidebarContent = () => (
     <>
-      <div className={`h-16 flex items-center justify-between px-6 border-b ${isAdmin ? "border-white/5" : "border-slate-200"} font-display font-bold text-lg tracking-tight ${brandColorClass} shrink-0`}>
+      <div className={`h-16 flex items-center justify-between px-6 border-b border-white/10 font-display font-bold text-lg tracking-tight ${brandColorClass} shrink-0`}>
         {brand}
         <button className="md:hidden" onClick={() => setMobileMenuOpen(false)}>
           <X className="w-5 h-5 opacity-70" />
@@ -86,32 +82,32 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
         })}
 
         {/* Divider */}
-        <div className={`my-2 h-px ${isAdmin ? "bg-white/5" : "bg-slate-100"}`} />
+        <div className="my-2 h-px bg-white/10" />
 
         {/* Sign Out button — always visible in nav */}
         <button
           onClick={handleLogout}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-red-500 ${isAdmin ? "hover:bg-red-500/10" : "hover:bg-red-50"}`}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-red-500 hover:bg-red-500/10`}
         >
           <LogOut className="w-4.5 h-4.5 shrink-0" />
           Sign Out
         </button>
       </nav>
 
-      <div className={`p-4 border-t ${isAdmin ? "border-white/5" : "border-slate-200"} flex items-center gap-3 shrink-0`}>
+      <div className="p-4 border-t border-white/10 flex items-center gap-3 shrink-0">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${initialsBgClass}`}>
           {user.initials}
         </div>
         <div className="min-w-0">
-          <div className="font-semibold text-[13px] truncate text-gold">{user.name}</div>
-          <div className={`text-[11px] truncate ${isAdmin ? "text-white" : "text-white"}`}>{user.role}</div>
+          <div className="font-semibold text-[13px] truncate text-white">{user.name}</div>
+          <div className="text-[11px] truncate text-white/60">{user.role}</div>
         </div>
       </div>
     </>
   );
 
   return (
-    <div className={`flex min-h-screen w-full font-sans ${shellClass}`}>
+    <div className={`flex min-h-screen w-full font-sans ${shellClass} ${isAdmin ? "admin-portal" : ""}`}>
       {/* ── Desktop Sidebar ──────────────────────────────────────── */}
       <aside className={`hidden md:flex flex-col w-64 shrink-0 border-r ${sidebarClass} sticky top-0 h-screen overflow-hidden`}>
         <SidebarContent />
@@ -130,7 +126,7 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto overflow-x-hidden">
         {/* Mobile Header */}
-        <div className={`md:hidden flex items-center justify-between h-16 px-4 border-b sticky top-0 z-40 ${isAdmin ? "bg-[#110828] border-white/5" : "bg-[#0B1F3A] border-white/10"}`}>
+        <div className={`md:hidden flex items-center justify-between h-16 px-4 border-b sticky top-0 z-40 bg-[#0B1F3A] border-white/10`}>
           <div className={`font-display font-bold text-lg ${brandColorClass}`}>{brand}</div>
           <button onClick={() => setMobileMenuOpen(true)} className="p-2 -mr-2">
             <Menu className="w-5 h-5 opacity-70" />
