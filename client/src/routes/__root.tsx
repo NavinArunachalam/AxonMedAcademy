@@ -114,6 +114,7 @@ function RootComponent() {
 
     const setupDeepLinkListener = async () => {
       try {
+        const { App } = await import('@capacitor/app');
         const handler = (event: any) => {
           if (!active) return;
           console.log('[Capacitor] App opened with URL:', event.url);
