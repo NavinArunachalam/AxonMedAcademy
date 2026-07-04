@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { App } from "@capacitor/app";
 import { getCurrentUser, getClassrooms } from "@/lib/api";
 import { classroomStore, type User } from "@/lib/classroomStore";
 import { initFCM } from "@/lib/fcm";
@@ -113,7 +114,6 @@ function RootComponent() {
 
     const setupDeepLinkListener = async () => {
       try {
-        const { App } = await import('@capacitor/app');
         const handler = (event: any) => {
           if (!active) return;
           console.log('[Capacitor] App opened with URL:', event.url);
