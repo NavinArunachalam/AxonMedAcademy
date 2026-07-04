@@ -52,6 +52,63 @@ function LiveClassroomRoom() {
   const { currentUser: user, accessToken: token } = useClassroomStore();
   const { status, activePanel, raisedHands } = useSelector((s: any) => s.meeting);
 
+  // WebRTC getDisplayMedia Screen Share Polyfill for Capacitor Android App
+  useEffect(() => {
+    const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
+    if (!isCapacitor) return;
+
+    if (navigator.mediaDevices && !(navigator.mediaDevices as any).getDisplayMedia) {
+      (navigator.mediaDevices as any).getDisplayMedia = async function (options?: any) {
+        let canvas = document.getElementById('native-screen-share-canvas') as HTMLCanvasElement;
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.id = 'native-screen-share-canvas';
+          canvas.width = 640;
+          canvas.height = 360;
+          canvas.style.display = 'none';
+          document.body.appendChild(canvas);
+        }
+        const ctx = canvas.getContext('2d');
+
+        const { registerPlugin } = await import('@capacitor/core');
+        const ScreenShare = registerPlugin<any>('ScreenSharePlugin');
+
+        const frameListener = (event: any) => {
+          if (!event || !event.base64) return;
+          const img = new Image();
+          img.onload = () => {
+            if (ctx) {
+              if (canvas.width !== img.width || canvas.height !== img.height) {
+                canvas.width = img.width;
+                canvas.height = img.height;
+              }
+              ctx.drawImage(img, 0, 0);
+            }
+          };
+          img.src = 'data:image/jpeg;base64,' + event.base64;
+        };
+
+        await ScreenShare.startScreenShare();
+        const listener = await ScreenShare.addListener('onFrame', frameListener);
+
+        const stream = (canvas as any).captureStream(8);
+        const videoTrack = stream.getVideoTracks()[0];
+
+        const originalStop = videoTrack.stop.bind(videoTrack);
+        videoTrack.stop = () => {
+          originalStop();
+          listener.remove();
+          ScreenShare.stopScreenShare().catch(console.error);
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        };
+
+        return stream;
+      };
+    }
+  }, []);
+
   // Manage body class for scoped meeting styles
   useEffect(() => {
     document.body.classList.add('in-meeting');
@@ -602,7 +659,6 @@ function _MediaControllerSync({
           onToggleScreen(next);
         } catch (e: any) {
           console.warn('[LK] screen', e);
-          // LiveKit throws a meaningful error if screen share is unsupported on the platform
           alert("Could not start screen sharing: " + (e?.message || String(e)));
         }
       },
