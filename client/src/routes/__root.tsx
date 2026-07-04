@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { App } from "@capacitor/app";
 import { getCurrentUser, getClassrooms } from "@/lib/api";
 import { classroomStore, type User } from "@/lib/classroomStore";
 import { initFCM } from "@/lib/fcm";
@@ -102,6 +103,54 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [authReady, setAuthReady] = useState(false);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  const router = useRouter();
+
+  // Handle Capacitor custom scheme deep linking
+  useEffect(() => {
+    const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
+    if (!isCapacitor) return;
+
+    let active = true;
+
+    const setupDeepLinkListener = async () => {
+      try {
+        const handler = (event: any) => {
+          if (!active) return;
+          console.log('[Capacitor] App opened with URL:', event.url);
+          
+          // Match URL format: edumeetlive://meeting/ROOM_ID?token=TOKEN
+          const match = event.url.match(/edumeetlive:\/\/meeting\/([^\/?#]+)/);
+          if (match) {
+            const roomId = match[1];
+            console.log('[Capacitor] Routing to live class room:', roomId);
+            router.navigate({ to: '/live/$roomId', params: { roomId } });
+          }
+        };
+
+        // Add the listener
+        const listener = await App.addListener('appUrlOpen', handler);
+
+        // Check if app was launched with a URL directly (cold start)
+        const launchUrl = await App.getLaunchUrl();
+        if (launchUrl && launchUrl.url) {
+          handler(launchUrl);
+        }
+
+        return () => {
+          active = false;
+          listener.remove();
+        };
+      } catch (err) {
+        console.warn('[Capacitor] Deep link setup failed:', err);
+      }
+    };
+
+    const cleanupPromise = setupDeepLinkListener();
+    return () => {
+      active = false;
+      cleanupPromise.then(cleanup => cleanup && cleanup());
+    };
+  }, [router]);
 
   useEffect(() => {
     // On every page load, verify the stored token is still valid with the server.
