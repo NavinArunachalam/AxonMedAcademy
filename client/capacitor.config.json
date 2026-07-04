@@ -3,7 +3,9 @@
   "appName": "EduMeet Live",
   "webDir": "dist/client",
   "server": {
-    "androidScheme": "https"
+    "url": "https://oc-pro.vercel.app",
+    "androidScheme": "https",
+    "cleartext": true
   },
   "plugins": {
     "ScreenOrientation": {
