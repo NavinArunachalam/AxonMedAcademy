@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, Navigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { isMobileDevice } from '@/utils/deviceDetect';
+import { openNativeApp } from '@/utils/nativeApp';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { store } from '@/store';
 import { useClassroomStore } from '@/lib/classroomStore';
@@ -64,6 +66,18 @@ function LiveClassroomRoom() {
   const [liveRoomId, setLiveRoomId] = useState<string | null>(routeRoomId);
   const roomIdRef = useRef<string | null>(routeRoomId);
   const [lkToken, setLkToken] = useState<string | null>(null);
+
+  const [continueInBrowser, setContinueInBrowser] = useState(false);
+  const isMobileOrTablet = isMobileDevice();
+  const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
+  const showRedirectOverlay = isMobileOrTablet && !isCapacitor && !continueInBrowser;
+
+  // Auto redirect to app if on mobile/tablet browser when class becomes live and token is fetched
+  useEffect(() => {
+    if (showRedirectOverlay && status === 'live' && liveRoomId && lkToken) {
+      openNativeApp(liveRoomId, lkToken);
+    }
+  }, [showRedirectOverlay, status, liveRoomId, lkToken]);
 
   // REST API calls to track attendance in MongoDB
   useEffect(() => {
@@ -271,6 +285,122 @@ function LiveClassroomRoom() {
     dispatch(removeFromWaiting(req.socketId));
     dismissRequest(req.id);
   };
+
+  if (showRedirectOverlay) {
+    return (
+      <div style={{
+        height: '100vh',
+        background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.3), transparent), #070412',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        padding: '20px',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        color: '#fff',
+        textAlign: 'center'
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(16px)',
+          borderRadius: '24px',
+          padding: '40px 32px',
+          maxWidth: '440px',
+          width: '100%',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '24px'
+        }}>
+          {/* Logo / Icon */}
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #7C3AED, #A855F7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 16px rgba(124, 58, 237, 0.3)'
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.362a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+            </svg>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', margin: 0, letterSpacing: '-0.02em' }}>Axon Med Academy</h2>
+            <p style={{ color: '#A78BFA', fontSize: '14px', fontWeight: '600', margin: 0 }}>Live Class & Screen Share Optimization</p>
+          </div>
+
+          <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
+            To start or view screen sharing on mobile and tablet devices, please open this class in the <strong>EduMeet Live App</strong>.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px', marginTop: '8px' }}>
+            <button
+              onClick={() => openNativeApp(displayRoomId || '', lkToken || '')}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: 'linear-gradient(135deg, #7C3AED, #A855F7)',
+                border: 'none',
+                borderRadius: '12px',
+                color: '#fff',
+                fontWeight: '700',
+                fontSize: '15px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 12px rgba(124, 58, 237, 0.2)'
+              }}
+            >
+              Open in App
+            </button>
+
+            <a
+              href="/uploads/app-release.apk"
+              download
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                color: '#E2E8F0',
+                fontWeight: '600',
+                fontSize: '14px',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                display: 'inline-block',
+                boxSizing: 'border-box',
+                transition: 'all 0.2s'
+              }}
+            >
+              Download APK
+            </a>
+          </div>
+
+          <button
+            onClick={() => setContinueInBrowser(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'rgba(255, 255, 255, 0.4)',
+              fontSize: '13px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              marginTop: '4px'
+            }}
+          >
+            Continue in browser anyway
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (status === 'waiting') {
     return (
