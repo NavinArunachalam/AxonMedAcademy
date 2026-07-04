@@ -61,7 +61,7 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
       <div className={`h-16 flex items-center justify-between px-6 border-b border-white/10 font-display font-bold text-lg tracking-tight ${brandColorClass} shrink-0`}>
         {brand}
         <button className="md:hidden" onClick={() => setMobileMenuOpen(false)}>
-          <X className="w-5 h-5 opacity-70" />
+          <X className="w-5 h-5 text-white" />
         </button>
       </div>
 
@@ -129,7 +129,7 @@ export function PortalShell({ variant, brand, nav, user, children }: PortalShell
         <div className={`md:hidden flex items-center justify-between h-16 px-4 border-b sticky top-0 z-40 bg-[#0B1F3A] border-white/10`}>
           <div className={`font-display font-bold text-lg ${brandColorClass}`}>{brand}</div>
           <button onClick={() => setMobileMenuOpen(true)} className="p-2 -mr-2">
-            <Menu className="w-5 h-5 opacity-70" />
+            <Menu className="w-5 h-5 text-white" />
           </button>
         </div>
 
