@@ -67,7 +67,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Axon Med Academy — Dream. Prepare. Achieve." },
       { name: "description", content: "India's #1 paramedical training academy. Live classes, proctored exams, blockchain certificates, 95% placement rate across 200+ partner hospitals." },
       { property: "og:title", content: "Axon Med Academy" },
-      { property: "og:description", content: "Train. Certify. Get placed in leading hospitals." },
+      { property: "og:description", content: "Dream. Prepare. Achieve." },
       { property: "og:image", content: "/logo.jpeg" },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
