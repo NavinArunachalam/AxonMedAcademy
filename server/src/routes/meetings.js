@@ -456,10 +456,10 @@ router.post('/', async (req, res, next) => {
       const notifications = studentIds.map((studentId) => ({
         recipient: studentId,
         type: 'live_session',
-        title: `Join live class: ${title}`,
-        message: `${title} is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Join link: ${process.env.CLIENT_URL || 'http://localhost:8080'}/live/${roomCode}`,
+        title: `Live class scheduled: ${title}`,
+        message: `${title} is scheduled for ${new Date(scheduledAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}.`,
         priority: 'medium',
-        actionUrl: `/live/${roomCode}`,
+        actionUrl: `/student/live`,
         metadata: {
           classroom: classroomDoc._id,
           meetingId: meeting._id,
@@ -511,7 +511,9 @@ router.post('/', async (req, res, next) => {
         const allTokens = [...new Set(studentsWithTokens.flatMap((u) => u.fcmTokens))];
 
         if (allTokens.length > 0) {
-          const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+          const rawUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+          const urls = rawUrl.split(',').map(u => u.trim()).filter(Boolean);
+          const clientUrl = urls.find(u => u.startsWith('https://')) || urls[0];
           const scheduledTime = new Date(scheduledAt).toLocaleString('en-IN', {
             timeZone: 'Asia/Kolkata',
             day: '2-digit', month: 'short',
@@ -646,7 +648,9 @@ router.post('/:id/start', async (req, res, next) => {
           const allTokens = [...new Set(studentsWithTokens.flatMap((u) => u.fcmTokens))];
 
           if (allTokens.length > 0) {
-            const clientUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+            const rawUrl = process.env.CLIENT_URL || 'http://localhost:8080';
+            const urls = rawUrl.split(',').map(u => u.trim()).filter(Boolean);
+            const clientUrl = urls.find(u => u.startsWith('https://')) || urls[0];
             const classroomName = classroomDoc.name || 'your class';
 
             sendFCMNotification(allTokens, {
