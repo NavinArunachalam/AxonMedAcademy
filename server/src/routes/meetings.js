@@ -606,6 +606,10 @@ router.post('/:id/start', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
+    if (meeting.status === 'live') {
+      return res.status(400).json({ success: false, message: 'Meeting is already live' });
+    }
+
     meeting.status = 'live';
     meeting.startedAt = new Date();
     await meeting.save();
