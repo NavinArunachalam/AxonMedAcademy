@@ -72,7 +72,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { property: "og:type", content: "website" },
-      
+      { name: "google-site-verification", content: "c1RnvmOxsCqv3w95ekdPijnT2elFME4TrVqiAdPcuhU" },
     ],
     links: [
       { rel: "icon", type: "image/jpeg", href: "/logo.jpeg" },
