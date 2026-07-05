@@ -44,20 +44,7 @@ public class ScreenSharePlugin extends Plugin {
     private HandlerThread handlerThread;
     private Handler backgroundHandler;
 
-    private final ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            ScreenShareService.LocalBinder binder = (ScreenShareService.LocalBinder) service;
-            screenShareService = binder.getService();
-            isServiceBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            isServiceBound = false;
-            screenShareService = null;
-        }
-    };
+    private ServiceConnection serviceConnection = null;
 
     @PluginMethod
     public void startScreenShare(PluginCall call) {
@@ -85,7 +72,7 @@ public class ScreenSharePlugin extends Plugin {
 
             Intent serviceIntent = new Intent(getContext(), ScreenShareService.class);
             getContext().startService(serviceIntent);
-            getContext().bindService(serviceIntent, new ServiceConnection() {
+            serviceConnection = new ServiceConnection() {
                 @Override
                 public void onServiceConnected(ComponentName name, IBinder service) {
                     ScreenShareService.LocalBinder binder = (ScreenShareService.LocalBinder) service;
@@ -103,7 +90,8 @@ public class ScreenSharePlugin extends Plugin {
                     isServiceBound = false;
                     screenShareService = null;
                 }
-            }, Context.BIND_AUTO_CREATE);
+            };
+            getContext().bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
         } else {
             call.reject("Permission denied or cancelled by user");
         }
@@ -230,13 +218,14 @@ public class ScreenSharePlugin extends Plugin {
             backgroundHandler = null;
         }
 
-        if (isServiceBound) {
+        if (isServiceBound && serviceConnection != null) {
             try {
                 getContext().unbindService(serviceConnection);
             } catch (Exception e) {
                 // Ignore
             }
             isServiceBound = false;
+            serviceConnection = null;
         }
         
         try {
