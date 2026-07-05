@@ -320,15 +320,10 @@ exports.sendMeetingScheduledEmail = async (student, meeting, classroomName) => {
           </div>
 
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${joinUrl}" style="background: linear-gradient(135deg, #84CC16, #65a30d); color: #1A0F33; text-decoration: none; padding: 14px 36px; font-weight: 700; border-radius: 50px; display: inline-block; font-size: 15px; box-shadow: 0 4px 14px rgba(132,204,22,0.4);">
-              ▶ Join Live Class
+            <a href="${clientUrl}/student/live" style="background: linear-gradient(135deg, #84CC16, #65a30d); color: #1A0F33; text-decoration: none; padding: 14px 36px; font-weight: 700; border-radius: 50px; display: inline-block; font-size: 15px; box-shadow: 0 4px 14px rgba(132,204,22,0.4);">
+              View Schedule
             </a>
           </div>
-
-          <p style="font-size: 12px; color: #9ca3af; text-align: center;">
-            If the button doesn't work, paste this link in your browser:<br>
-            <a href="${joinUrl}" style="color: #7C3AED;">${joinUrl}</a>
-          </p>
         </div>
         <div style="background: #f8fafc; padding: 16px 28px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
           © ${new Date().getFullYear()} Axon Academy. All rights reserved.

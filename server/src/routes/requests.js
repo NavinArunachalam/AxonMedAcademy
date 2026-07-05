@@ -209,10 +209,14 @@ router.put('/:id/approve', async (req, res, next) => {
     }
 
     // 5. Send notifications
+    const rawUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const urls = rawUrl.split(',').map(u => u.trim()).filter(Boolean);
+    const clientUrl = urls.find(u => u.startsWith('https://')) || urls[0];
+    
     await whatsappService.send({
       phone: request.phone,
       template: 'account_approved',
-      data: { name: request.fullName, loginUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/login` }
+      data: { name: request.fullName, loginUrl: `${clientUrl}/auth/login` }
     });
 
     try {

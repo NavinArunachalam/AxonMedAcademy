@@ -267,7 +267,20 @@ const initSocket = (server) => {
           participants: new Map(),
         });
       } else {
-        rooms.get(roomId).hostSocketId = socket.id;
+        const room = rooms.get(roomId);
+        room.hostSocketId = socket.id;
+        room.hostUserId = user.userId;
+        room.hostName = user.name;
+        if (!room.startedAt) room.startedAt = new Date();
+        
+        // Notify host about existing students in waiting room
+        room.waitingList.forEach(w => {
+           socket.emit('join-request', {
+             socketId: w.socketId,
+             userId: w.userId,
+             name: w.name
+           });
+        });
       }
 
       const room = rooms.get(roomId);
@@ -279,9 +292,30 @@ const initSocket = (server) => {
     });
 
     // ── STUDENT: Request to join (enters waiting room)
-    socket.on('student-request-join', ({ roomId }, cb) => {
-      const room = rooms.get(roomId);
-      if (!room) return cb?.({ error: 'Room not found. The class may not have started yet.' });
+    socket.on('student-request-join', async ({ roomId }, cb) => {
+      let room = rooms.get(roomId);
+      if (!room) {
+        // Allow waiting even if host hasn't joined yet, verify meeting exists in DB
+        try {
+          const LiveMeeting = require('../models/LiveMeeting');
+          const meeting = await LiveMeeting.findOne({ roomId });
+          if (!meeting || meeting.status === 'cancelled' || meeting.status === 'ended') {
+            return cb?.({ error: 'Class is not available.' });
+          }
+          // Initialize room structure
+          rooms.set(roomId, {
+            hostSocketId: null,
+            hostUserId: null,
+            hostName: null,
+            startedAt: null,
+            waitingList: [],
+            participants: new Map(),
+          });
+          room = rooms.get(roomId);
+        } catch (err) {
+          return cb?.({ error: 'Failed to verify class.' });
+        }
+      }
 
       const alreadyWaiting = room.waitingList.some(w => w.socketId === socket.id);
       if (!alreadyWaiting) {
@@ -289,12 +323,14 @@ const initSocket = (server) => {
       }
       socketUsers.set(socket.id, { ...user, roomId, waiting: true });
 
-      // Notify staff/host
-      io.to(room.hostSocketId).emit('join-request', {
-        socketId: socket.id,
-        userId: user.userId,
-        name: user.name,
-      });
+      // Notify staff/host if they are already in the room
+      if (room.hostSocketId) {
+        io.to(room.hostSocketId).emit('join-request', {
+          socketId: socket.id,
+          userId: user.userId,
+          name: user.name,
+        });
+      }
 
       cb?.({ status: 'waiting' });
     });
