@@ -25,7 +25,7 @@ export default function VideoTile({
       }}
     >
       {/* Video stream */}
-      {showVideo && trackRef && (
+      {showVideo && trackRef && (!isLocal || !isScreenShare) && (
         <VideoTrack
           trackRef={trackRef}
           style={{
@@ -34,6 +34,33 @@ export default function VideoTile({
             transform: isLocal && !isScreenShare ? 'scaleX(-1)' : 'none',
           }}
         />
+      )}
+
+      {/* Local Screen Share Placeholder */}
+      {showVideo && trackRef && isLocal && isScreenShare && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
+          width: '100%', height: '100%', justifyContent: 'center',
+          background: 'linear-gradient(135deg, #0F0820 0%, #1A0D3A 100%)',
+          position: 'absolute', inset: 0,
+        }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%',
+            background: 'rgba(124,58,237,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#A855F7',
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <h3 style={{ color: 'white', margin: '0 0 8px 0', fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '18px' }}>You are presenting</h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', margin: 0, fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '14px' }}>Everyone can see your screen</p>
+          </div>
+        </div>
       )}
 
       {/* Audio — use dedicated mic trackRef; never play local audio back to avoid echo */}
