@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
-  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink, LuAward
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink, LuAward, LuShare2, LuUserPlus
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
@@ -23,7 +23,7 @@ import {
 } from "@/lib/classroomStore";
 import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
-
+import { toast } from "sonner";
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
   component: AdminClassroomDetail,
 });
@@ -76,6 +76,7 @@ const TABS = [
   { key: "recordings", label: "Recordings", icon: LuCircleDot },
   { key: "tests", label: "Tests", icon: LuClipboardList },
   { key: "students", label: "Students", icon: LuUsers },
+  { key: "requests", label: "Join Requests", icon: LuUserPlus },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -86,12 +87,10 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
   const [text, setText] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState("");
   const [driveLink, setDriveLink] = useState("");
 
   const handlePost = async () => {
     if (!text.trim() || isPosting) return;
-    setError("");
     setIsPosting(true);
     try {
       let attachments: any[] = [];
@@ -102,8 +101,9 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
       setText("");
       setDriveLink("");
       await refreshClassroom();
+      toast.success("Announcement posted successfully!");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not post announcement");
+      toast.error(err instanceof Error ? err.message : "Could not post announcement");
     } finally {
       setIsPosting(false);
     }
@@ -111,13 +111,13 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
 
   const handleDelete = async (announcementId: string) => {
     if (deletingId) return;
-    setError("");
     setDeletingId(announcementId);
     try {
       await deleteClassroomAnnouncement(classroom.id, announcementId);
       await refreshClassroom();
+      toast.success("Announcement deleted.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete announcement");
+      toast.error(err instanceof Error ? err.message : "Could not delete announcement");
     } finally {
       setDeletingId(null);
     }
@@ -125,12 +125,6 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
 
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
-
       {/* Compose */}
       <DarkCard>
         <h3 className="font-display font-bold text-sm text-cream mb-3 flex items-center gap-2">
@@ -201,18 +195,18 @@ function AnnouncementsTab({ classroom, refreshClassroom }: { classroom: Classroo
                   <p className="text-cream/80 text-sm leading-relaxed">{ann.content}</p>
                   {ann.attachments && ann.attachments.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                        {ann.attachments.map((at: any, i: number) => (
-                          <a
-                            key={i}
-                            href={at.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 bg-cream/5 border border-cream/10 rounded-lg px-3 py-2 text-xs font-semibold text-cream/70 hover:bg-cream/10 hover:text-lime transition-all"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                            {"View PDF"}
-                          </a>
-                        ))}
+                      {ann.attachments.map((at: any, i: number) => (
+                        <a
+                          key={i}
+                          href={at.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 bg-cream/5 border border-cream/10 rounded-lg px-3 py-2 text-xs font-semibold text-cream/70 hover:bg-cream/10 hover:text-lime transition-all"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
+                          {"View PDF"}
+                        </a>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -241,9 +235,8 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", scheduledAt: "", duration: 60 });
   const [notifyStudents, setNotifyStudents] = useState(true);
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-
+  const [startingMeetingId, setStartingMeetingId] = useState<string | null>(null);
   const formatForDateTimeLocal = (value: string) => {
     if (!value) return "";
     // normalize ISO and local datetime values for the browser picker
@@ -252,42 +245,46 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
   };
 
   const handleDeleteMeeting = async (meetingId: string) => {
-    setError("");
     setDeletingMeetingId(meetingId);
     try {
       await deleteMeeting(meetingId);
       await refreshClassroom();
+      toast.success("Meeting deleted.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete meeting");
+      toast.error(err instanceof Error ? err.message : "Could not delete meeting");
     } finally {
       setDeletingMeetingId(null);
     }
   };
 
   const handleStartMeeting = async (meetingId: string) => {
-    setError("");
+    if (startingMeetingId) return;
+
+    setStartingMeetingId(meetingId);
+
     try {
       await apiStartMeeting(meetingId);
       await refreshClassroom();
+      toast.success("Meeting started!");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start meeting");
+      toast.error(err instanceof Error ? err.message : "Could not start meeting");
+    } finally {
+      setStartingMeetingId(null);
     }
   };
-
   const handleEndMeeting = async (meetingId: string) => {
-    setError("");
     try {
       await apiEndMeeting(meetingId);
       await refreshClassroom();
+      toast.success("Meeting ended.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not end meeting");
+      toast.error(err instanceof Error ? err.message : "Could not end meeting");
     }
   };
 
   const handleSchedule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title || !form.scheduledAt) return;
-    setError("");
     setSaving(true);
     createMeeting({
       classroom: cls.code || classroomId,
@@ -302,12 +299,11 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
         await refreshClassroom();
         setForm({ title: "", description: "", scheduledAt: "", duration: 60 });
         setShowForm(false);
-        alert("Live class scheduled successfully!");
+        toast.success("Live class scheduled successfully!");
       })
       .catch((err) => {
         console.error("Schedule Error:", err);
-        setError(err.message || "Could not schedule meeting");
-        alert("Error scheduling meeting: " + (err.message || "Unknown error"));
+        toast.error(err.message || "Could not schedule meeting");
       })
       .finally(() => setSaving(false));
   };
@@ -369,7 +365,6 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
               />
               <label htmlFor="notify-students" className="select-none">Send join-link notification to active students</label>
             </div>
-            {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold">Cancel</button>
               <button type="submit" disabled={saving} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-50">{saving ? 'Scheduling…' : 'Confirm & Schedule'}</button>
@@ -402,9 +397,41 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {m.status === "scheduled" && (
-                    <button onClick={() => void handleStartMeeting(m.id)}
-                      className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold flex items-center gap-1">
-                      <LuPlay className="h-3 w-3" /> Start
+                    <button
+                      onClick={() => void handleStartMeeting(m.id)}
+                      disabled={startingMeetingId === m.id}
+                      className="rounded-full bg-lime text-plum-dark px-4 py-2 text-xs font-bold flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {startingMeetingId === m.id ? (
+                        <>
+                          <svg
+                            className="h-3.5 w-3.5 animate-spin"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                          >
+                            <circle
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              opacity="0.25"
+                            />
+                            <path
+                              d="M22 12a10 10 0 00-10-10"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          Starting...
+                        </>
+                      ) : (
+                        <>
+                          <LuPlay className="h-3 w-3" />
+                          Start
+                        </>
+                      )}
                     </button>
                   )}
                   {m.status === "live" && (
@@ -430,8 +457,6 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
           </div>
         </div>
       )}
-
-      {error && <p className="text-sm text-red-400">{error}</p>}
 
       {/* Past */}
       {past.length > 0 && (
@@ -484,7 +509,6 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
   const [uploadPhase, setUploadPhase] = useState<'idle' | 'preparing' | 'uploading' | 'saving'>('idle');
-  const [uploadError, setUploadError] = useState<string | null>(null);
   // Multipart tracking — null when using single-PUT path
   const [uploadPartInfo, setUploadPartInfo] = useState<{ part: number; totalParts: number } | null>(null);
   const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
@@ -497,7 +521,6 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [reuseTitle, setReuseTitle] = useState("");
   const [reuseDescription, setReuseDescription] = useState("");
   const [isReusing, setIsReusing] = useState(false);
-  const [reuseError, setReuseError] = useState<string | null>(null);
 
   const formatMB = (bytes: number) => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -507,7 +530,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     e.preventDefault();
     if (!form.title) return;
     if (!videoFile) {
-      setUploadError('Please select a video file to upload');
+      toast.error('Please select a video file to upload');
       return;
     }
 
@@ -515,7 +538,6 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     setUploadProgress(0);
     setUploadBytes({ loaded: 0, total: 0 });
     setUploadPhase('preparing');
-    setUploadError(null);
 
     try {
       // Video goes directly to R2 — Railway never sees the file bytes
@@ -542,9 +564,10 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       setVideoFile(null);
       setShowForm(false);
       await refreshClassroom();
+      toast.success("Recording uploaded and processing.");
     } catch (error) {
       setUploadPhase('idle');
-      setUploadError(error instanceof Error ? error.message : 'Upload failed');
+      toast.error(error instanceof Error ? error.message : 'Upload failed');
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -564,11 +587,10 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     if (!selectedSourceRecordingId || !reuseTitle) return;
 
     setIsReusing(true);
-    setReuseError(null);
     try {
       await reuseClassroomRecording({
         sourceRecordingId: selectedSourceRecordingId,
-        targetClassroomId: classroom.id,
+        targetClassroomId: cls.id,
         title: reuseTitle,
         description: reuseDescription,
       });
@@ -578,9 +600,9 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       setReuseTitle("");
       setReuseDescription("");
       await refreshClassroom();
-      alert("Video recording reused successfully!");
+      toast.success("Recording reused successfully!");
     } catch (err) {
-      setReuseError(err instanceof Error ? err.message : "Failed to reuse recording");
+      toast.error(err instanceof Error ? err.message : "Failed to reuse recording");
     } finally {
       setIsReusing(false);
     }
@@ -710,7 +732,6 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                 {isReusing ? 'Reusing...' : 'Reuse Recording'}
               </button>
             </div>
-            {reuseError && <p className="text-sm text-red-400 mt-1">{reuseError}</p>}
           </form>
         </DarkCard>
       )}
@@ -880,7 +901,6 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                 ) : 'Save Recording'}
               </button>
             </div>
-            {uploadError && <p className="text-sm text-red-400 mt-1">{uploadError}</p>}
           </form>
         </DarkCard>
       )}
@@ -937,17 +957,15 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
 
                       try {
                         if (rec.isPublished) {
-                          console.log("Calling unpublishRecording...");
                           await unpublishRecording(rec.id);
+                          toast.success("Recording unpublished.");
                         } else {
-                          console.log("Calling publishRecording...");
                           await publishRecording(rec.id);
+                          toast.success("Recording published.");
                         }
-
-                        console.log("Refresh classroom...");
                         await refreshClassroom();
                       } catch (error) {
-                        console.error("Publish/Unpublish Error:", error);
+                        toast.error("Failed to publish/unpublish recording.");
                       }
                     }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
@@ -959,8 +977,9 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                       try {
                         await deleteRecording(rec.id);
                         await refreshClassroom();
+                        toast.success("Recording deleted.");
                       } catch (error) {
-                        console.error('Failed to delete recording', error);
+                        toast.error("Failed to delete recording.");
                       }
                     }}
                     className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
@@ -1155,7 +1174,6 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   const classroomId = classroom.id;
   const { classrooms } = useClassroomStore();
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [quizOperationQuizId, setQuizOperationQuizId] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [viewQuizId, setViewQuizId] = useState<string | null>(null);
@@ -1172,12 +1190,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   const [bulkNegEnabled, setBulkNegEnabled] = useState(false);
   const [bulkNegValue, setBulkNegValue] = useState(1);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [pdfError, setPdfError] = useState("");
 
   React.useEffect(() => {
     if (!viewQuizId) {
       setReportAttempts([]);
-      setReportError("");
       return;
     }
     let active = true;
@@ -1189,7 +1205,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
         if (!active) return;
         setReportAttempts(attempts);
       } catch (err) {
-        if (active) setReportError(err instanceof Error ? err.message : "Could not load quiz report");
+        if (active) toast.error(err instanceof Error ? err.message : "Could not load quiz report");
       } finally {
         if (active) setIsLoadingReport(false);
       }
@@ -1220,7 +1236,6 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
 
   const handleSave = async (status: Quiz["status"]) => {
     if (!quiz.title || quiz.questions.length === 0) return;
-    setSaveError(null);
     setIsSavingQuiz(true);
     try {
       if (editingQuizId) {
@@ -1237,9 +1252,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       setBulkMarksValue(4);
       setBulkNegEnabled(false);
       setBulkNegValue(1);
+      toast.success(status === "published" ? "Quiz published successfully!" : "Quiz saved as draft.");
     } catch (error) {
       console.error(error);
-      setSaveError(error instanceof Error ? error.message : 'Could not save quiz.');
+      toast.error(error instanceof Error ? error.message : 'Could not save quiz.');
     } finally {
       setIsSavingQuiz(false);
     }
@@ -1249,7 +1265,6 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     const file = e.target.files?.[0];
     if (!file) return;
     setIsGeneratingPdf(true);
-    setPdfError("");
     try {
       const generatedQuestions = await generateQuizFromPdf(file);
       if (generatedQuestions && Array.isArray(generatedQuestions)) {
@@ -1267,15 +1282,16 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
             isCorrect: !!o.isCorrect
           }))
         }));
-        
+
         setQuiz(prev => ({
           ...prev,
           questions: [...prev.questions, ...newQuestions]
         }));
+        toast.success("Questions generated from PDF.");
       }
     } catch (error) {
       console.error("PDF Generation error:", error);
-      setPdfError(error instanceof Error ? error.message : "Failed to generate questions from PDF");
+      toast.error(error instanceof Error ? error.message : "Failed to generate questions from PDF");
     } finally {
       setIsGeneratingPdf(false);
       // Reset input value to allow re-upload of same file if needed
@@ -1288,8 +1304,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     try {
       await publishQuiz(quizId);
       classroomActions.updateQuizStatus(classroomId, quizId, "published");
+      toast.success("Quiz published.");
     } catch (error) {
       console.error(error);
+      toast.error("Failed to publish quiz.");
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -1300,8 +1318,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     try {
       await closeQuiz(quizId);
       classroomActions.updateQuizStatus(classroomId, quizId, "closed");
+      toast.success("Quiz closed.");
     } catch (error) {
       console.error(error);
+      toast.error("Failed to close quiz.");
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -1312,8 +1332,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     try {
       await apiDeleteQuiz(quizId);
       classroomActions.deleteQuiz(classroomId, quizId);
+      toast.success("Quiz deleted.");
     } catch (error) {
       console.error(error);
+      toast.error("Failed to delete quiz.");
     } finally {
       setQuizOperationQuizId(null);
     }
@@ -1321,7 +1343,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
 
   const handleDownloadQuiz = (q: Quiz, format: 'pdf' | 'doc') => {
     const totalMarks = q.questions.reduce((s, quest) => s + quest.marks, 0);
-    
+
     // Create professional HTML structure
     let htmlContent = `
       <div class="header">
@@ -1355,7 +1377,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       });
       htmlContent += `</div></div>`; // end options and question
     });
-    
+
     htmlContent += `</div>`;
 
     const fullHtml = `
@@ -1446,13 +1468,13 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
         await createQuiz(targetId, quizData);
       }
 
-      alert("Quiz duplicated successfully to selected class(es)!");
+      toast.success("Quiz duplicated successfully to selected class(es)!");
       setDuplicateQuiz(null);
       setSelectedTargetClassrooms([]);
       await refreshClassroom();
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : "Duplication failed");
+      toast.error(err instanceof Error ? err.message : "Duplication failed");
     } finally {
       setIsDuplicating(false);
     }
@@ -1607,8 +1629,6 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           ))}
         </div>
 
-        {pdfError && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{pdfError}</div>}
-        
         <div className="flex gap-3">
           <button onClick={() => setQuiz((q) => ({ ...q, questions: [...q.questions, newQuestion(q.questions.length + 1, bulkMarksEnabled ? bulkMarksValue : 1)] }))}
             className="flex-1 rounded-2xl border-2 border-dashed border-lime/20 hover:border-lime/40 py-5 text-lime/70 hover:text-lime text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
@@ -1638,7 +1658,6 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
             {isSavingQuiz ? 'Publishing...' : 'Publish & Notify Students'}
           </button>
         </div>
-        {saveError && <p className="text-sm text-red-400 mt-2">{saveError}</p>}
       </div>
     );
   }
@@ -1669,12 +1688,6 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
             Refresh
           </button>
         </div>
-
-        {reportError && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {reportError}
-          </div>
-        )}
 
         <div className="grid grid-cols-3 gap-3">
           {[{ l: "Submitted", v: submitted.length }, { l: "Pass Rate", v: `${passRate}%` }, { l: "Avg Score", v: `${avgScore}%` }].map((s) => (
@@ -1723,7 +1736,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       <div className="flex justify-end">
         <button onClick={() => {
           setEditingQuizId(null);
-          setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking:true , negativeMarkValue: 1, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
+          setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: true, negativeMarkValue: 1, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
           setBulkMarksEnabled(false);
           setBulkMarksValue(1);
           setBulkNegEnabled(false);
@@ -1941,7 +1954,6 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
   const [showAdd, setShowAdd] = useState(false);
   const [mongoStudents, setMongoStudents] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
   const [isAdding, setIsAdding] = useState<string | null>(null);
-  const [error, setError] = useState("");
 
   React.useEffect(() => {
     let active = true;
@@ -1950,9 +1962,8 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
         const students = await getAdminUsers("student");
         if (!active) return;
         setMongoStudents(students);
-        setError("");
       } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Could not load students from MongoDB");
+        if (active) toast.error(err instanceof Error ? err.message : "Could not load students from MongoDB");
       }
     };
     loadStudents();
@@ -1964,26 +1975,26 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
   const refreshClassroomLocal = refreshClassroom;
 
   const handleAddStudent = async (studentId: string) => {
-    setError("");
     setIsAdding(studentId);
     try {
       await addStudentsToClassroom(classroom.id, [studentId]);
       await refreshClassroomLocal();
       setShowAdd(false);
+      toast.success("Student added to classroom.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add student to classroom");
+      toast.error(err instanceof Error ? err.message : "Could not add student to classroom");
     } finally {
       setIsAdding(null);
     }
   };
 
   const handleStatusChange = async (studentId: string, status: "active" | "held" | "removed") => {
-    setError("");
     try {
       await updateClassroomStudentStatus(classroom.id, studentId, status);
       await refreshClassroomLocal();
+      toast.success("Student status updated.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update student status");
+      toast.error(err instanceof Error ? err.message : "Could not update student status");
     }
   };
 
@@ -1998,8 +2009,6 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
           <LuPlus className="h-4 w-4" /> Add Student
         </button>
       </div>
-
-      {error && <p className="text-sm text-red-400">{error}</p>}
 
       {showAdd && notEnrolled.length > 0 && (
         <DarkCard>
@@ -2093,6 +2102,122 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
   );
 }
 
+// ─── Join Requests Tab ────────────────────────────────────────────────────────
+
+function JoinRequestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/classrooms/${classroom.id}/join-requests`, {
+        credentials: "include"
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRequests(data.requests);
+      } else {
+        toast.error(data.message || "Failed to load requests");
+      }
+    } catch (err) {
+      toast.error("Error loading join requests");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchRequests();
+  }, [classroom.id]);
+
+  const handleApprove = async (reqId: string) => {
+    setProcessing(reqId);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/classrooms/${classroom.id}/join-requests/${reqId}/approve`, {
+        method: "POST",
+        credentials: "include"
+      });
+      const data = await res.json();
+      if (data.success) {
+        await refreshClassroom();
+        fetchRequests();
+        toast.success("Student approved and enrolled.");
+      } else {
+        toast.error(data.message || "Failed to approve request");
+      }
+    } catch (err) {
+      toast.error("Error approving request");
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleReject = async (reqId: string) => {
+    setProcessing(reqId);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/classrooms/${classroom.id}/join-requests/${reqId}/reject`, {
+        method: "POST",
+        credentials: "include"
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchRequests();
+        toast.success("Join request rejected.");
+      } else {
+        toast.error(data.message || "Failed to reject request");
+      }
+    } catch (err) {
+      toast.error("Error rejecting request");
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  if (loading) return <div className="text-center py-8 text-cream/50">Loading requests...</div>;
+
+  return (
+    <div className="space-y-4">
+      {requests.length === 0 ? (
+        <DarkCard className="text-center py-10">
+          <p className="text-cream/50">No pending join requests.</p>
+        </DarkCard>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {requests.map(req => (
+            <DarkCard key={req._id}>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-cream font-bold">{req.fullName}</h3>
+                  <p className="text-cream/60 text-sm">{req.email}</p>
+                  <p className="text-cream/60 text-sm">{req.phone}</p>
+                </div>
+                <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">Pending</span>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  disabled={processing === req._id}
+                  onClick={() => handleReject(req._id)}
+                  className="flex-1 py-2 bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 font-semibold text-sm disabled:opacity-50"
+                >
+                  Reject
+                </button>
+                <button
+                  disabled={processing === req._id}
+                  onClick={() => handleApprove(req._id)}
+                  className="flex-1 py-2 bg-lime text-plum-dark rounded hover:bg-lime/90 font-bold text-sm disabled:opacity-50"
+                >
+                  {processing === req._id ? "Approving..." : "Approve"}
+                </button>
+              </div>
+            </DarkCard>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function AdminClassroomDetail() {
@@ -2108,7 +2233,6 @@ function AdminClassroomDetail() {
 
   // Only show the full-page spinner when we have NOTHING in cache
   const [isLoading, setIsLoading] = useState(!storeClassroom);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("announcements");
 
   const refreshClassroom = React.useCallback(async () => {
@@ -2130,12 +2254,11 @@ function AdminClassroomDetail() {
       if (storeClassroom && !isClassroomStale(id)) return;
 
       try {
-        setLoadError(null);
         if (!storeClassroom) setIsLoading(true);
         await refreshClassroom();
       } catch (err) {
         if (active && !storeClassroom) {
-          setLoadError(err instanceof Error ? err.message : "Could not load classroom by id");
+          toast.error(err instanceof Error ? err.message : "Could not load classroom by id");
         }
       } finally {
         if (active) setIsLoading(false);
@@ -2160,14 +2283,7 @@ function AdminClassroomDetail() {
     );
   }
 
-  if (loadError) {
-    return (
-      <div className="text-cream text-center py-20">
-        <p className="text-red-400">Error loading classroom: {loadError}</p>
-        <Link to="/admin/classrooms" className="mt-4 text-lime block">← Back to Classrooms</Link>
-      </div>
-    );
-  }
+
 
   if (!classroom) {
     return (
@@ -2198,6 +2314,15 @@ function AdminClassroomDetail() {
             <span className="text-cream/60 text-xs">{classroom.program}</span>
           </div>
         </div>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(`${window.location.origin}/classroom-join/${classroom.id}`);
+            toast.success('Share link copied to clipboard!');
+          }}
+          className="inline-flex items-center gap-2 rounded-full bg-lime/20 text-lime px-4 py-2 text-sm font-bold hover:bg-lime/30 transition-colors"
+        >
+          <LuShare2 className="h-4 w-4" /> Share Link
+        </button>
       </div>
 
       {/* Tab bar */}
@@ -2207,6 +2332,11 @@ function AdminClassroomDetail() {
             className={`shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>
             <t.icon className="h-3.5 w-3.5 shrink-0" />
             {t.label}
+            {t.key === 'requests' && (classroom.pendingJoinRequestsCount || 0) > 0 && (
+              <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full ${tab === t.key ? "bg-plum text-lime" : "bg-red-500 text-white"}`}>
+                {classroom.pendingJoinRequestsCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -2217,6 +2347,7 @@ function AdminClassroomDetail() {
       {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "tests" && <TestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
       {tab === "students" && <StudentsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+      {tab === "requests" && <JoinRequestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
     </div>
   );
 }

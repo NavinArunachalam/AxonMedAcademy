@@ -12,6 +12,7 @@ import { App } from "@capacitor/app";
 import { getCurrentUser, getClassrooms } from "@/lib/api";
 import { classroomStore, type User } from "@/lib/classroomStore";
 import { initFCM } from "@/lib/fcm";
+import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
 
@@ -247,6 +248,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <Toaster />
       {showPermissionPrompt && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden transform animate-in zoom-in-95 duration-200">

@@ -21,6 +21,7 @@ import { Route as StudentRouteImport } from './routes/_student'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LiveRoomIdRouteImport } from './routes/live.$roomId'
+import { Route as ClassroomJoinClassroomIdRouteImport } from './routes/classroom-join.$classroomId'
 import { Route as StudentStudentScheduleRouteImport } from './routes/_student.student.schedule'
 import { Route as StudentStudentProfileRouteImport } from './routes/_student.student.profile'
 import { Route as StudentStudentMessagesRouteImport } from './routes/_student.student.messages'
@@ -108,6 +109,12 @@ const LiveRoomIdRoute = LiveRoomIdRouteImport.update({
   path: '/live/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClassroomJoinClassroomIdRoute =
+  ClassroomJoinClassroomIdRouteImport.update({
+    id: '/classroom-join/$classroomId',
+    path: '/classroom-join/$classroomId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const StudentStudentScheduleRoute = StudentStudentScheduleRouteImport.update({
   id: '/student/schedule',
   path: '/student/schedule',
@@ -267,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
+  '/classroom-join/$classroomId': typeof ClassroomJoinClassroomIdRoute
   '/live/$roomId': typeof LiveRoomIdRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
   '/admin/certificates': typeof AdminAdminCertificatesRoute
@@ -307,6 +315,7 @@ export interface FileRoutesByTo {
   '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
+  '/classroom-join/$classroomId': typeof ClassroomJoinClassroomIdRoute
   '/live/$roomId': typeof LiveRoomIdRoute
   '/admin/analytics': typeof AdminAdminAnalyticsRoute
   '/admin/certificates': typeof AdminAdminCertificatesRoute
@@ -350,6 +359,7 @@ export interface FileRoutesById {
   '/faculty': typeof FacultyRoute
   '/login': typeof LoginRoute
   '/placements': typeof PlacementsRoute
+  '/classroom-join/$classroomId': typeof ClassroomJoinClassroomIdRoute
   '/live/$roomId': typeof LiveRoomIdRoute
   '/_admin/admin/analytics': typeof AdminAdminAnalyticsRoute
   '/_admin/admin/certificates': typeof AdminAdminCertificatesRoute
@@ -392,6 +402,7 @@ export interface FileRouteTypes {
     | '/faculty'
     | '/login'
     | '/placements'
+    | '/classroom-join/$classroomId'
     | '/live/$roomId'
     | '/admin/analytics'
     | '/admin/certificates'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/faculty'
     | '/login'
     | '/placements'
+    | '/classroom-join/$classroomId'
     | '/live/$roomId'
     | '/admin/analytics'
     | '/admin/certificates'
@@ -474,6 +486,7 @@ export interface FileRouteTypes {
     | '/faculty'
     | '/login'
     | '/placements'
+    | '/classroom-join/$classroomId'
     | '/live/$roomId'
     | '/_admin/admin/analytics'
     | '/_admin/admin/certificates'
@@ -517,6 +530,7 @@ export interface RootRouteChildren {
   FacultyRoute: typeof FacultyRoute
   LoginRoute: typeof LoginRoute
   PlacementsRoute: typeof PlacementsRoute
+  ClassroomJoinClassroomIdRoute: typeof ClassroomJoinClassroomIdRoute
   LiveRoomIdRoute: typeof LiveRoomIdRoute
 }
 
@@ -604,6 +618,13 @@ declare module '@tanstack/react-router' {
       path: '/live/$roomId'
       fullPath: '/live/$roomId'
       preLoaderRoute: typeof LiveRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/classroom-join/$classroomId': {
+      id: '/classroom-join/$classroomId'
+      path: '/classroom-join/$classroomId'
+      fullPath: '/classroom-join/$classroomId'
+      preLoaderRoute: typeof ClassroomJoinClassroomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_student/student/schedule': {
@@ -891,6 +912,7 @@ const rootRouteChildren: RootRouteChildren = {
   FacultyRoute: FacultyRoute,
   LoginRoute: LoginRoute,
   PlacementsRoute: PlacementsRoute,
+  ClassroomJoinClassroomIdRoute: ClassroomJoinClassroomIdRoute,
   LiveRoomIdRoute: LiveRoomIdRoute,
 }
 export const routeTree = rootRouteImport
