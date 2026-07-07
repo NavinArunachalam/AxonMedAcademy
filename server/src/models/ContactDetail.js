@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const contactDetailSchema = new mongoose.Schema({
-  name:    { type: String, default: 'Axon Academy' },
-  url:     { type: String, default: 'axon.academy' },
+  name:    { type: String, default: 'Axon Med Academy' },
+  url:     { type: String, default: 'axonmedacademy' },
   phone:   { type: String, default: '' },
   email:   { type: String, default: '' },
   hours:   { type: String, default: '' },

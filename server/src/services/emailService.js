@@ -43,21 +43,21 @@ exports.sendWelcomeEmail = async (user, password) => {
   const resend = getResend();
 
   const { data, error } = await resend.emails.send({
-    from: `Axon Academy <${fromEmail}>`,
+    from: `Axon Med Academy <${fromEmail}>`,
     to: [user.email],
-    subject: '🎓 Welcome to Axon Academy — Your Login Credentials',
+    subject: '🎓 Welcome to Axon Med Academy — Your Login Credentials',
     html: `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #1A0F33 0%, #4C1D95 100%); color: #fff; padding: 32px 28px; text-align: center;">
-          <h1 style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">Axon Academy</h1>
+          <h1 style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">Axon Med Academy</h1>
           <p style="margin: 8px 0 0 0; color: #c4b5fd; font-size: 14px;">Your learning journey starts now 🚀</p>
         </div>
 
         <!-- Body -->
         <div style="padding: 32px 28px;">
           <p style="font-size: 16px; margin-top: 0;">Dear <strong>${user.fullName}</strong>,</p>
-          <p>You have been successfully registered as a student at <strong>Axon Academy</strong>. Your account is ready to access.</p>
+          <p>You have been successfully registered as a student at <strong>Axon Med Academy</strong>. Your account is ready to access.</p>
 
           <!-- Credentials Box -->
           <div style="background: #f8f5ff; border: 1px solid #e9d5ff; border-left: 4px solid #7C3AED; border-radius: 8px; padding: 20px; margin: 24px 0;">
@@ -97,12 +97,12 @@ exports.sendWelcomeEmail = async (user, password) => {
             <li>Communicate with faculty and admins</li>
           </ul>
 
-          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Academy Admin Team</strong></p>
+          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Med Academy Admin Team</strong></p>
         </div>
 
         <!-- Footer -->
         <div style="background: #f8fafc; padding: 16px 28px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-          © ${new Date().getFullYear()} Axon Academy. All rights reserved.<br>
+          © ${new Date().getFullYear()} Axon Med Academy. All rights reserved.<br>
           If you did not expect this email, please contact <a href="mailto:${fromEmail}" style="color: #7C3AED;">${fromEmail}</a>.
         </div>
       </div>
@@ -126,19 +126,19 @@ exports.sendFacultyWelcomeEmail = async (user, password) => {
   const resend = getResend();
 
   const { data, error } = await resend.emails.send({
-    from: `Axon Academy <${fromEmail}>`,
+    from: `Axon Med Academy <${fromEmail}>`,
     to: [user.email],
-    subject: 'Welcome to Axon Academy - Faculty Login Credentials',
+    subject: 'Welcome to Axon Med Academy - Faculty Login Credentials',
     html: `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
         <div style="background: linear-gradient(135deg, #1A0F33 0%, #4C1D95 100%); color: #fff; padding: 32px 28px; text-align: center;">
-          <h1 style="margin: 0; font-size: 26px; font-weight: 700;">Axon Academy</h1>
+          <h1 style="margin: 0; font-size: 26px; font-weight: 700;">Axon Med Academy</h1>
           <p style="margin: 8px 0 0 0; color: #c4b5fd; font-size: 14px;">Your faculty portal access is ready</p>
         </div>
 
         <div style="padding: 32px 28px;">
           <p style="font-size: 16px; margin-top: 0;">Dear <strong>${user.fullName}</strong>,</p>
-          <p>You have been registered as a faculty member at <strong>Axon Academy</strong>. You can now log in to manage classes and student learning activities.</p>
+          <p>You have been registered as a faculty member at <strong>Axon Med Academy</strong>. You can now log in to manage classes and student learning activities.</p>
 
           <div style="background: #f8f5ff; border: 1px solid #e9d5ff; border-left: 4px solid #7C3AED; border-radius: 8px; padding: 20px; margin: 24px 0;">
             <p style="margin: 0 0 12px 0; font-weight: 700; color: #4C1D95; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">Your Login Credentials</p>
@@ -166,11 +166,11 @@ exports.sendFacultyWelcomeEmail = async (user, password) => {
 
           <p style="font-size: 14px; color: #6b7280;">On the portal you can manage classrooms, live sessions, recordings, quizzes, and student progress.</p>
 
-          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Academy Admin Team</strong></p>
+          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Med Academy Admin Team</strong></p>
         </div>
 
         <div style="background: #f8fafc; padding: 16px 28px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-          &copy; ${new Date().getFullYear()} Axon Academy. All rights reserved.<br>
+          &copy; ${new Date().getFullYear()} Axon Med Academy. All rights reserved.<br>
           If you did not expect this email, please contact <a href="mailto:${fromEmail}" style="color: #7C3AED;">${fromEmail}</a>.
         </div>
       </div>
@@ -192,9 +192,9 @@ exports.sendApprovalEmail = async (user) => {
   const resend = getResend();
 
   const { data, error } = await resend.emails.send({
-    from: `Axon Academy <${fromEmail}>`,
+    from: `Axon Med Academy <${fromEmail}>`,
     to: [user.email],
-    subject: '🎉 Your Axon Academy Account Has Been Approved!',
+    subject: '🎉 Your Axon Med Academy Account Has Been Approved!',
     html: `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
         <!-- Header -->
@@ -206,7 +206,7 @@ exports.sendApprovalEmail = async (user) => {
         <!-- Body -->
         <div style="padding: 32px 28px;">
           <p style="font-size: 16px; margin-top: 0;">Dear <strong>${user.fullName}</strong>,</p>
-          <p>We are excited to let you know that your registration request at <strong>Axon Academy</strong> has been reviewed and approved by our admissions team!</p>
+          <p>We are excited to let you know that your registration request at <strong>Axon Med Academy</strong> has been reviewed and approved by our admissions team!</p>
           <p>Your account is now fully active, and you can access all features on our learning portal.</p>
 
           <!-- Account Details Box -->
@@ -243,12 +243,12 @@ exports.sendApprovalEmail = async (user) => {
             <li>Communicate with faculty and admins</li>
           </ul>
 
-          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Academy Admin Team</strong></p>
+          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Med Academy Admin Team</strong></p>
         </div>
 
         <!-- Footer -->
         <div style="background: #f8fafc; padding: 16px 28px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-          © ${new Date().getFullYear()} Axon Academy. All rights reserved.<br>
+          © ${new Date().getFullYear()} Axon Med Academy. All rights reserved.<br>
           If you did not expect this email, please contact <a href="mailto:${fromEmail}" style="color: #10B981;">${fromEmail}</a>.
         </div>
       </div>
@@ -284,7 +284,7 @@ exports.sendMeetingScheduledEmail = async (student, meeting, classroomName) => {
   });
 
   const { data, error } = await resend.emails.send({
-    from: `Axon Academy <${fromEmail}>`,
+    from: `Axon Med Academy <${fromEmail}>`,
     to: [student.email],
     subject: `📅 Live Class Scheduled: ${meeting.title}`,
     html: `
@@ -326,7 +326,7 @@ exports.sendMeetingScheduledEmail = async (student, meeting, classroomName) => {
           </div>
         </div>
         <div style="background: #f8fafc; padding: 16px 28px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-          © ${new Date().getFullYear()} Axon Academy. All rights reserved.
+          © ${new Date().getFullYear()} Axon Med Academy. All rights reserved.
         </div>
       </div>
     `,
