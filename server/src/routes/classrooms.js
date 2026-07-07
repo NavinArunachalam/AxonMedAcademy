@@ -10,6 +10,8 @@ const LiveMeeting = require('../models/LiveMeeting');
 const ClassroomRecording = require('../models/ClassroomRecording');
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
+const ClassroomJoinRequest = require('../models/ClassroomJoinRequest');
+const { sendWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -18,7 +20,7 @@ const urlModule = require('url');
 const { cloudinary } = require('../config/cloudinary');
 
 // Multer for R2 uploads: keep file in memory so we can pass it to S3 SDK
-const r2Upload = multer({ 
+const r2Upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for PDFs
 });
@@ -219,8 +221,18 @@ const attachClassroomDetails = async (classrooms) => {
     return acc;
   }, {});
 
+  const joinRequests = await ClassroomJoinRequest.aggregate([
+    { $match: { classroom: { $in: classroomIds }, status: 'pending' } },
+    { $group: { _id: '$classroom', count: { $sum: 1 } } }
+  ]);
+  const joinReqCountByClassroom = joinRequests.reduce((acc, req) => {
+    acc[req._id.toString()] = req.count;
+    return acc;
+  }, {});
+
   const withDetails = list.map((classroom) => ({
     ...classroom,
+    pendingJoinRequestsCount: joinReqCountByClassroom[classroom._id.toString()] || 0,
     recordings: (recordingsByClassroom[classroom._id.toString()] || []).map(r => ({
       ...r,
       id: r._id.toString()
@@ -256,7 +268,7 @@ router.get('/r2-proxy', async (req, res, next) => {
     }
 
     const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-    
+
     const s3Client = new S3Client({
       endpoint: process.env.S3_API,
       region: 'auto',
@@ -274,7 +286,7 @@ router.get('/r2-proxy', async (req, res, next) => {
     });
 
     const response = await s3Client.send(command);
-    
+
     // Set appropriate headers
     const contentType = response.ContentType || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
@@ -302,7 +314,7 @@ router.get('/files', async (req, res, next) => {
   try {
     const { url } = req.query;
     console.log('[File Proxy] Received request for:', url);
-    
+
     if (!url) {
       return res.status(400).json({ success: false, message: 'Missing ?url= parameter' });
     }
@@ -338,7 +350,7 @@ router.get('/files', async (req, res, next) => {
     // Wait for stream to start before setting headers
     downloadStream.on('response', (streamRes) => {
       console.log('[File Proxy] Cloudinary responded with status:', streamRes.statusCode);
-      
+
       const contentType = streamRes.headers['content-type'] || 'application/octet-stream';
       res.setHeader('Content-Type', contentType);
       if (streamRes.headers['content-length']) {
@@ -348,7 +360,7 @@ router.get('/files', async (req, res, next) => {
       if (contentType === 'application/pdf') {
         res.setHeader('Content-Disposition', 'inline');
       }
-      
+
       streamRes.pipe(res);
     });
 
@@ -396,7 +408,7 @@ router.post('/upload-asset', protect, restrictTo('admin', 'superadmin', 'faculty
     // Upload to Cloudflare R2 using AWS SDK v3 S3Client
     const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
     const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-    
+
     // R2 is S3-compatible
     const s3Client = new S3Client({
       endpoint: process.env.S3_API,
@@ -409,7 +421,7 @@ router.post('/upload-asset', protect, restrictTo('admin', 'superadmin', 'faculty
 
     const bucket = process.env.CLOUDFLARE_R2_BUCKET;
     const objectKey = `classroom-assets/${Date.now()}-${req.file.originalname}`;
-    
+
     // Upload to R2 using PutObjectCommand
     await s3Client.send(new PutObjectCommand({
       Bucket: bucket,
@@ -430,9 +442,9 @@ router.post('/upload-asset', protect, restrictTo('admin', 'superadmin', 'faculty
       { expiresIn: 7 * 24 * 60 * 60 } // 7 days
     );
 
-// Return R2 proxy URL (frontend will use /api/v1/classrooms/r2-proxy?key=...)
-    const proxyUrl = `/api/v1/classrooms/r2-proxy?key=${encodeURIComponent(objectKey)}`;
-    
+    // Return R2 proxy URL (frontend will use /classrooms/r2-proxy?key=...)
+    const proxyUrl = `/classrooms/r2-proxy?key=${encodeURIComponent(objectKey)}`;
+
     console.log('[Upload Asset] Uploaded to R2, objectKey:', objectKey);
     console.log('[Upload Asset] Proxy URL:', proxyUrl);
 
@@ -522,6 +534,34 @@ router.put('/:id/announcements/:annoId/read', protect, async (req, res, next) =>
       { new: true }
     );
     res.json({ success: true, message: 'Announcement marked as read', announcement });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /:id/join-request → Public: Student request to join classroom
+router.post('/:id/join-request', async (req, res, next) => {
+  try {
+    const { fullName, email, phone, password } = req.body;
+    if (!fullName || !email || !phone || !password) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
+    }
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found.' });
+    }
+    const existingReq = await ClassroomJoinRequest.findOne({ email: email.toLowerCase(), classroom: req.params.id, status: 'pending' });
+    if (existingReq) {
+      return res.status(400).json({ success: false, message: 'You already have a pending request for this classroom.' });
+    }
+    const request = await ClassroomJoinRequest.create({
+      fullName,
+      email,
+      phone,
+      rawPassword: password,
+      classroom: req.params.id
+    });
+    res.status(201).json({ success: true, message: 'Join request sent successfully. Awaiting admin approval.' });
   } catch (error) {
     next(error);
   }
@@ -835,6 +875,88 @@ router.delete('/:id/announcements/:annoId', protect, restrictTo('admin', 'supera
     });
 
     res.json({ success: true, message: 'Announcement deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /:id/join-requests → Admin: Get pending join requests
+router.get('/:id/join-requests', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    const requests = await ClassroomJoinRequest.find({ classroom: req.params.id, status: 'pending' }).sort({ createdAt: -1 });
+    res.json({ success: true, requests });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /:id/join-requests/:requestId/approve → Admin: Approve join request
+router.post('/:id/join-requests/:requestId/approve', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    const joinReq = await ClassroomJoinRequest.findOne({ _id: req.params.requestId, classroom: req.params.id, status: 'pending' });
+    if (!joinReq) {
+      return res.status(404).json({ success: false, message: 'Join request not found or already processed.' });
+    }
+
+    // Check if user exists
+    let user = await User.findOne({ email: joinReq.email.toLowerCase() });
+
+    if (!user) {
+      // 1. Generate student user ID: Axon + last 2 year digits + random letters + numbers
+      const yearSuffix = String(new Date().getFullYear()).slice(-2);
+      const randomLetters = String.fromCharCode(65 + Math.floor(Math.random() * 26), 65 + Math.floor(Math.random() * 26));
+      const randomNumbers = String(Math.floor(1000 + Math.random() * 9000));
+      const generatedUserId = `Axon${yearSuffix}${randomLetters}${randomNumbers}`;
+
+      user = await User.create({
+        fullName: joinReq.fullName,
+        email: joinReq.email.toLowerCase(),
+        phone: joinReq.phone,
+        password: joinReq.rawPassword, // Hook will hash it
+        userId: generatedUserId,
+        role: 'student',
+        isVerified: true,
+        isActive: true
+      });
+    }
+
+    const classroom = await Classroom.findById(req.params.id);
+    const isEnrolled = classroom.students.some(s => s.student.toString() === user._id.toString());
+
+    if (!isEnrolled) {
+      classroom.students.push({ student: user._id, status: 'active', addedAt: new Date() });
+      await classroom.save();
+    }
+
+    joinReq.status = 'approved';
+    const rawPass = joinReq.rawPassword;
+    joinReq.rawPassword = ''; // Clear it
+    await joinReq.save();
+
+    // Send email
+    try {
+      await sendWelcomeEmail(user, rawPass);
+    } catch (e) {
+      console.error('Failed to send welcome email:', e);
+    }
+
+    res.json({ success: true, message: 'Request approved and student added successfully.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /:id/join-requests/:requestId/reject → Admin: Reject join request
+router.post('/:id/join-requests/:requestId/reject', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    const joinReq = await ClassroomJoinRequest.findOne({ _id: req.params.requestId, classroom: req.params.id, status: 'pending' });
+    if (!joinReq) {
+      return res.status(404).json({ success: false, message: 'Join request not found or already processed.' });
+    }
+    joinReq.status = 'rejected';
+    joinReq.rawPassword = ''; // Clear it
+    await joinReq.save();
+    res.json({ success: true, message: 'Request rejected successfully.' });
   } catch (error) {
     next(error);
   }
