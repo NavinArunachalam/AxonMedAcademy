@@ -10,15 +10,15 @@ Axon Med Academy is a full-stack e-learning platform where instructors can creat
 
 ## Features
 
-- 📚 Class creation and management
-- 🎥 Live classes with real-time join links
-- 🎬 Recorded classes / on-demand video library
-- 📢 Announcements system
-- 📝 Quiz creation and student assessments
-- 👩‍💻 Admin dashboard for managing students, classes, and content
-- 🔐 Secure authentication for students and admins
+- Class creation and management
+-  Live classes with real-time join links
+-  Recorded classes / on-demand video library
+-  Announcements system
+-  Quiz creation and student assessments
+-  Admin dashboard for managing students, classes, and content
+-  Secure authentication for students and admins
 
-## Tech Stack
+## Tech Stack   
 
 - **Frontend:** React.js
 - **Backend:** Node.js, Express.js
@@ -36,7 +36,8 @@ Axon Med Academy is a full-stack e-learning platform where instructors can creat
 <img width="960" height="504" alt="image" src="https://github.com/user-attachments/assets/5745a077-ff80-498c-b38a-8d54f36c60a6" />
 <img width="960" height="504" alt="image" src="https://github.com/user-attachments/assets/dd054690-06ff-4a2e-bb16-06a54459a39b" />
 
-
 ## Status
 
-🟢 Actively maintained and in production use.
+Actively maintained and in production use.
+
+

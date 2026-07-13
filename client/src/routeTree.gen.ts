@@ -31,6 +31,7 @@ import { Route as StudentStudentDashboardRouteImport } from './routes/_student.s
 import { Route as StudentStudentCertificatesRouteImport } from './routes/_student.student.certificates'
 import { Route as AdminAdminStudentsRouteImport } from './routes/_admin.admin.students'
 import { Route as AdminAdminSettingsRouteImport } from './routes/_admin.admin.settings'
+import { Route as AdminAdminRecordingsRouteImport } from './routes/_admin.admin.recordings'
 import { Route as AdminAdminPlacementsRouteImport } from './routes/_admin.admin.placements'
 import { Route as AdminAdminMessagesRouteImport } from './routes/_admin.admin.messages'
 import { Route as AdminAdminFinanceRouteImport } from './routes/_admin.admin.finance'
@@ -161,6 +162,11 @@ const AdminAdminSettingsRoute = AdminAdminSettingsRouteImport.update({
   path: '/admin/settings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAdminRecordingsRoute = AdminAdminRecordingsRouteImport.update({
+  id: '/admin/recordings',
+  path: '/admin/recordings',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAdminPlacementsRoute = AdminAdminPlacementsRouteImport.update({
   id: '/admin/placements',
   path: '/admin/placements',
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/admin/finance': typeof AdminAdminFinanceRoute
   '/admin/messages': typeof AdminAdminMessagesRoute
   '/admin/placements': typeof AdminAdminPlacementsRoute
+  '/admin/recordings': typeof AdminAdminRecordingsRoute
   '/admin/settings': typeof AdminAdminSettingsRoute
   '/admin/students': typeof AdminAdminStudentsRoute
   '/student/certificates': typeof StudentStudentCertificatesRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByTo {
   '/admin/finance': typeof AdminAdminFinanceRoute
   '/admin/messages': typeof AdminAdminMessagesRoute
   '/admin/placements': typeof AdminAdminPlacementsRoute
+  '/admin/recordings': typeof AdminAdminRecordingsRoute
   '/admin/settings': typeof AdminAdminSettingsRoute
   '/admin/students': typeof AdminAdminStudentsRoute
   '/student/certificates': typeof StudentStudentCertificatesRoute
@@ -370,6 +378,7 @@ export interface FileRoutesById {
   '/_admin/admin/finance': typeof AdminAdminFinanceRoute
   '/_admin/admin/messages': typeof AdminAdminMessagesRoute
   '/_admin/admin/placements': typeof AdminAdminPlacementsRoute
+  '/_admin/admin/recordings': typeof AdminAdminRecordingsRoute
   '/_admin/admin/settings': typeof AdminAdminSettingsRoute
   '/_admin/admin/students': typeof AdminAdminStudentsRoute
   '/_student/student/certificates': typeof StudentStudentCertificatesRoute
@@ -413,6 +422,7 @@ export interface FileRouteTypes {
     | '/admin/finance'
     | '/admin/messages'
     | '/admin/placements'
+    | '/admin/recordings'
     | '/admin/settings'
     | '/admin/students'
     | '/student/certificates'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/admin/finance'
     | '/admin/messages'
     | '/admin/placements'
+    | '/admin/recordings'
     | '/admin/settings'
     | '/admin/students'
     | '/student/certificates'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/_admin/admin/finance'
     | '/_admin/admin/messages'
     | '/_admin/admin/placements'
+    | '/_admin/admin/recordings'
     | '/_admin/admin/settings'
     | '/_admin/admin/students'
     | '/_student/student/certificates'
@@ -690,6 +702,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/admin/recordings': {
+      id: '/_admin/admin/recordings'
+      path: '/admin/recordings'
+      fullPath: '/admin/recordings'
+      preLoaderRoute: typeof AdminAdminRecordingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/admin/placements': {
       id: '/_admin/admin/placements'
       path: '/admin/placements'
@@ -836,6 +855,7 @@ interface AdminRouteChildren {
   AdminAdminFinanceRoute: typeof AdminAdminFinanceRoute
   AdminAdminMessagesRoute: typeof AdminAdminMessagesRoute
   AdminAdminPlacementsRoute: typeof AdminAdminPlacementsRoute
+  AdminAdminRecordingsRoute: typeof AdminAdminRecordingsRoute
   AdminAdminSettingsRoute: typeof AdminAdminSettingsRoute
   AdminAdminStudentsRoute: typeof AdminAdminStudentsRoute
   AdminAdminClassroomsIdRoute: typeof AdminAdminClassroomsIdRoute
@@ -855,6 +875,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminFinanceRoute: AdminAdminFinanceRoute,
   AdminAdminMessagesRoute: AdminAdminMessagesRoute,
   AdminAdminPlacementsRoute: AdminAdminPlacementsRoute,
+  AdminAdminRecordingsRoute: AdminAdminRecordingsRoute,
   AdminAdminSettingsRoute: AdminAdminSettingsRoute,
   AdminAdminStudentsRoute: AdminAdminStudentsRoute,
   AdminAdminClassroomsIdRoute: AdminAdminClassroomsIdRoute,

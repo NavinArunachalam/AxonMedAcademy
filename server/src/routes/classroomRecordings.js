@@ -48,7 +48,15 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
 
     const recordings = await ClassroomRecording.find(filter)
       .populate('uploadedBy', 'fullName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const { generatePresignedGetUrl } = require('../config/cloudflare');
+    for (let rec of recordings) {
+      if (rec.storageProvider === 'cloudflare' && rec.cloudflareKey) {
+        rec.cloudflareUrl = await generatePresignedGetUrl(rec.cloudflareKey);
+      }
+    }
 
     res.json({ success: true, recordings });
   } catch (error) {
@@ -419,8 +427,6 @@ router.post('/reuse', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
       return res.status(404).json({ success: false, message: 'Target classroom not found' });
     }
 
-    // Create a new ClassroomRecording document linked to the target classroom,
-    // sharing the same video details but with a fresh/empty viewStats tracker
     const newRec = await ClassroomRecording.create({
       classroom: targetClassroomId,
       title: title || sourceRec.title,
@@ -440,12 +446,11 @@ router.post('/reuse', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
         order: c.order
       })) : [],
       security: { ...sourceRec.security },
-      viewStats: [], // UNIQUE stats list for target classroom tracking
-      isPublished: false, // Default to draft so admin can decide when to publish
+      viewStats: [],
+      isPublished: false,
       version: 1
     });
 
-    // Increment recording counts in target classroom
     await Classroom.findByIdAndUpdate(targetClassroomId, {
       $inc: { 'stats.totalRecordings': 1 }
     });
@@ -455,6 +460,56 @@ router.post('/reuse', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
       message: 'Recording reused successfully in target classroom',
       recording: newRec
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /assign-from-library → Admin/Faculty: assign a recording from global library to a classroom
+router.post('/assign-from-library', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    const { libraryRecordingId, targetClassroomId } = req.body;
+    if (!libraryRecordingId || !targetClassroomId) {
+      return res.status(400).json({ success: false, message: 'libraryRecordingId and targetClassroomId are required' });
+    }
+    
+    const LibraryRecording = require('../models/LibraryRecording');
+    const sourceRec = await LibraryRecording.findById(libraryRecordingId);
+    if (!sourceRec) {
+      return res.status(404).json({ success: false, message: 'Library recording not found' });
+    }
+    
+    const targetClassroom = await Classroom.findById(targetClassroomId);
+    if (!targetClassroom) {
+      return res.status(404).json({ success: false, message: 'Target classroom not found' });
+    }
+    
+    // Create new ClassroomRecording to track analytics properly for this classroom
+    const newRec = await ClassroomRecording.create({
+      classroom: targetClassroomId,
+      title: sourceRec.title,
+      description: sourceRec.description,
+      uploadedBy: req.user._id,
+      storageProvider: sourceRec.storageProvider,
+      muxAssetId: sourceRec.muxAssetId,
+      muxPlaybackId: sourceRec.muxPlaybackId,
+      muxStatus: sourceRec.muxStatus,
+      cloudflareKey: sourceRec.cloudflareKey,
+      cloudflareUrl: sourceRec.cloudflareUrl,
+      duration: sourceRec.duration,
+      thumbnail: sourceRec.thumbnail,
+      chapters: [],
+      security: { ...sourceRec.security },
+      viewStats: [],
+      isPublished: true, // Auto publish upon assignment
+      version: 1
+    });
+    
+    await Classroom.findByIdAndUpdate(targetClassroomId, {
+      $inc: { 'stats.totalRecordings': 1 }
+    });
+    
+    res.status(201).json({ success: true, message: 'Assigned successfully', recording: newRec });
   } catch (error) {
     next(error);
   }
@@ -741,8 +796,10 @@ router.delete('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
       $inc: { 'stats.totalRecordings': -1 }
     });
 
-    if (recording.storageProvider === 'cloudflare' && recording.cloudflareKey) {
-      await deleteFileFromCloudflareR2(recording.cloudflareKey);
+    if (recording.cloudflareKey) {
+      await deleteFileFromCloudflareR2(recording.cloudflareKey).catch(err => {
+        console.error(`[R2 Delete Error] Failed to delete key ${recording.cloudflareKey}:`, err);
+      });
     }
 
     await recording.deleteOne();

@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
-  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink, LuAward, LuShare2, LuUserPlus
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink, LuAward, LuShare2, LuUserPlus,
+  LuFolder
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
@@ -21,7 +22,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -502,109 +503,59 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
 function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
   const cls = classroom;
   const { accessToken, classrooms } = useClassroomStore();
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", duration: 3600, isPublished: true, chapters: [] as { id: string; title: string; startTimeSec: number }[] });
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
-  const [uploadPhase, setUploadPhase] = useState<'idle' | 'preparing' | 'uploading' | 'saving'>('idle');
-  // Multipart tracking — null when using single-PUT path
-  const [uploadPartInfo, setUploadPartInfo] = useState<{ part: number; totalParts: number } | null>(null);
-  const [chapterInput, setChapterInput] = useState({ title: "", startTimeSec: 0 });
   const [activeRec, setActiveRec] = useState<any | null>(null);
 
-  // Reuse Video states
-  const [showReuseModal, setShowReuseModal] = useState(false);
-  const [selectedSourceClassroomId, setSelectedSourceClassroomId] = useState<string>("");
-  const [selectedSourceRecordingId, setSelectedSourceRecordingId] = useState<string>("");
-  const [reuseTitle, setReuseTitle] = useState("");
-  const [reuseDescription, setReuseDescription] = useState("");
-  const [isReusing, setIsReusing] = useState(false);
+  // Global Library states
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [globalRecordings, setGlobalRecordings] = useState<any[]>([]);
+  const [globalFolders, setGlobalFolders] = useState<any[]>([]);
+  const [currentLibraryFolderId, setCurrentLibraryFolderId] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
 
-  const formatMB = (bytes: number) => {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // Fetch library when modal opens
+  React.useEffect(() => {
+    if (showLibraryModal) {
+      api.get("/recordings/library").then((res: any) => setGlobalRecordings(res.recordings || []));
+      api.get("/library-folders").then((res: any) => setGlobalFolders(res.folders || []));
+    }
+  }, [showLibraryModal]);
+
+  const toggleVideoSelection = (id: string) => {
+    setSelectedVideoIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
   };
 
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title) return;
-    if (!videoFile) {
-      toast.error('Please select a video file to upload');
-      return;
-    }
-
-    setUploading(true);
-    setUploadProgress(0);
-    setUploadBytes({ loaded: 0, total: 0 });
-    setUploadPhase('preparing');
-
+  const handleBulkAssign = async () => {
+    if (selectedVideoIds.length === 0) return;
+    setIsAssigning(true);
+    let successCount = 0;
     try {
-      // Video goes directly to R2 — Railway never sees the file bytes
-      await uploadClassroomRecordingToCloudflare({
-        file: videoFile,
-        classroom: classroom.id,
-        title: form.title,
-        description: form.description,
-        duration: form.duration,
-        isPublished: form.isPublished,
-        chapters: form.chapters,
-        onProgress: ({ loaded, total, percentage, part, totalParts }) => {
-          setUploadPhase('uploading');
-          setUploadProgress(percentage);
-          setUploadBytes({ loaded, total });
-          if (part != null && totalParts != null) {
-            setUploadPartInfo({ part, totalParts });
+      await Promise.all(
+        selectedVideoIds.map(async (id) => {
+          try {
+            await api.post("/recordings/classroom/assign-from-library", {
+              libraryRecordingId: id,
+              targetClassroomId: cls.id,
+            });
+            successCount++;
+          } catch (err) {
+            console.error(`Failed to assign video ${id}:`, err);
           }
-          if (percentage === 100) setUploadPhase('saving');
-        },
-      });
-      setUploadPhase('idle');
-      setForm({ title: "", description: "", duration: 3600, isPublished: false, chapters: [] });
-      setVideoFile(null);
-      setShowForm(false);
+        })
+      );
+      if (successCount > 0) {
+        toast.success(`Successfully assigned ${successCount} videos!`);
+      } else {
+        toast.error("Failed to assign selected videos");
+      }
+      setSelectedVideoIds([]);
       await refreshClassroom();
-      toast.success("Recording uploaded and processing.");
-    } catch (error) {
-      setUploadPhase('idle');
-      toast.error(error instanceof Error ? error.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-      setUploadBytes({ loaded: 0, total: 0 });
-      setUploadPartInfo(null);
-    }
-  };
-
-  const addChapter = () => {
-    if (!chapterInput.title) return;
-    setForm((f) => ({ ...f, chapters: [...f.chapters, { id: uid(), ...chapterInput }] }));
-    setChapterInput({ title: "", startTimeSec: 0 });
-  };
-
-  const handleConfirmReuse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSourceRecordingId || !reuseTitle) return;
-
-    setIsReusing(true);
-    try {
-      await reuseClassroomRecording({
-        sourceRecordingId: selectedSourceRecordingId,
-        targetClassroomId: cls.id,
-        title: reuseTitle,
-        description: reuseDescription,
-      });
-      setShowReuseModal(false);
-      setSelectedSourceClassroomId("");
-      setSelectedSourceRecordingId("");
-      setReuseTitle("");
-      setReuseDescription("");
-      await refreshClassroom();
-      toast.success("Recording reused successfully!");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reuse recording");
+      toast.error("Failed to execute bulk assignment");
     } finally {
-      setIsReusing(false);
+      setIsAssigning(false);
     }
   };
 
@@ -616,292 +567,165 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end gap-3">
-        <button onClick={() => { setShowForm(!showForm); setShowReuseModal(false); }} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
-          <LuUpload className="h-4 w-4" /> Upload Recording
-        </button>
-        <button onClick={() => { setShowReuseModal(!showReuseModal); setShowForm(false); }} className="inline-flex items-center gap-2 rounded-full bg-cream/10 text-cream px-5 py-2.5 text-sm font-bold hover:bg-cream/20 transition-colors">
-          <LuCopy className="h-4 w-4" /> Reuse Video from other Class
+      <div className="flex flex-wrap justify-end gap-3">
+        <button onClick={() => setShowLibraryModal(!showLibraryModal)} className="inline-flex items-center gap-2 rounded-full bg-[#F4B400] text-plum-dark px-5 py-2.5 text-sm font-bold shadow-sm hover:bg-[#E0A300] transition-colors">
+          <LuBookOpen className="h-4 w-4" /> {showLibraryModal ? "Hide Library" : "Assign from Library"}
         </button>
       </div>
 
-      {showReuseModal && (
+      {showLibraryModal && (
         <DarkCard>
-          <h3 className="font-display font-bold text-cream mb-4">Reuse Video from another Classroom</h3>
-          <form onSubmit={handleConfirmReuse} className="space-y-4">
-            <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Source Classroom *</label>
-              <select
-                required
-                value={selectedSourceClassroomId}
-                onChange={(e) => {
-                  setSelectedSourceClassroomId(e.target.value);
-                  setSelectedSourceRecordingId("");
-                  setReuseTitle("");
-                  setReuseDescription("");
-                }}
-                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
-              >
-                <option value="" className="bg-plum-dark">-- Select Class --</option>
-                {classrooms
-                  .filter((c) => c.id !== classroom.id && c.status === "active")
-                  .map((c) => (
-                    <option key={c.id} value={c.id} className="bg-plum-dark">
-                      {c.name} ({c.code})
-                    </option>
-                  ))}
-              </select>
-            </div>
+          <div className="flex items-center justify-between mb-4 border-b border-cream/10 pb-3">
+            <h3 className="font-display font-bold text-cream">Assign Video from Global Library</h3>
+            <button
+              onClick={() => {
+                setShowLibraryModal(false);
+                setCurrentLibraryFolderId(null);
+              }}
+              className="text-cream/60  p-1"
+            >
+              <LuX className="h-5 w-5" />
+            </button>
+          </div>
 
-            {selectedSourceClassroomId && (() => {
-              const sourceClassroom = classrooms.find(c => c.id === selectedSourceClassroomId);
-              const recordings = sourceClassroom ? sourceClassroom.recordings : [];
-              return (
-                <div>
-                  <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Select Recording *</label>
-                  <select
-                    required
-                    value={selectedSourceRecordingId}
-                    onChange={(e) => {
-                      const recId = e.target.value;
-                      setSelectedSourceRecordingId(recId);
-                      const r = recordings.find(x => x.id === recId);
-                      if (r) {
-                        setReuseTitle(r.title);
-                        setReuseDescription(r.description || "");
-                      }
-                    }}
-                    className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
-                  >
-                    <option value="" className="bg-plum-dark">-- Select Recording --</option>
-                    {recordings.map((r) => (
-                      <option key={r.id} value={r.id} className="bg-plum-dark">
-                        {r.title} ({Math.round(r.duration / 60)} min)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })()}
-
-            {selectedSourceRecordingId && (
-              <>
-                <div>
-                  <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">New Recording Title *</label>
-                  <input
-                    required
-                    value={reuseTitle}
-                    onChange={(e) => setReuseTitle(e.target.value)}
-                    placeholder="Enter title for this class"
-                    className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">New Description</label>
-                  <textarea
-                    value={reuseDescription}
-                    onChange={(e) => setReuseDescription(e.target.value)}
-                    rows={2}
-                    placeholder="Enter description for this class"
-                    className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="flex gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowReuseModal(false);
-                  setSelectedSourceClassroomId("");
-                  setSelectedSourceRecordingId("");
-                  setReuseTitle("");
-                  setReuseDescription("");
-                }}
-                disabled={isReusing}
-                className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={!selectedSourceRecordingId || !reuseTitle || isReusing}
-                className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-60"
-              >
-                {isReusing ? 'Reusing...' : 'Reuse Recording'}
-              </button>
-            </div>
-          </form>
-        </DarkCard>
-      )}
-
-      {showForm && (
-        <DarkCard>
-          <h3 className="font-display font-bold text-cream mb-4">Upload Recorded Class</h3>
-          <form onSubmit={handleUpload} className="space-y-4">
-            <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Recording Title *</label>
-              <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="e.g. Module 3: Advanced Haemodynamics" className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
-            </div>
-            <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Video File *</label>
-              <input type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
-                className="w-full text-cream text-sm file:bg-cream/10 file:border-cream/10 file:rounded-xl file:px-3 file:py-2 file:text-cream" />
-              {videoFile && (() => {
-                const mb = videoFile.size / (1024 * 1024);
-                const CHUNK_MB = 50;
-                const isMultipart = mb >= CHUNK_MB;
-                const parts = isMultipart ? Math.ceil(mb / CHUNK_MB) : null;
-                return (
-                  <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-cream/50">
-                      {videoFile.name} &mdash; {mb.toFixed(1)} MB
-                    </span>
-                    <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${isMultipart ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/60'
-                      }`}>
-                      {isMultipart
-                        ? `⚡ Multipart · ${parts} × 50 MB chunks`
-                        : '↑ Single upload'}
-                    </span>
-                  </div>
-                );
-              })()}
-            </div>
-            <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
-              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={2} className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none" />
-            </div>
-            <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">Duration (seconds)</label>
-              <input type="number" min={60} value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}
-                className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50" />
-            </div>
-
-            {/* Chapter markers */}
-            <div>
-              <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-2">Chapter Markers</label>
-              <div className="flex gap-2 mb-2">
-                <input value={chapterInput.title} onChange={(e) => setChapterInput({ ...chapterInput, title: e.target.value })}
-                  placeholder="Chapter title" className="flex-1 bg-cream/5 border border-cream/10 rounded-xl px-3 py-2 text-cream text-xs outline-none focus:border-lime/50" />
-                <input type="number" min={0} value={chapterInput.startTimeSec} onChange={(e) => setChapterInput({ ...chapterInput, startTimeSec: Number(e.target.value) })}
-                  placeholder="Start (sec)" className="w-24 bg-cream/5 border border-cream/10 rounded-xl px-3 py-2 text-cream text-xs outline-none focus:border-lime/50" />
-                <button type="button" onClick={addChapter} className="rounded-xl bg-lime/10 text-lime px-3 py-2 text-xs font-bold">+ Add</button>
-              </div>
-              {form.chapters.map((ch, i) => (
-                <div key={ch.id} className="flex items-center gap-2 bg-cream/5 rounded-lg px-3 py-1.5 mb-1 text-xs text-cream/80">
-                  <span className="font-mono text-lime">{Math.floor(ch.startTimeSec / 60).toString().padStart(2, "0")}:{(ch.startTimeSec % 60).toString().padStart(2, "0")}</span>
-                  <span className="flex-1">{ch.title}</span>
-                  <button type="button" onClick={() => setForm((f) => ({ ...f, chapters: f.chapters.filter((_, ci) => ci !== i) }))} className="text-cream/40 hover:text-red-400"><LuX className="h-3 w-3" /></button>
-                </div>
-              ))}
-            </div>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.isPublished} onChange={(e) => setForm({ ...form, isPublished: e.target.checked })} className="accent-lime" />
-              <span className="text-cream/80 text-sm">Publish immediately (notify students)</span>
-            </label>
-
-            {/* ── Upload Progress ─────────────────────────────────────────── */}
-            {uploading && (
-              <div className="rounded-xl bg-cream/5 border border-cream/10 p-4 space-y-3">
-
-                {/* Phase label + percentage */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-cream/80">
-                    {uploadPhase === 'preparing' && (
-                      <span className="flex items-center gap-2">
-                        <span className="inline-block h-3 w-3 rounded-full border-2 border-lime border-t-transparent animate-spin" />
-                        {uploadPartInfo
-                          ? `Initiating multipart upload…`
-                          : 'Preparing upload…'}
-                      </span>
-                    )}
-                    {uploadPhase === 'uploading' && uploadPartInfo && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-full bg-lime animate-pulse" />
-                        Part&nbsp;
-                        <span className="text-lime font-bold">{uploadPartInfo.part}</span>
-                        &nbsp;of&nbsp;
-                        <span className="text-lime font-bold">{uploadPartInfo.totalParts}</span>
-                        &nbsp;uploading…
-                      </span>
-                    )}
-                    {uploadPhase === 'uploading' && !uploadPartInfo && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-full bg-lime animate-pulse" />
-                        Uploading to cloud…
-                      </span>
-                    )}
-                    {uploadPhase === 'saving' && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-full bg-lime" />
-                        Saving metadata…
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-mono text-lime text-sm font-bold">{uploadProgress}%</span>
-                </div>
-
-                {/* Progress bar with part segments */}
-                <div className="relative w-full h-3 bg-cream/10 rounded-full overflow-hidden">
-                  {/* filled bar */}
-                  <div
-                    className="absolute inset-y-0 left-0 bg-lime rounded-full transition-all duration-200"
-                    style={{ width: `${uploadPhase === 'saving' ? 100 : uploadProgress}%` }}
-                  />
-                  {/* part segment ticks — shown only for multipart */}
-                  {uploadPartInfo && uploadPartInfo.totalParts > 1 && (
-                    Array.from({ length: uploadPartInfo.totalParts - 1 }, (_, i) => {
-                      const pct = ((i + 1) / uploadPartInfo.totalParts) * 100;
+          {currentLibraryFolderId === null ? (
+            <div className="space-y-4">
+              {/* Folder list */}
+              {globalFolders.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[11px] uppercase tracking-widest text-cream/60 mb-1">Folders</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {globalFolders.map((folder) => {
+                      const count = globalRecordings.filter(r => r.folder === folder._id).length;
                       return (
-                        <div
-                          key={i}
-                          className="absolute inset-y-0 w-px bg-cream/20"
-                          style={{ left: `${pct}%` }}
-                        />
+                        <button
+                          key={folder._id}
+                          onClick={() => setCurrentLibraryFolderId(folder._id)}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-cream/10 bg-cream/5 hover:border-lime/40 hover:bg-cream/10 text-left transition-all w-full"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-lime/10 text-lime flex items-center justify-center shrink-0">
+                            <LuFolder className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-cream text-xs truncate">{folder.name}</div>
+                            <div className="text-[10px] text-cream/40">{count} videos</div>
+                          </div>
+                        </button>
                       );
-                    })
-                  )}
+                    })}
+                  </div>
                 </div>
+              )}
 
-                {/* Byte counter + strategy badge */}
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-cream/50 font-mono">
-                    {uploadPhase === 'uploading'
-                      ? `${formatMB(uploadBytes.loaded)} / ${formatMB(uploadBytes.total)}`
-                      : uploadPhase === 'saving'
-                        ? `${formatMB(uploadBytes.total)} — assembling on R2…`
-                        : 'Connecting…'}
-                  </span>
-                  <span className={`uppercase tracking-widest font-bold px-2 py-0.5 rounded ${uploadPartInfo ? 'bg-lime/15 text-lime' : 'bg-cream/10 text-cream/50'
-                    }`}>
-                    {uploadPartInfo
-                      ? `⚡ Multipart · ${uploadPartInfo.totalParts} chunks`
-                      : '↑ Direct upload'}
-                  </span>
-                </div>
-
+             
+                
               </div>
-            )}
+           
+          ) : (
+            <div className="space-y-4">
+              {/* Back button and Folder Name */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentLibraryFolderId(null)}
+                  className="flex items-center gap-1 text-xs font-bold text-cream/60"
+                >
+                  <LuArrowLeft className="w-3.5 h-3.5" /> Back to Folders
+                </button>
+                <span className="text-xs text-cream/40">/</span>
+                <span className="text-xs font-bold text-lime">
+                  {globalFolders.find(f => f._id === currentLibraryFolderId)?.name}
+                </span>
+              </div>
 
-            <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setShowForm(false)} disabled={uploading} className="flex-1 rounded-full bg-cream/10 text-cream py-2.5 text-sm font-semibold disabled:opacity-40">Cancel</button>
-              <button type="submit" disabled={uploading} className="flex-1 rounded-full bg-lime text-plum-dark py-2.5 text-sm font-bold disabled:opacity-60">
-                {uploading ? (
-                  uploadPhase === 'saving'
-                    ? 'Saving…'
-                    : uploadPartInfo
-                      ? `Part ${uploadPartInfo.part}/${uploadPartInfo.totalParts} — ${uploadProgress}%`
-                      : uploadProgress > 0
-                        ? `Uploading… ${uploadProgress}%`
-                        : 'Preparing…'
-                ) : 'Save Recording'}
-              </button>
+              {/* Videos inside selected folder */}
+              <div className="space-y-2">
+                {(() => {
+                  const folderVideos = globalRecordings.filter(r => r.folder === currentLibraryFolderId);
+                  const assignableFolderVideos = folderVideos.filter(r => !cls.recordings.some(x => x.cloudflareKey === r.cloudflareKey || x.title === r.title));
+                  const allSelected = assignableFolderVideos.length > 0 && assignableFolderVideos.every(v => selectedVideoIds.includes(v._id));
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="text-[11px] uppercase tracking-widest text-cream/60 font-medium">Videos in Folder</div>
+                        {assignableFolderVideos.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const assignableIds = assignableFolderVideos.map(v => v._id);
+                              if (allSelected) {
+                                setSelectedVideoIds(prev => prev.filter(id => !assignableIds.includes(id)));
+                              } else {
+                                setSelectedVideoIds(prev => Array.from(new Set([...prev, ...assignableIds])));
+                              }
+                            }}
+                            className="text-[10px] text-lime hover:underline font-semibold"
+                          >
+                            {allSelected ? "Deselect All" : "Select All"}
+                          </button>
+                        )}
+                      </div>
+
+                      {folderVideos.length === 0 ? (
+                        <p className="text-xs text-cream/40 italic py-4">No videos in this folder.</p>
+                      ) : (
+                        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                          {folderVideos.map((r) => {
+                            const isAssigned = cls.recordings.some(x => x.cloudflareKey === r.cloudflareKey || x.title === r.title);
+                            return (
+                              <div key={r._id} className="flex items-center justify-between p-2.5 rounded-xl border border-cream/5 bg-cream/5 hover:bg-cream/10 transition-colors gap-3">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  {!isAssigned && (
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedVideoIds.includes(r._id)}
+                                      onChange={() => toggleVideoSelection(r._id)}
+                                      className="accent-lime h-4 w-4 rounded border-cream/20 bg-cream/10 shrink-0 cursor-pointer"
+                                    />
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-semibold text-cream truncate">{r.title}</div>
+                                    {r.duration > 0 && (
+                                      <div className="text-[10px] text-cream/40 font-mono mt-0.5">{formatDuration(r.duration)}</div>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  disabled={isAssigning || isAssigned}
+                                  onClick={async () => {
+                                    setIsAssigning(true);
+                                    try {
+                                      await api.post("/recordings/classroom/assign-from-library", {
+                                        libraryRecordingId: r._id,
+                                        targetClassroomId: cls.id,
+                                      });
+                                      toast.success(`Assigned "${r.title}" to class!`);
+                                      await refreshClassroom();
+                                    } catch (err: any) {
+                                      toast.error(err.response?.data?.message || "Failed to assign");
+                                    } finally {
+                                      setIsAssigning(false);
+                                    }
+                                  }}
+                                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all shrink-0 ${
+                                    isAssigned
+                                      ? "bg-cream/10 text-cream/40 cursor-not-allowed"
+                                      : "bg-lime text-plum-dark hover:bg-lime/90"
+                                  }`}
+                                >
+                                  {isAssigned ? "Assigned" : "Assign"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
-          </form>
+          )}
         </DarkCard>
       )}
 
@@ -913,100 +737,141 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
         </DarkCard>
       )}
       <div className="space-y-3">
-        {cls.recordings.map((rec) => {
-          const avgWatch = rec.viewStats.length
-            ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
-            : 0;
-          return (
-            <DarkCard key={rec.id}>
-              <div className="flex items-start gap-4">
-                {/* Thumbnail */}
-                <button
-                  onClick={() => setActiveRec(rec)}
-                  className="w-20 h-14 rounded-lg bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0 hover:from-lime/30 hover:to-lime/10 transition-colors"
-                >
-                  <LuPlay className="h-5 w-5 text-lime" />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 flex-wrap">
-                    <span className="font-semibold text-cream text-sm">{rec.title}</span>
-                    <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${rec.isPublished ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>
-                      {rec.isPublished ? "Published" : "Draft"}
-                    </span>
-                  </div>
-                  <p className="text-cream/60 text-xs mt-0.5 line-clamp-1">{rec.description}</p>
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="text-xs text-cream/50 font-mono">{formatDuration(rec.duration)}</span>
-                    <span className="text-xs text-cream/50">{rec.viewStats.length} viewers · {avgWatch}% avg watched</span>
-                    <span className="text-xs text-cream/50">{rec.chapters.length} chapters</span>
-                  </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => setActiveRec(rec)}
-                    className="rounded-full bg-lime text-plum-dark px-3.5 py-1.5 text-xs font-bold flex items-center gap-1 hover:bg-lime/90 transition-colors"
-                  >
-                    <LuPlay className="h-3 w-3 fill-plum-dark animate-pulse" /> Watch
-                  </button>
-                  <button
-                    onClick={async () => {
-                      console.log("PUBLISH BUTTON CLICKED");
-                      console.log("Recording:", rec);
-                      console.log("Recording ID:", rec.id);
-                      console.log("Published:", rec.isPublished);
-
-                      try {
-                        if (rec.isPublished) {
-                          await unpublishRecording(rec.id);
-                          toast.success("Recording unpublished.");
-                        } else {
-                          await publishRecording(rec.id);
-                          toast.success("Recording published.");
-                        }
-                        await refreshClassroom();
-                      } catch (error) {
-                        toast.error("Failed to publish/unpublish recording.");
-                      }
-                    }}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
-                  >
-                    {rec.isPublished ? <><LuEyeOff className="h-3 w-3" /> Unpublish</> : <><LuEye className="h-3 w-3" /> Publish</>}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await deleteRecording(rec.id);
-                        await refreshClassroom();
-                        toast.success("Recording deleted.");
-                      } catch (error) {
-                        toast.error("Failed to delete recording.");
-                      }
-                    }}
-                    className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-2">
-                    <LuTrash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-              {/* View analytics */}
-              {rec.viewStats.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-cream/10">
-                  <div className="text-[10px] uppercase tracking-widest text-cream/50 mb-2">Viewer Progress</div>
-                  <div className="space-y-1.5">
-                    {rec.viewStats.map((vs) => (
-                      <div key={vs.studentId} className="flex items-center gap-3">
-                        <span className="text-xs text-cream/80 w-32 truncate">{vs.studentName}</span>
-                        <div className="flex-1 h-1.5 bg-cream/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-lime rounded-full" style={{ width: `${vs.watchedPercent}%` }} />
-                        </div>
-                        <span className="text-xs font-mono text-cream/60 w-8">{vs.watchedPercent}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </DarkCard>
-          );
-        })}
+      {/* Recording list in Table format */}
+      {cls.recordings.length === 0 ? (
+        <DarkCard className="text-center py-12">
+          <LuBookOpen className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+          <p className="text-cream/50 text-sm">No recordings assigned yet.</p>
+        </DarkCard>
+      ) : (
+        <DarkCard className="p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-cream/5">
+                <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60 border-b border-cream/10">
+                  <th className="p-4 text-center w-12">#</th>
+                  <th>Recording</th>
+                  <th>Duration</th>
+                  <th>Stats</th>
+                  <th>Chapters</th>
+                  <th>Status</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cream/10">
+                {cls.recordings.map((rec, index) => {
+                  const avgWatch = rec.viewStats.length
+                    ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
+                    : 0;
+                  return (
+                    <React.Fragment key={rec.id}>
+                      <tr className="hover:bg-cream/5 transition-colors">
+                        <td className="p-4 text-center font-mono text-cream/60">{index + 1}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setActiveRec(rec)}
+                              className="w-12 h-9 rounded bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0 hover:from-lime/30 hover:to-lime/10 transition-colors"
+                            >
+                              <LuPlay className="h-3.5 w-3.5 text-lime" />
+                            </button>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-cream text-xs">{rec.title}</div>
+                              {rec.description && (
+                                <div className="text-[10px] text-cream/50 line-clamp-1 mt-0.5">{rec.description}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 font-mono text-cream/70 text-xs">
+                          {formatDuration(rec.duration)}
+                        </td>
+                        <td className="p-4 text-cream/70 text-xs">
+                          {rec.viewStats.length} viewers · {avgWatch}% avg
+                        </td>
+                        <td className="p-4 font-mono text-cream/70 text-xs">
+                          {rec.chapters.length}
+                        </td>
+                        <td className="p-4">
+                          <span className={`text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${rec.isPublished ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>
+                            {rec.isPublished ? "Published" : "Draft"}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex justify-end items-center gap-2">
+                            <button
+                              onClick={() => setActiveRec(rec)}
+                              className="rounded-full bg-lime text-plum-dark px-2.5 py-1 text-[10px] font-bold flex items-center gap-1 hover:bg-lime/90 transition-colors"
+                            >
+                              <LuPlay className="h-2.5 w-2.5 fill-plum-dark" /> Watch
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  if (rec.isPublished) {
+                                    await unpublishRecording(rec.id);
+                                    toast.success("Recording unpublished.");
+                                  } else {
+                                    await publishRecording(rec.id);
+                                    toast.success("Recording published.");
+                                  }
+                                  await refreshClassroom();
+                                } catch (error) {
+                                  toast.error("Failed to publish/unpublish recording.");
+                                }
+                              }}
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
+                            >
+                              {rec.isPublished ? <><LuEyeOff className="h-2.5 w-2.5" /> Unpublish</> : <><LuEye className="h-2.5 w-2.5" /> Publish</>}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm("Are you sure you want to delete this recording?")) return;
+                                try {
+                                  await deleteRecording(rec.id);
+                                  await refreshClassroom();
+                                  toast.success("Recording deleted.");
+                                } catch (error) {
+                                  toast.error("Failed to delete recording.");
+                                }
+                              }}
+                              className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-1.5 hover:bg-red-500/10 transition-colors"
+                            >
+                              <LuTrash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {/* Sub-row for detailed viewer analytics if they exist */}
+                      {rec.viewStats.length > 0 && (
+                        <tr className="bg-cream/[0.02]">
+                          <td colSpan={7} className="p-3 border-t border-cream/5">
+                            <div className="pl-14">
+                              <div className="text-[9px] uppercase tracking-widest text-cream/40 mb-1.5 font-bold">Viewer Progress</div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 max-h-32 overflow-y-auto pr-2">
+                                {rec.viewStats.map((vs) => (
+                                  <div key={vs.studentId} className="flex items-center gap-2">
+                                    <span className="text-[11px] text-cream/70 w-24 truncate">{vs.studentName}</span>
+                                    <div className="flex-1 h-1 bg-cream/10 rounded-full overflow-hidden">
+                                      <div className="h-full bg-lime rounded-full" style={{ width: `${vs.watchedPercent}%` }} />
+                                    </div>
+                                    <span className="text-[10px] font-mono text-cream/50 w-8 text-right">{vs.watchedPercent}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </DarkCard>
+      )}
       </div>
 
       {/* Admin Video Preview Modal */}
