@@ -4,6 +4,8 @@ const multer = require('multer');
 const mongoose = require('mongoose');
 
 const LibraryRecording = require('../models/LibraryRecording');
+const ClassroomRecording = require('../models/ClassroomRecording');
+const Classroom = require('../models/Classroom');
 const { protect, restrictTo } = require('../middleware/auth');
 const {
   uploadFileToCloudflareR2,
@@ -123,13 +125,23 @@ router.delete('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
     if (!recording) return res.status(404).json({ success: false, message: 'Recording not found' });
 
     if (recording.cloudflareKey) {
+      // Find and delete all corresponding ClassroomRecordings referencing the same file
+      const classroomRecs = await ClassroomRecording.find({ cloudflareKey: recording.cloudflareKey });
+      for (const rec of classroomRecs) {
+        await Classroom.findByIdAndUpdate(rec.classroom, {
+          $inc: { 'stats.totalRecordings': -1 }
+        });
+        await rec.deleteOne();
+      }
+
+      // Delete the file from Cloudflare R2
       await deleteFileFromCloudflareR2(recording.cloudflareKey).catch(err => {
         console.error(`[R2 Delete Error] Failed to delete key ${recording.cloudflareKey}:`, err);
       });
     }
     await recording.deleteOne();
     
-    res.json({ success: true, message: 'Recording deleted from library' });
+    res.json({ success: true, message: 'Recording deleted from library and all classrooms' });
   } catch (error) {
     next(error);
   }

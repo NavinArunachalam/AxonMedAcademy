@@ -41,7 +41,7 @@ async function listFiles() {
   try {
     const res = await client.send(new ListObjectsV2Command({
       Bucket: CLOUDFLARE_R2_BUCKET,
-      MaxKeys: 10,
+      MaxKeys: 100,
     }));
     console.log('Files in bucket:');
     if (res.Contents) {
@@ -57,7 +57,7 @@ async function listFiles() {
 }
 
 async function run() {
-  const testKey = 'global-library/1783934467485-faculty.mp4';
+  const testKey = 'global-library/1783964680113-faculty.mp4';
   await checkFile(testKey);
   await listFiles();
 }

@@ -564,21 +564,31 @@ router.get('/:id/stream', protect, async (req, res, next) => {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
-    const recording = await ClassroomRecording.findById(req.params.id).populate('classroom');
+    const recording = await ClassroomRecording.findById(req.params.id);
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
-    const classroom = await Classroom.findById(recording.classroom);
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
     const isFaculty = req.user.role === 'faculty';
-    const isEnrolled = classroom
-      ? classroom.students.some(
-          (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
-        )
-      : false;
+    let isAuthorized = isAdmin || isFaculty;
 
-    if (!isAdmin && !isFaculty && !isEnrolled) {
+    if (!isAuthorized) {
+      const isEnrolled = await Classroom.exists({
+        _id: recording.classroom,
+        students: {
+          $elemMatch: {
+            student: req.user._id,
+            status: 'active'
+          }
+        }
+      });
+      if (isEnrolled) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
@@ -587,12 +597,13 @@ router.get('/:id/stream', protect, async (req, res, next) => {
     }
 
     try {
-      const { getS3Client } = require('../config/cloudflare');
+      const { getS3Client, getCloudflareConfig } = require('../config/cloudflare');
       const { GetObjectCommand } = require('@aws-sdk/client-s3');
 
       const s3 = getS3Client();
+      const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
       const command = new GetObjectCommand({
-        Bucket: process.env.CLOUDFLARE_R2_BUCKET,
+        Bucket: CLOUDFLARE_R2_BUCKET,
         Key: recording.cloudflareKey,
         Range: req.headers.range,
       });
@@ -608,6 +619,12 @@ router.get('/:id/stream', protect, async (req, res, next) => {
       s3Response.Body.pipe(res);
     } catch (s3Error) {
       console.error('[S3 Streaming Error]:', s3Error.message);
+      if (s3Error.name === 'NoSuchKey' || s3Error.$metadata?.httpStatusCode === 404) {
+        return res.status(404).json({
+          success: false,
+          message: 'The video file could not be found in storage. It may still be processing or was deleted.'
+        });
+      }
       res.status(s3Error.$metadata?.httpStatusCode || 500).send(s3Error.message);
     }
   } catch (error) {
@@ -797,9 +814,16 @@ router.delete('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
     });
 
     if (recording.cloudflareKey) {
-      await deleteFileFromCloudflareR2(recording.cloudflareKey).catch(err => {
-        console.error(`[R2 Delete Error] Failed to delete key ${recording.cloudflareKey}:`, err);
-      });
+      const LibraryRecording = require('../models/LibraryRecording');
+      const libraryCount = await LibraryRecording.countDocuments({ cloudflareKey: recording.cloudflareKey });
+      const classroomCount = await ClassroomRecording.countDocuments({ cloudflareKey: recording.cloudflareKey });
+
+      // If no library recording references this key, and it's only in this classroom (count <= 1), delete from R2
+      if (libraryCount === 0 && classroomCount <= 1) {
+        await deleteFileFromCloudflareR2(recording.cloudflareKey).catch(err => {
+          console.error(`[R2 Delete Error] Failed to delete key ${recording.cloudflareKey}:`, err);
+        });
+      }
     }
 
     await recording.deleteOne();
