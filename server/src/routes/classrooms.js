@@ -12,7 +12,7 @@ const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const ClassroomJoinRequest = require('../models/ClassroomJoinRequest');
 const { sendWelcomeEmail } = require('../services/emailService');
-const { protect, restrictTo } = require('../middleware/auth');
+const { protect, restrictTo, verifyClassroomAccess } = require('../middleware/auth');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const https = require('https');
@@ -496,13 +496,9 @@ router.get('/:id', protect, async (req, res, next) => {
 
     await manualPopulate(classroom, 'students.student', 'fullName email phone avatar role isVerified isActive');
 
-    // Verify student is enrolled or user is admin
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isFaculty = req.user.role === 'faculty';
-    const isEnrolled = classroom.students.some(s => getStudentRefId(s.student) === req.user._id.toString() && s.status === 'active');
-
-    if (!isAdmin && !isFaculty && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
+    // Verify student is enrolled or user is admin/assigned faculty
+    if (!verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     res.json({ success: true, classroom: await attachClassroomDetails(classroom) });
@@ -514,6 +510,13 @@ router.get('/:id', protect, async (req, res, next) => {
 // GET /:id/announcements → Get classroom announcements (newest first)
 router.get('/:id/announcements', protect, async (req, res, next) => {
   try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+    if (!verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
     const announcements = await ClassroomAnnouncement.find({ classroom: req.params.id })
       .populate('author', 'fullName role avatar')
       .sort({ createdAt: -1 });
@@ -574,7 +577,10 @@ router.use(restrictTo('admin', 'superadmin', 'faculty'));
 // POST / → Admin: create classroom
 router.post('/', async (req, res, next) => {
   try {
-    const { name, description, thumbnail, code, program, batch, maxStudents, settings } = req.body;
+    if (req.user.role === 'faculty') {
+      return res.status(403).json({ success: false, message: 'Only administrators can create classrooms.' });
+    }
+    const { name, description, thumbnail, code, program, batch, maxStudents, settings, instructors } = req.body;
 
     if (!name || !code) {
       return res.status(400).json({ success: false, message: 'Classroom name and code are required' });
@@ -596,6 +602,7 @@ router.post('/', async (req, res, next) => {
       program: refs.program,
       batch: refs.batch,
       maxStudents: maxStudents || 100,
+      instructors: instructors || [],
       settings: settings || {
         allowQuizLeaderboard: false,
         allowStudentChat: true,
@@ -619,6 +626,10 @@ router.get('/', async (req, res, next) => {
     if (status) filter.status = status;
     if (program) filter.program = await resolveProgramId(program);
 
+    if (req.user.role === 'faculty') {
+      filter.instructors = req.user._id;
+    }
+
     const classrooms = await Classroom.find(filter)
       .populate('program')
       .populate('batch')
@@ -636,6 +647,9 @@ router.get('/', async (req, res, next) => {
 // PUT /:id → Admin: update classroom info
 router.put('/:id', async (req, res, next) => {
   try {
+    if (req.user.role === 'faculty') {
+      return res.status(403).json({ success: false, message: 'Only administrators can update classrooms.' });
+    }
     const updates = await normalizeClassroomRefs(req.body);
     const classroom = await Classroom.findByIdAndUpdate(
       req.params.id,
@@ -655,6 +669,9 @@ router.put('/:id', async (req, res, next) => {
 // PUT /:id/archive → Admin: toggle classroom archive status (archive ↔ active)
 router.put('/:id/archive', async (req, res, next) => {
   try {
+    if (req.user.role === 'faculty') {
+      return res.status(403).json({ success: false, message: 'Only administrators can archive classrooms.' });
+    }
     const existing = await Classroom.findById(req.params.id).select('status');
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
@@ -675,6 +692,9 @@ router.put('/:id/archive', async (req, res, next) => {
 // DELETE /:id → Admin: delete (archive) classroom
 router.delete('/:id', async (req, res, next) => {
   try {
+    if (req.user.role === 'faculty') {
+      return res.status(403).json({ success: false, message: 'Only administrators can delete classrooms.' });
+    }
     const classroom = await Classroom.findByIdAndUpdate(
       req.params.id,
       { $set: { status: 'archived' } },
@@ -698,6 +718,10 @@ router.get('/:id/students', protect, restrictTo('admin', 'superadmin', 'faculty'
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
 
+    if (!verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     await manualPopulate(classroom, 'students.student', 'fullName email phone avatar role isVerified isActive');
     res.json({ success: true, students: classroom.students });
   } catch (error) {
@@ -713,6 +737,10 @@ router.post('/:id/students/add', protect, restrictTo('admin', 'superadmin', 'fac
 
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     let usersToAdd = [];
@@ -758,6 +786,10 @@ router.delete('/:id/students/:studentId', protect, restrictTo('admin', 'superadm
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
 
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     classroom.students = classroom.students.filter(s => s.student.toString() !== req.params.studentId);
     await classroom.save();
 
@@ -778,6 +810,10 @@ router.put('/:id/students/:studentId/status', protect, restrictTo('admin', 'supe
     const classroom = await Classroom.findById(req.params.id);
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     const studentRecord = classroom.students.find(s => s.student.toString() === req.params.studentId);
@@ -805,6 +841,10 @@ router.post('/:id/announcements', protect, restrictTo('admin', 'superadmin', 'fa
     const classroom = await Classroom.findById(req.params.id);
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     const announcement = await ClassroomAnnouncement.create({
@@ -847,6 +887,10 @@ router.put('/:id/students/:studentId/certificate', protect, async (req, res, nex
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
 
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     const studentRecord = classroom.students.find(s => s.student.toString() === req.params.studentId);
     if (!studentRecord) {
       return res.status(404).json({ success: false, message: 'Student not found in this classroom' });
@@ -864,6 +908,15 @@ router.put('/:id/students/:studentId/certificate', protect, async (req, res, nex
 // DELETE /:id/announcements/:annoId → Admin/Faculty: delete announcement
 router.delete('/:id/announcements/:annoId', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     const announcement = await ClassroomAnnouncement.findByIdAndDelete(req.params.annoId);
     if (!announcement) {
       return res.status(404).json({ success: false, message: 'Announcement not found' });
@@ -883,6 +936,15 @@ router.delete('/:id/announcements/:annoId', protect, restrictTo('admin', 'supera
 // GET /:id/join-requests → Admin: Get pending join requests
 router.get('/:id/join-requests', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     const requests = await ClassroomJoinRequest.find({ classroom: req.params.id, status: 'pending' }).sort({ createdAt: -1 });
     res.json({ success: true, requests });
   } catch (error) {
@@ -893,6 +955,15 @@ router.get('/:id/join-requests', protect, restrictTo('admin', 'superadmin', 'fac
 // POST /:id/join-requests/:requestId/approve → Admin: Approve join request
 router.post('/:id/join-requests/:requestId/approve', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     const joinReq = await ClassroomJoinRequest.findOne({ _id: req.params.requestId, classroom: req.params.id, status: 'pending' });
     if (!joinReq) {
       return res.status(404).json({ success: false, message: 'Join request not found or already processed.' });
@@ -920,7 +991,6 @@ router.post('/:id/join-requests/:requestId/approve', protect, restrictTo('admin'
       });
     }
 
-    const classroom = await Classroom.findById(req.params.id);
     const isEnrolled = classroom.students.some(s => s.student.toString() === user._id.toString());
 
     if (!isEnrolled) {
@@ -949,6 +1019,15 @@ router.post('/:id/join-requests/:requestId/approve', protect, restrictTo('admin'
 // POST /:id/join-requests/:requestId/reject → Admin: Reject join request
 router.post('/:id/join-requests/:requestId/reject', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     const joinReq = await ClassroomJoinRequest.findOne({ _id: req.params.requestId, classroom: req.params.id, status: 'pending' });
     if (!joinReq) {
       return res.status(404).json({ success: false, message: 'Join request not found or already processed.' });

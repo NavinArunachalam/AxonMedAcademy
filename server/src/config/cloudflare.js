@@ -222,10 +222,10 @@ async function abortMultipartUpload(objectKey, uploadId) {
  * directly from R2 without exposing the S3 API credentials.
  *
  * @param {string} objectKey  - R2 object key (path inside the bucket)
- * @param {number} expiresIn   - Seconds until the URL expires (default 3600 = 1h)
+ * @param {number} expiresIn   - Seconds until the URL expires (default 604800 = 7 days)
  * @returns {Promise<string>} presigned GET URL
  */
-async function generatePresignedGetUrl(objectKey, expiresIn = 3600) {
+async function generatePresignedGetUrl(objectKey, expiresIn = 604800) {
   const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
   const client = getS3Client();
 

@@ -1814,7 +1814,8 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
 // ─── Students Tab ─────────────────────────────────────────────────────────────
 
 function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
-  const { users } = useClassroomStore();
+  const { users, currentUser } = useClassroomStore();
+  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "superadmin";
   const cls = classroom;
   const [showAdd, setShowAdd] = useState(false);
   const [mongoStudents, setMongoStudents] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
@@ -1870,12 +1871,14 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-cream/60 text-sm">{cls.students.length} enrolled · {cls.students.filter((s) => s.status === "active").length} active</p>
-        <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
-          <LuPlus className="h-4 w-4" /> Add Student
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(!showAdd)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
+            <LuPlus className="h-4 w-4" /> Add Student
+          </button>
+        )}
       </div>
 
-      {showAdd && notEnrolled.length > 0 && (
+      {isAdmin && showAdd && notEnrolled.length > 0 && (
         <DarkCard>
           <h3 className="font-display font-bold text-cream mb-3">Add Students to Classroom</h3>
           <div className="space-y-2">
@@ -1898,7 +1901,7 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
         </DarkCard>
       )}
 
-      {showAdd && notEnrolled.length === 0 && (
+      {isAdmin && showAdd && notEnrolled.length === 0 && (
         <DarkCard className="text-center py-8">
           <p className="text-cream/50 text-sm">No available MongoDB students to add.</p>
         </DarkCard>
@@ -2088,7 +2091,7 @@ function JoinRequestsTab({ classroom, refreshClassroom }: { classroom: Classroom
 function AdminClassroomDetail() {
   const params = (Route.useParams as any)();
   const id = params.id as string;
-  const { classrooms } = useClassroomStore();
+  const { classrooms, currentUser } = useClassroomStore();
 
   // ── Stale-While-Revalidate: grab cached classroom immediately ──────────────
   const storeClassroom = React.useMemo(
@@ -2099,6 +2102,19 @@ function AdminClassroomDetail() {
   // Only show the full-page spinner when we have NOTHING in cache
   const [isLoading, setIsLoading] = useState(!storeClassroom);
   const [tab, setTab] = useState<TabKey>("announcements");
+
+  const visibleTabs = React.useMemo(() => {
+    if (currentUser?.role === "faculty") {
+      return TABS.filter((t) => t.key !== "requests");
+    }
+    return TABS;
+  }, [currentUser]);
+
+  React.useEffect(() => {
+    if (currentUser?.role === "faculty" && tab === "requests") {
+      setTab("announcements");
+    }
+  }, [currentUser, tab]);
 
   const refreshClassroom = React.useCallback(async () => {
     const refreshed = await getClassroomById(id);
@@ -2177,6 +2193,12 @@ function AdminClassroomDetail() {
             <span className="text-cream/60 text-xs">{classroom.students.filter((s) => s.status === "active").length} / {classroom.maxStudents} students</span>
             <span className="text-cream/60 text-xs">·</span>
             <span className="text-cream/60 text-xs">{classroom.program}</span>
+            {classroom.instructors && classroom.instructors.length > 0 && (
+              <>
+                <span className="text-cream/60 text-xs">·</span>
+                <span className="text-cream/60 text-xs font-semibold text-lime/80">Faculty: {classroom.instructors.map(i => i.name).join(", ")}</span>
+              </>
+            )}
           </div>
         </div>
         <button
@@ -2192,7 +2214,7 @@ function AdminClassroomDetail() {
 
       {/* Tab bar */}
       <div className="flex gap-1 overflow-x-auto bg-cream/5 rounded-2xl p-1.5 whitespace-nowrap [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>
             <t.icon className="h-3.5 w-3.5 shrink-0" />

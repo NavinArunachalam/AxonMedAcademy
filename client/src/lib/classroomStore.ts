@@ -9,7 +9,7 @@ export interface User {
   userId:string;
   name: string;
   email: string;
-  role: "student" | "admin" | "faculty";
+  role: "student" | "admin" | "faculty" | "superadmin" | "accounts" | "receptionist";
   password?: string;
   phone?: string;
   address?: string;
@@ -164,6 +164,7 @@ export interface Classroom {
   recordings: Recording[];
   quizzes: Quiz[];
   pendingJoinRequestsCount?: number;
+  instructors?: { id: string; name: string }[];
 }
 
 // ─── Messaging Types ──────────────────────────────────────────────────────────

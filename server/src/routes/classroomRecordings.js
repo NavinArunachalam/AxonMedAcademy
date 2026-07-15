@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 
 const ClassroomRecording = require('../models/ClassroomRecording');
 const Classroom = require('../models/Classroom');
-const { protect, restrictTo } = require('../middleware/auth');
+const { protect, restrictTo, verifyClassroomAccess } = require('../middleware/auth');
 const {
   uploadFileToCloudflareR2,
   deleteFileFromCloudflareR2,
@@ -22,6 +22,13 @@ const upload = multer({ storage: multer.memoryStorage() });
 // ─── ObjectId validation helper ───────────────────────────────────────────────
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const verifyClassroomAccessById = async (classroomId, user, writeRequired = false) => {
+  if (!classroomId) return false;
+  const classroom = await Classroom.findById(classroomId);
+  if (!classroom) return false;
+  return verifyClassroomAccess(classroom, user, writeRequired);
+};
+
 // =============================================================================
 // STATIC NAMED ROUTES — must be defined BEFORE any /:id dynamic routes
 // =============================================================================
@@ -34,13 +41,8 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
 
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isFaculty = req.user.role === 'faculty';
-    const isEnrolled = classroom.students.some(
-      (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
-    );
-    if (!isAdmin && !isFaculty && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
+    if (!verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     const filter = { classroom: req.params.classroomId };
@@ -54,7 +56,7 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
     const { generatePresignedGetUrl } = require('../config/cloudflare');
     for (let rec of recordings) {
       if (rec.storageProvider === 'cloudflare' && rec.cloudflareKey) {
-        rec.cloudflareUrl = await generatePresignedGetUrl(rec.cloudflareKey);
+        rec.cloudflareUrl = await generatePresignedGetUrl(rec.cloudflareKey, 604800); // 7 days expiration
       }
     }
 
@@ -224,6 +226,10 @@ router.post('/save-recording', protect, restrictTo('admin', 'superadmin', 'facul
       return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
     }
 
+    if (!(await verifyClassroomAccessById(classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     let parsedChapters = [];
     if (chapters) {
       try {
@@ -308,6 +314,10 @@ router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin', 'fa
       return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
     }
 
+    if (!(await verifyClassroomAccessById(classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     let chapters = [];
     if (req.body.chapters) {
       try {
@@ -372,6 +382,14 @@ router.post('/', protect, restrictTo('admin', 'superadmin', 'faculty'), async (r
       return res.status(400).json({ success: false, message: 'Classroom, title, and playbackId are required' });
     }
 
+    if (!isValidId(classroom)) {
+      return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
+    }
+
+    if (!(await verifyClassroomAccessById(classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     const recording = await ClassroomRecording.create({
       classroom,
       title,
@@ -425,6 +443,10 @@ router.post('/reuse', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
     const targetClassroom = await Classroom.findById(targetClassroomId);
     if (!targetClassroom) {
       return res.status(404).json({ success: false, message: 'Target classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(targetClassroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     const newRec = await ClassroomRecording.create({
@@ -483,6 +505,10 @@ router.post('/assign-from-library', protect, restrictTo('admin', 'superadmin', '
     if (!targetClassroom) {
       return res.status(404).json({ success: false, message: 'Target classroom not found' });
     }
+
+    if (!verifyClassroomAccess(targetClassroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
     
     // Create new ClassroomRecording to track analytics properly for this classroom
     const newRec = await ClassroomRecording.create({
@@ -534,16 +560,8 @@ router.get('/:id', protect, async (req, res, next) => {
     }
 
     const classroom = await Classroom.findById(recording.classroom);
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isFaculty = req.user.role === 'faculty';
-    const isEnrolled = classroom
-      ? classroom.students.some(
-          (s) => s.student.toString() === req.user._id.toString() && s.status === 'active'
-        )
-      : false;
-
-    if (!isAdmin && !isFaculty && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     res.json({
@@ -569,27 +587,9 @@ router.get('/:id/stream', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isFaculty = req.user.role === 'faculty';
-    let isAuthorized = isAdmin || isFaculty;
-
-    if (!isAuthorized) {
-      const isEnrolled = await Classroom.exists({
-        _id: recording.classroom,
-        students: {
-          $elemMatch: {
-            student: req.user._id,
-            status: 'active'
-          }
-        }
-      });
-      if (isEnrolled) {
-        isAuthorized = true;
-      }
-    }
-
-    if (!isAuthorized) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+    const classroom = await Classroom.findById(recording.classroom);
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     if (recording.storageProvider !== 'cloudflare' || !recording.cloudflareKey) {
@@ -639,6 +639,9 @@ router.get('/:id/progress/my', protect, async (req, res, next) => {
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
+    if (!(await verifyClassroomAccessById(recording.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
     const userStats = recording.viewStats.find(
       (v) => v.student.toString() === req.user._id.toString()
     );
@@ -657,13 +660,17 @@ router.get('/:id/analytics', protect, restrictTo('admin', 'superadmin'), async (
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
-    const recording = await ClassroomRecording.findById(req.params.id)
-      .populate('viewStats.student', 'fullName email avatar');
+    const recording = await ClassroomRecording.findById(req.params.id);
 
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
+    if (!(await verifyClassroomAccessById(recording.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    await recording.populate('viewStats.student', 'fullName email avatar');
     res.json({ success: true, viewStats: recording.viewStats });
   } catch (error) {
     next(error);
@@ -677,6 +684,10 @@ router.post('/:id/progress', protect, async (req, res, next) => {
     const recording = await ClassroomRecording.findById(req.params.id);
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
+    }
+
+    if (!(await verifyClassroomAccessById(recording.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     const safePosition = Math.max(0, Number(position) || 0);
@@ -733,12 +744,18 @@ router.post('/:id/chapters', protect, restrictTo('admin', 'superadmin'), async (
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
+    const recording = await ClassroomRecording.findById(req.params.id);
+    if (!recording) {
+      return res.status(404).json({ success: false, message: 'Recording not found' });
+    }
+
+    if (!(await verifyClassroomAccessById(recording.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     const { chapters } = req.body;
-    const recording = await ClassroomRecording.findByIdAndUpdate(
-      req.params.id,
-      { $set: { chapters } },
-      { new: true }
-    );
+    recording.chapters = chapters;
+    await recording.save();
     res.json({ success: true, message: 'Chapters updated successfully', recording });
   } catch (error) {
     next(error);
@@ -751,14 +768,17 @@ router.put('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), async 
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
-    const recording = await ClassroomRecording.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true }
-    );
+    const recording = await ClassroomRecording.findById(req.params.id);
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
+
+    if (!(await verifyClassroomAccessById(recording.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    Object.assign(recording, req.body);
+    await recording.save();
     res.json({ success: true, message: 'Recording updated successfully', recording });
   } catch (error) {
     next(error);
@@ -774,6 +794,10 @@ router.put('/:id/publish', protect, restrictTo('admin', 'superadmin', 'faculty')
     const recording = await ClassroomRecording.findById(req.params.id);
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
+    }
+
+    if (!(await verifyClassroomAccessById(recording.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     recording.isPublished = true;
@@ -807,6 +831,10 @@ router.delete('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
     const recording = await ClassroomRecording.findById(req.params.id);
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
+    }
+
+    if (!(await verifyClassroomAccessById(recording.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     await Classroom.findByIdAndUpdate(recording.classroom, {

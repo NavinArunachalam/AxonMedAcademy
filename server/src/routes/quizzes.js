@@ -8,7 +8,14 @@ const User = require('../models/User');
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const Classroom = require('../models/Classroom');
-const { protect, restrictTo } = require('../middleware/auth');
+const { protect, restrictTo, verifyClassroomAccess } = require('../middleware/auth');
+
+const verifyClassroomAccessById = async (classroomId, user, writeRequired = false) => {
+  if (!classroomId) return false;
+  const classroom = await Classroom.findById(classroomId);
+  if (!classroom) return false;
+  return verifyClassroomAccess(classroom, user, writeRequired);
+};
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -110,23 +117,22 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
 
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isFaculty = req.user.role === 'faculty';
-    const isEnrolled = classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active');
-    if (!isAdmin && !isFaculty && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
+    // Verify classroom access
+    if (!verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
-    // Students only see published or closed quizzes. Admins see all (draft, published, closed)
+    const isStaff = ['admin', 'superadmin', 'faculty'].includes(req.user.role);
+    // Students only see published or closed quizzes. Admins/Faculty see all (draft, published, closed)
     const filter = { classroom: req.params.classroomId };
-    if (!isAdmin) {
+    if (!isStaff) {
       filter.status = { $in: ['published', 'closed'] };
     }
 
     // Project out correct options for students
     let quizzes = await Quiz.find(filter).sort({ createdAt: -1 });
 
-    if (!isAdmin) {
+    if (!isStaff) {
       quizzes = quizzes.map(quiz => {
         const qObj = quiz.toObject();
         qObj.questions = qObj.questions.map(q => {
@@ -156,21 +162,18 @@ router.get('/:id', protect, async (req, res, next) => {
     }
 
     const classroom = await Classroom.findById(quiz.classroom);
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isFaculty = req.user.role === 'faculty';
-    const isEnrolled = classroom ? classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active') : false;
-
-    if (!isAdmin && !isFaculty && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
-    if (!isAdmin && quiz.status === 'draft') {
+    const isStaff = ['admin', 'superadmin', 'faculty'].includes(req.user.role);
+    if (!isStaff && quiz.status === 'draft') {
       return res.status(403).json({ success: false, message: 'Quiz is not available yet' });
     }
 
     let quizResponse = quiz.toObject();
     // Hide correct answers and explanations for students
-    if (!isAdmin) {
+    if (!isStaff) {
       quizResponse.questions = quizResponse.questions.map(q => {
         q.options = q.options.map(opt => {
           const { isCorrect, ...rest } = opt;
@@ -194,6 +197,11 @@ router.post('/:id/attempt/start', protect, async (req, res, next) => {
     const quiz = await Quiz.findById(id);
     if (!quiz) {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    const classroom = await Classroom.findById(quiz.classroom);
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     if (quiz.status !== 'published') {
@@ -269,10 +277,14 @@ router.post('/:id/attempt/start', protect, async (req, res, next) => {
 router.put('/:id/attempt/answer', protect, async (req, res, next) => {
   try {
     const { attemptId, questionId, selectedOptions, timeTakenSec } = req.body;
-    const attempt = await QuizAttempt.findOne({ _id: attemptId, student: req.user._id });
+    const attempt = await QuizAttempt.findOne({ _id: attemptId, student: req.user._id }).populate('quiz');
 
     if (!attempt) {
       return res.status(404).json({ success: false, message: 'Active attempt not found' });
+    }
+
+    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     if (attempt.status !== 'in_progress') {
@@ -309,6 +321,10 @@ router.post('/:id/attempt/submit', protect, async (req, res, next) => {
 
     if (!attempt) {
       return res.status(404).json({ success: false, message: 'Active attempt not found' });
+    }
+
+    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     if (attempt.status !== 'in_progress') {
@@ -389,6 +405,10 @@ router.get('/:id/attempt/my-result', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Attempt result not found' });
     }
 
+    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     // Join options isCorrect and explanations to results
     const quiz = attempt.quiz;
     const answersWithExplanations = attempt.answers.map(ans => {
@@ -419,14 +439,18 @@ router.get('/:id/attempt/my-result', protect, async (req, res, next) => {
   }
 });
 
-// GET /:id/leaderboard → Get leaderboard if enabled or if user is admin
+// GET /:id/leaderboard → Get leaderboard if enabled or if user is admin/faculty
 router.get('/:id/leaderboard', protect, async (req, res, next) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    if (!quiz.showLeaderboard && !isAdmin) {
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    const isStaff = ['admin', 'superadmin', 'faculty'].includes(req.user.role);
+    if (!quiz.showLeaderboard && !isStaff) {
       return res.status(403).json({ success: false, message: 'Leaderboard is disabled for this quiz' });
     }
 
@@ -486,6 +510,10 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Classroom and title are required' });
     }
 
+    if (!(await verifyClassroomAccessById(classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     // Map question 'id' to '_id' for database compatibility
     let formattedQuestions = [];
     if (questions && Array.isArray(questions)) {
@@ -536,6 +564,10 @@ router.put('/:id', async (req, res, next) => {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     // Map question 'id' to '_id' for database compatibility
     if (req.body.questions && Array.isArray(req.body.questions)) {
       req.body.questions = req.body.questions.map(q => {
@@ -571,8 +603,14 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /:id → Admin: delete quiz
 router.delete('/:id', async (req, res, next) => {
   try {
-    const quiz = await Quiz.findByIdAndDelete(req.params.id);
+    const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    await quiz.deleteOne();
 
     // Decrement quiz counts in classroom
     await Classroom.findByIdAndUpdate(quiz.classroom, {
@@ -590,6 +628,10 @@ router.put('/:id/publish', async (req, res, next) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
 
     quiz.status = 'published';
     quiz.notified = true;
@@ -618,12 +660,15 @@ router.put('/:id/publish', async (req, res, next) => {
 // PUT /:id/close → Admin: close quiz submissions
 router.put('/:id/close', async (req, res, next) => {
   try {
-    const quiz = await Quiz.findByIdAndUpdate(
-      req.params.id,
-      { $set: { status: 'closed' } },
-      { new: true }
-    );
+    const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    quiz.status = 'closed';
+    await quiz.save();
     res.json({ success: true, message: 'Quiz submissions closed', quiz });
   } catch (error) {
     next(error);
@@ -635,6 +680,10 @@ router.get('/:id/report', async (req, res, next) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
 
     const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' })
       .populate('student', 'fullName email phone')
@@ -651,6 +700,10 @@ router.get('/:id/report/export', async (req, res, next) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
 
     const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' })
       .populate('student', 'fullName email');
@@ -675,6 +728,10 @@ router.get('/:id/analytics', async (req, res, next) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    if (!(await verifyClassroomAccessById(quiz.classroom, req.user, true))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
 
     const attempts = await QuizAttempt.find({ quiz: req.params.id, status: 'submitted' });
     const totalAttempts = attempts.length;

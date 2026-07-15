@@ -1027,6 +1027,12 @@ function StudentClassroomDetail() {
             <span className="text-slate-500 text-xs">{cls.program}</span>
             <span className="text-slate-300">·</span>
             <span className="text-slate-500 text-xs">{cls.students.filter((s) => s.status === "active").length} students enrolled</span>
+            {cls.instructors && cls.instructors.length > 0 && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-500 text-xs font-semibold text-plum">Faculty: {cls.instructors.map(i => i.name).join(", ")}</span>
+              </>
+            )}
           </div>
           {/* My progress bar */}
           <div className="mt-3 flex items-center gap-3 max-w-sm">

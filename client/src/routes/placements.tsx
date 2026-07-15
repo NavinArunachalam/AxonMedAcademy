@@ -29,7 +29,7 @@ function Placements() {
   ];
 
   const results2025 = [
-    { rank: 1, name: "Dr. U. Poorani", institution: "GSMC", special: true },
+    { rank: 1, name: "Dr. U. Poorani", institution: "VSMC", special: true },
     { rank: 2, name: "Dr. M. Priya", institution: "GSMC" },
     { rank: 7, name: "Dr. K. M. Kavin Shree", institution: "GSMC" },
     { rank: 10, name: "Dr. Jeniba Jubit", institution: "GSMC, Palay" },
@@ -168,7 +168,7 @@ function Placements() {
             </div>
             <h2 className="font-display text-4xl lg:text-6xl font-bold tracking-tight mb-3" style={{ color: NAVY }}>Dr. Lalith Paul</h2>
             <p className="text-xl mb-2" style={{ color: NAVY }}>GSMC, CH</p>
-            <p className="text-foreground/70 mb-8">AIR 1 in MRB & AIAPGET - 2024</p>
+            <p className="text-foreground/70 mb-8">AIR 1 in AIAPGET - 2025</p>
             
             <div className="grid gap-6 sm:grid-cols-2 max-w-3xl mx-auto">
               <div className="bg-white rounded-2xl p-6 border-2" style={{ borderColor: 'rgba(244,180,0,0.3)' }}>
@@ -189,8 +189,8 @@ function Placements() {
               — 2025 Batch Topper
             </div>
             <h2 className="font-display text-4xl lg:text-6xl font-bold tracking-tight mb-3" style={{ color: NAVY }}>Dr. U. Poorani</h2>
-            <p className="text-xl mb-2" style={{ color: NAVY }}>GSMC</p>
-            <p className="text-foreground/70 mb-8">AIR 1 in MRB & AIAPGET - 2025</p>
+            <p className="text-xl mb-2" style={{ color: NAVY }}>VSMC</p>
+            <p className="text-foreground/70 mb-8">AIR 1 in MRB - 2025</p>
             
             <div className="grid gap-6 sm:grid-cols-2 max-w-3xl mx-auto">
               <div className="bg-white rounded-2xl p-6 border-2" style={{ borderColor: 'rgba(244,180,0,0.3)' }}>

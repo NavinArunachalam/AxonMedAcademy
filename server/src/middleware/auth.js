@@ -114,7 +114,26 @@ const restrictTo = (...roles) => {
   };
 };
 
+const verifyClassroomAccess = (classroom, user, writeRequired = false) => {
+  if (!user) return false;
+  const isAdmin = ['admin', 'superadmin'].includes(user.role);
+  if (isAdmin) return true;
+
+  const isFaculty = user.role === 'faculty';
+  if (isFaculty) {
+    const instructors = classroom.instructors || [];
+    return instructors.some(ins => ins.toString() === user._id.toString());
+  }
+
+  if (writeRequired) return false;
+
+  const students = classroom.students || [];
+  return students.some(s => s.student.toString() === user._id.toString() && s.status === 'active');
+};
+
 module.exports = {
   protect,
-  restrictTo
+  restrictTo,
+  verifyClassroomAccess
 };
+

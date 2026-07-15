@@ -27,6 +27,7 @@ import {
   getAdminPrograms,
   updateClassroom as apiUpdateClassroom,
   archiveClassroom as apiArchiveClassroom,
+  getAdminUsers,
   type ProgramCourse,
 } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
@@ -57,10 +58,15 @@ function CreateClassroomModal({
   onClose: () => void;
   onCreated?: (classroom: Classroom) => void;
 }) {
-  // ── Load programs from API ─────────────────────────────────────────────────
+  // ── Load programs & faculty from API ─────────────────────────────────────────
   const [programs, setPrograms] = useState<ProgramCourse[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
   const [programsError, setProgramsError] = useState<string | null>(null);
+  
+  const [faculties, setFaculties] = useState<any[]>([]);
+  const [loadingFaculties, setLoadingFaculties] = useState(false);
+  const [selectedFaculties, setSelectedFaculties] = useState<string[]>([]);
+
   const [createError, setCreateError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,6 +85,16 @@ function CreateClassroomModal({
         setProgramsError(err.message || "Failed to load programs");
       })
       .finally(() => { if (active) setLoadingPrograms(false); });
+
+    setLoadingFaculties(true);
+    getAdminUsers("faculty")
+      .then((data) => {
+        if (!active) return;
+        setFaculties(data);
+      })
+      .catch((err) => console.error("Failed to load faculty:", err))
+      .finally(() => { if (active) setLoadingFaculties(false); });
+
     return () => { active = false; };
   }, []);
 
@@ -98,7 +114,10 @@ function CreateClassroomModal({
     setCreateError(null);
     setIsSubmitting(true);
     try {
-      const created = await apiCreateClassroom(form);
+      const created = await apiCreateClassroom({
+        ...form,
+        instructors: selectedFaculties,
+      });
       classroomActions.addClassroom(created);
       onCreated?.(created);
       onClose();
@@ -211,6 +230,41 @@ function CreateClassroomModal({
             )}
           </div>
 
+          <div>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Assign Faculty (Instructors)
+            </label>
+            {loadingFaculties ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-cream/5 border border-cream/10 rounded-xl text-cream/50 text-xs">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading faculty...
+              </div>
+            ) : faculties.length === 0 ? (
+              <div className="px-4 py-2.5 bg-cream/5 border border-cream/10 rounded-xl text-cream/50 text-xs">
+                No active faculty members found. Create one in Settings or Admin Users first.
+              </div>
+            ) : (
+              <div className="max-h-28 overflow-y-auto border border-cream/10 rounded-xl p-2 bg-cream/5 space-y-1.5 scrollbar-thin">
+                {faculties.map((f) => (
+                  <label key={f.id} className="flex items-center gap-2.5 text-xs text-cream/80 cursor-pointer select-none py-0.5 hover:text-cream">
+                    <input
+                      type="checkbox"
+                      checked={selectedFaculties.includes(f.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedFaculties([...selectedFaculties, f.id]);
+                        } else {
+                          setSelectedFaculties(selectedFaculties.filter(id => id !== f.id));
+                        }
+                      }}
+                      className="rounded border-cream/20 bg-[#1A0F33] text-lime focus:ring-0 focus:ring-offset-0"
+                    />
+                    <span>{f.name} <span className="text-cream/40">({f.email})</span></span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -248,6 +302,14 @@ function EditClassroomModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [faculties, setFaculties] = useState<any[]>([]);
+  const [loadingFaculties, setLoadingFaculties] = useState(false);
+  const [selectedFaculties, setSelectedFaculties] = useState<string[]>(
+    Array.isArray(classroom.instructors)
+      ? classroom.instructors.map((ins: any) => typeof ins === 'string' ? ins : ins.id)
+      : []
+  );
+
   const [form, setForm] = useState({
     name: classroom.name,
     description: classroom.description || "",
@@ -266,6 +328,16 @@ function EditClassroomModal({
       })
       .catch(() => {})
       .finally(() => { if (active) setLoadingPrograms(false); });
+
+    setLoadingFaculties(true);
+    getAdminUsers("faculty")
+      .then((data) => {
+        if (!active) return;
+        setFaculties(data);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => { if (active) setLoadingFaculties(false); });
+
     return () => { active = false; };
   }, []);
 
@@ -282,6 +354,7 @@ function EditClassroomModal({
         program: form.program || undefined,
         maxStudents: form.maxStudents,
         status: form.status as Classroom["status"],
+        instructors: selectedFaculties,
       });
       classroomActions.updateClassroom(classroom.id, updated);
       onUpdated?.(updated);
@@ -403,6 +476,41 @@ function EditClassroomModal({
             </select>
           </div>
 
+          <div>
+            <label className="text-[11px] uppercase tracking-widest text-cream/60 block mb-1">
+              Assign Faculty (Instructors)
+            </label>
+            {loadingFaculties ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-cream/5 border border-cream/10 rounded-xl text-cream/50 text-xs">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading faculty...
+              </div>
+            ) : faculties.length === 0 ? (
+              <div className="px-4 py-2.5 bg-cream/5 border border-cream/10 rounded-xl text-cream/50 text-xs">
+                No active faculty members found. Create one in Settings or Admin Users first.
+              </div>
+            ) : (
+              <div className="max-h-28 overflow-y-auto border border-cream/10 rounded-xl p-2 bg-cream/5 space-y-1.5 scrollbar-thin">
+                {faculties.map((f) => (
+                  <label key={f.id} className="flex items-center gap-2.5 text-xs text-cream/80 cursor-pointer select-none py-0.5 hover:text-cream">
+                    <input
+                      type="checkbox"
+                      checked={selectedFaculties.includes(f.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedFaculties([...selectedFaculties, f.id]);
+                        } else {
+                          setSelectedFaculties(selectedFaculties.filter(id => id !== f.id));
+                        }
+                      }}
+                      className="rounded border-cream/20 bg-[#1A0F33] text-lime focus:ring-0 focus:ring-offset-0"
+                    />
+                    <span>{f.name} <span className="text-cream/40">({f.email})</span></span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -461,6 +569,12 @@ function ClassroomCard({ cls, onEdit, onArchive }: { cls: Classroom; onEdit: (cl
             </div>
           ))}
         </div>
+
+        {cls.instructors && cls.instructors.length > 0 && (
+          <div className="text-[10px] text-cream/40 mb-4 truncate">
+            Faculty: <span className="text-cream/70 font-semibold">{cls.instructors.map(i => i.name).join(", ")}</span>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Link

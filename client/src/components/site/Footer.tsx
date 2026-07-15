@@ -85,7 +85,7 @@ function FCol({ title, links }: { title: string; links: [string, string][] }) {
       </h4>
       <ol className="mt-5 space-y-2.5 text-sm">
         {links.map(([l, to]) => (
-          <li type="disc" key={l}>
+          <li key={l}>
             <Link to={to} className="hover:text-gold transition-colors text-white/80">{l}</Link>
           </li>
         ))}

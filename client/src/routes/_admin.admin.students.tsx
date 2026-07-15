@@ -177,7 +177,7 @@ function StudentDetail({ studentId }: { studentId: string }) {
 }
 
 function AdminStudents() {
-  const { classrooms, courses, users } = useClassroomStore();
+  const { classrooms, courses, users, currentUser } = useClassroomStore();
   const [backendError, setBackendError] = useState<string | null>(null);
   const [mongoStudents, setMongoStudents] = useState<Array<{ id: string; name: string; email: string; phone?: string; isActive?: boolean }>>([]);
   const [search, setSearch] = useState("");
@@ -345,8 +345,11 @@ function AdminStudents() {
         }]
       }));
 
+    if (currentUser?.role === "faculty") {
+      return enrolledStudents;
+    }
     return [...enrolledStudents, ...unenrolledStudents];
-  }, [classrooms, mongoStudents]);
+  }, [classrooms, mongoStudents, currentUser]);
 
   const filtered = enrollments.filter(e => {
     if (courseFilter !== "All" && !e.courses.some(c => c.course === courseFilter)) return false;
@@ -433,13 +436,15 @@ function AdminStudents() {
         </div>
         <div className="flex gap-2">
           <button onClick={handleExport} className="inline-flex items-center gap-2 rounded-full bg-cream/10 text-cream px-4 py-2 text-sm font-semibold"><Download className="h-4 w-4" /> Export CSV</button>
-          <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold"><Plus className="h-4 w-4" /> Add Student</button>
+          {(currentUser?.role === "admin" || currentUser?.role === "superadmin") && (
+            <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold"><Plus className="h-4 w-4" /> Add Student</button>
+          )}
         </div>
       </div>
 
       {backendError && <p className="text-sm text-red-400">{backendError}</p>}
 
-      {showAdd && (
+      {showAdd && (currentUser?.role === "admin" || currentUser?.role === "superadmin") && (
         <DarkCard>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-bold text-cream">Register New Student</h3>

@@ -49,7 +49,7 @@ function AdminLayout() {
     return null;
   }
 
-  if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "faculty")) {
+  if (!currentUser || currentUser.role === "student") {
     return <Navigate to="/login" />;
   }
 

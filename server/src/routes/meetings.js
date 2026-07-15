@@ -7,7 +7,7 @@ const LiveMeeting = require('../models/LiveMeeting');
 const Classroom = require('../models/Classroom');
 const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
-const { protect, restrictTo } = require('../middleware/auth');
+const { protect, restrictTo, verifyClassroomAccess } = require('../middleware/auth');
 const { sendFCMNotification } = require('../config/firebase');
 const emailService = require('../services/emailService');
 
@@ -23,7 +23,7 @@ const notifyMeetingCreated = async (meeting) => {
       roomId: meeting.roomId
     });
   } catch (err) {
-    console.log('[Socket Error] Could not notify meeting creation:', err.message);
+    console.error(err);
   }
 };
 
@@ -48,13 +48,15 @@ const resolveClassroom = async (classroomIdentifier) => {
 const verifyMeetingAccess = async (meeting, user) => {
   const classroomId = meeting.classroom && meeting.classroom._id ? meeting.classroom._id : meeting.classroom;
   const classroom = await Classroom.findById(classroomId);
+  if (!classroom) {
+    return { classroom: null, isAdmin: false, isFaculty: false, isEnrolled: false, allowed: false };
+  }
+  const allowed = verifyClassroomAccess(classroom, user, false);
   const isAdmin = ['admin', 'superadmin'].includes(user.role);
   const isFaculty = user.role === 'faculty';
-  const isEnrolled = classroom
-    ? classroom.students.some(s => s.student.toString() === user._id.toString() && s.status === 'active')
-    : false;
+  const isEnrolled = classroom.students.some(s => s.student.toString() === user._id.toString() && s.status === 'active');
 
-  return { classroom, isAdmin, isFaculty, isEnrolled, allowed: isAdmin || isFaculty || isEnrolled };
+  return { classroom, isAdmin, isFaculty, isEnrolled, allowed };
 };
 
 const upsertMeetingAttendance = async (meeting, userId, markedBy = 'auto') => {
@@ -93,14 +95,9 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Classroom not found' });
     }
 
-    // Verify enrollment
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isInstructor = classroom.instructors && Array.isArray(classroom.instructors)
-      ? classroom.instructors.some(inst => inst.toString() === req.user._id.toString())
-      : false;
-    const isEnrolled = classroom.students.some(s => s.student.toString() === req.user._id.toString() && s.status === 'active');
-    if (!isAdmin && !isInstructor && !isEnrolled) {
-      return res.status(403).json({ success: false, message: 'You are not enrolled in this classroom' });
+    // Verify classroom access
+    if (!verifyClassroomAccess(classroom, req.user, false)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     const meetings = await LiveMeeting.find({ classroom: classroom._id })
@@ -116,16 +113,24 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
 // GET /my → Student/Admin: get all meetings for enrolled classrooms
 router.get('/my', protect, async (req, res, next) => {
   try {
-    const classrooms = await Classroom.find({
-      'students.student': req.user._id,
-      'students.status': 'active',
-      status: 'active'
-    }).select('_id');
+    const filter = { status: { $ne: 'cancelled' } };
 
-    const meetings = await LiveMeeting.find({
-      classroom: { $in: classrooms.map((c) => c._id) },
-      status: { $ne: 'cancelled' }
-    })
+    if (req.user.role === 'student') {
+      const classrooms = await Classroom.find({
+        'students.student': req.user._id,
+        'students.status': 'active',
+        status: 'active'
+      }).select('_id');
+      filter.classroom = { $in: classrooms.map((c) => c._id) };
+    } else if (req.user.role === 'faculty') {
+      const classrooms = await Classroom.find({
+        instructors: req.user._id,
+        status: 'active'
+      }).select('_id');
+      filter.classroom = { $in: classrooms.map((c) => c._id) };
+    }
+
+    const meetings = await LiveMeeting.find(filter)
       .populate('classroom', 'name code')
       .populate('createdBy', 'fullName')
       .sort({ scheduledAt: 1 });
@@ -414,6 +419,10 @@ router.post('/', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Classroom not found for meeting creation' });
     }
 
+    if (!verifyClassroomAccess(classroomDoc, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     console.log(`[Meeting Create] Creating Virtual Classroom for classroom: ${classroomDoc.name} (${classroomDoc._id})`);
 
     const generateRoomId = () => {
@@ -561,14 +570,18 @@ router.post('/', async (req, res, next) => {
 // PUT /:id → Admin: edit meeting
 router.put('/:id', async (req, res, next) => {
   try {
-    const meeting = await LiveMeeting.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true }
-    );
+    const meeting = await LiveMeeting.findById(req.params.id);
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
+
+    const classroom = await Classroom.findById(meeting.classroom);
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    Object.assign(meeting, req.body);
+    await meeting.save();
     res.json({ success: true, message: 'Meeting updated successfully', meeting });
   } catch (error) {
     next(error);
@@ -581,6 +594,11 @@ router.delete('/:id', async (req, res, next) => {
     const meeting = await LiveMeeting.findById(req.params.id);
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
+    }
+
+    const classroom = await Classroom.findById(meeting.classroom);
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     meeting.status = 'cancelled';
@@ -606,6 +624,14 @@ router.post('/:id/start', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
+    const classroomDoc = meeting.classroom?._id
+      ? meeting.classroom
+      : await Classroom.findById(meeting.classroom);
+
+    if (!classroomDoc || !verifyClassroomAccess(classroomDoc, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     if (meeting.status === 'live') {
       return res.status(400).json({ success: false, message: 'Meeting is already live' });
     }
@@ -613,10 +639,6 @@ router.post('/:id/start', async (req, res, next) => {
     meeting.status = 'live';
     meeting.startedAt = new Date();
     await meeting.save();
-
-    const classroomDoc = meeting.classroom?._id
-      ? meeting.classroom
-      : await Classroom.findById(meeting.classroom);
 
     // ── Socket: notify enrolled students in real-time ─────────────────────
     try {
@@ -701,6 +723,11 @@ router.post('/:id/end', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
+    const classroom = await Classroom.findById(meeting.classroom);
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     meeting.status = 'ended';
     meeting.endedAt = new Date();
 
@@ -741,6 +768,11 @@ router.get('/:id/attendance', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
+    const classroom = await Classroom.findById(meeting.classroom);
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
     res.json({ success: true, attendees: meeting.attendees });
   } catch (error) {
     next(error);
@@ -753,6 +785,11 @@ router.post('/:id/notify', async (req, res, next) => {
     const meeting = await LiveMeeting.findById(req.params.id);
     if (!meeting) {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
+    }
+
+    const classroom = await Classroom.findById(meeting.classroom);
+    if (!classroom || !verifyClassroomAccess(classroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
     console.log(`[Notification Service Mock] Resending WhatsApp/Portal notification for meeting: "${meeting.title}"`);

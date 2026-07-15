@@ -10,6 +10,7 @@ const fs = require('fs');
 const User = require('../models/User');
 const StudentRequest = require('../models/StudentRequest');
 const { protect } = require('../middleware/auth');
+const { sendPasswordResetEmail } = require('../services/emailService');
 
 const defaultLoginAccounts = {
   'axonmedacademy2@gmail.com': {
@@ -526,6 +527,112 @@ router.post('/logout', protect, async (req, res) => {
   res.clearCookie('session', clearOptions);
 
   res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// POST /forgot-password → Initiate password reset flow (sends OTP)
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { identifier } = req.body;
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Please provide user ID or email' });
+    }
+
+    const input = String(identifier).trim();
+    let user;
+
+    if (input.includes('@')) {
+      user = await User.findOne({ email: input.toLowerCase() });
+    } else {
+      const q = new RegExp(`^${input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      user = await User.findOne({ userId: q });
+    }
+
+    if (!user) {
+      // Return a standard response for security, but indicating it sent if user exists
+      return res.json({
+        success: true,
+        message: 'If the user exists, a verification code has been sent to the registered email.'
+      });
+    }
+
+    // Generate 6-digit verification code
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.otp = otp;
+    user.otpExpiry = otpExpiry;
+    await user.save();
+
+    // Send email via Resend
+    try {
+      await sendPasswordResetEmail(user, otp);
+    } catch (emailErr) {
+      console.warn(`[Forgot Password] Failed to send email via Resend: ${emailErr.message}`);
+      console.log(`\n============================================\n[DEVELOPMENT] PASSWORD RESET OTP FOR ${user.email}:\n  OTP Code: ${otp}\n============================================\n`);
+      
+      if (!process.env.RESEND_API_KEY) {
+        return res.json({
+          success: true,
+          message: 'Reset code generated. (Dev Mode: Checked console for OTP)',
+          devMode: true
+        });
+      }
+      throw emailErr;
+    }
+
+    res.json({
+      success: true,
+      message: 'A verification code has been sent to your registered email.'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /reset-password → Verify OTP and set new password
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { identifier, otp, newPassword } = req.body;
+
+    if (!identifier || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Please provide all fields' });
+    }
+
+    const input = String(identifier).trim();
+    let user;
+
+    if (input.includes('@')) {
+      user = await User.findOne({ email: input.toLowerCase() }).select('+otp +otpExpiry');
+    } else {
+      const q = new RegExp(`^${input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      user = await User.findOne({ userId: q }).select('+otp +otpExpiry');
+    }
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid user or verification code' });
+    }
+
+    if (!user.otp || !user.otpExpiry || user.otp !== String(otp).trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code' });
+    }
+
+    if (new Date() > user.otpExpiry) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired' });
+    }
+
+    // Hash and save new password
+    user.password = newPassword;
+    user.otp = undefined;
+    user.otpExpiry = undefined;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Your password has been successfully reset. Please login with your new password.'
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

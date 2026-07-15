@@ -218,6 +218,12 @@ function normalizeBackendClassroom(raw: any) {
         })) : []
       }))
       : [],
+    instructors: Array.isArray(raw.instructors)
+      ? raw.instructors.map((i: any) => ({
+        id: i._id || i.id || (typeof i === 'string' ? i : ''),
+        name: i.fullName || i.name || 'Faculty',
+      }))
+      : [],
   };
 }
 
@@ -316,6 +322,20 @@ export async function loginUser(identifier: string, password: string) {
   return fetchJson('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ identifier, password }),
+  });
+}
+
+export async function forgotPassword(identifier: string) {
+  return fetchJson('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ identifier }),
+  });
+}
+
+export async function resetPassword(identifier: string, otp: string, newPassword: string) {
+  return fetchJson('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ identifier, otp, newPassword }),
   });
 }
 
@@ -996,6 +1016,7 @@ export async function createClassroom(payload: {
   batch?: string;
   maxStudents?: number;
   settings?: Record<string, any>;
+  instructors?: string[];
 }) {
   const result = await fetchJson('/classrooms', {
     method: 'POST',
@@ -1016,6 +1037,7 @@ export async function updateClassroom(
     maxStudents?: number;
     status?: 'active' | 'archived' | 'draft';
     settings?: Record<string, any>;
+    instructors?: string[];
   }
 ) {
   const result = await fetchJson(`/classrooms/${encodeURIComponent(id)}`, {

@@ -340,3 +340,58 @@ exports.sendMeetingScheduledEmail = async (student, meeting, classroomName) => {
   console.log(`[Email] ✅ Meeting notification sent to ${student.email} — ID: ${data?.id}`);
   return true;
 };
+
+// ─── Password Reset Email ────────────────────────────────────────────────────
+
+exports.sendPasswordResetEmail = async (user, otp) => {
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const resend = getResend();
+
+  const { data, error } = await resend.emails.send({
+    from: `Axon Med Academy <${fromEmail}>`,
+    to: [user.email],
+    subject: '🔒 Reset Your Axon Med Academy Password',
+    html: `
+      <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #1A0F33 0%, #4C1D95 100%); color: #fff; padding: 32px 28px; text-align: center;">
+          <h1 style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">Axon Med Academy</h1>
+          <p style="margin: 8px 0 0 0; color: #c4b5fd; font-size: 14px;">Password Reset Request 🔑</p>
+        </div>
+
+        <!-- Body -->
+        <div style="padding: 32px 28px;">
+          <p style="font-size: 16px; margin-top: 0;">Dear <strong>${user.fullName}</strong>,</p>
+          <p>We received a request to reset the password for your Axon Med Academy account.</p>
+          <p>Please use the following 6-digit verification code to reset your password. This code will expire in 10 minutes.</p>
+
+          <!-- OTP Box -->
+          <div style="text-align: center; margin: 24px 0;">
+            <div style="display: inline-block; font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #7C3AED; border: 2px dashed #7C3AED; border-radius: 8px; padding: 12px 24px; background: #f8f5ff; font-family: monospace;">
+              ${otp}
+            </div>
+          </div>
+
+          <p style="font-size: 14px; color: #6b7280;">If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+
+          <p style="margin-bottom: 0;">Best Regards,<br><strong>Axon Med Academy Support Team</strong></p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f8fafc; padding: 16px 28px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+          © ${new Date().getFullYear()} Axon Med Academy. All rights reserved.<br>
+          If you did not expect this email, please contact <a href="mailto:${fromEmail}" style="color: #7C3AED;">${fromEmail}</a>.
+        </div>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error(`[Email] ❌ Failed to send password reset email to ${user.email}:`, error);
+    throw new Error(error.message || JSON.stringify(error));
+  }
+
+  console.log(`[Email] ✅ Password reset email sent to ${user.email} — ID: ${data?.id}`);
+  return true;
+};
+

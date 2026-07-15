@@ -32,7 +32,7 @@ router.get('/library', protect, restrictTo('admin', 'superadmin', 'faculty'), as
     const { generatePresignedGetUrl } = require('../config/cloudflare');
     for (let rec of recordings) {
       if (rec.storageProvider === 'cloudflare' && rec.cloudflareKey) {
-        rec.cloudflareUrl = await generatePresignedGetUrl(rec.cloudflareKey);
+        rec.cloudflareUrl = await generatePresignedGetUrl(rec.cloudflareKey, 604800); // 7 days expiration
       }
     }
 
