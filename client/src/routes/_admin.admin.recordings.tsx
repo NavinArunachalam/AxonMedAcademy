@@ -35,6 +35,10 @@ function GlobalRecordingsLibrary() {
   const [editTitle, setEditTitle] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
+  const [editFolderId, setEditFolderId] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState("");
+  const [isEditingFolder, setIsEditingFolder] = useState(false);
+
   const formatMB = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
   useEffect(() => {
@@ -139,6 +143,23 @@ function GlobalRecordingsLibrary() {
       toast.error(err.message || "Failed to update title");
     } finally {
       setIsEditing(false);
+    }
+  };
+
+  const handleEditFolder = async () => {
+    if (!editFolderId || !editFolderName.trim()) return;
+    setIsEditingFolder(true);
+    try {
+      const res = await api.put(`/library-folders/${editFolderId}`, { name: editFolderName }) as any;
+      if (res.success || res.folder) {
+        toast.success("Folder name updated");
+        setEditFolderId(null);
+        fetchFolders();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update folder name");
+    } finally {
+      setIsEditingFolder(false);
     }
   };
 
@@ -313,17 +334,31 @@ function GlobalRecordingsLibrary() {
                     </div>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteFolder(folder._id);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:text-slate-600 hover:bg-slate-50 rounded-lg"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditFolderId(folder._id);
+                      setEditFolderName(folder.name);
+                    }}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteFolder(folder._id);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -452,6 +487,30 @@ function GlobalRecordingsLibrary() {
             <Button variant="outline" onClick={() => setEditRecId(null)} disabled={isEditing}>Cancel</Button>
             <Button onClick={handleEditRecording} disabled={isEditing || !editTitle}>
               {isEditing ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Folder Modal */}
+      <Dialog open={!!editFolderId} onOpenChange={(open) => !open && setEditFolderId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Folder</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Folder Name</Label>
+            <Input 
+              value={editFolderName} 
+              onChange={(e) => setEditFolderName(e.target.value)} 
+              className="mt-2"
+              disabled={isEditingFolder}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditFolderId(null)} disabled={isEditingFolder}>Cancel</Button>
+            <Button onClick={handleEditFolder} disabled={isEditingFolder || !editFolderName.trim()}>
+              {isEditingFolder ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

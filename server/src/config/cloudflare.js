@@ -249,5 +249,6 @@ module.exports = {
   completeMultipartUpload,
   abortMultipartUpload,
   getS3Client,
+  getCloudflareConfig,
   fetchFn: typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null,
 };
