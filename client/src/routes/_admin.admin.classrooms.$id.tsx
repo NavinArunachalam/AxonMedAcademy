@@ -2720,8 +2720,22 @@ function AdminClassroomDetail() {
         </div>
         <button
           onClick={() => {
-            navigator.clipboard.writeText(`${window.location.origin}/classroom-join/${classroom.id}`);
-            toast.success('Share link copied to clipboard!');
+            const teacherName = classroom.instructors?.[0]?.name || "Axon Med Academy";
+            const inviteMsg = `Your teacher, ${teacherName}, has invited you to join classroom ${classroom.name}.
+
+Classroom ID: ${classroom.code}
+Class Name: ${classroom.name}
+Subject Name: ${classroom.program}
+
+Join now using the link below or the classroom ID above on Axon Med Academy App to never miss any classwork! 📚🤓
+Enjoy your learning through practice bits, quizzes, classwork & much more!
+
+
+Tap the link below to join:
+${window.location.origin}/classroom-join/${classroom.id}`;
+
+            navigator.clipboard.writeText(inviteMsg);
+            toast.success('Share invite copied to clipboard!');
           }}
           className="inline-flex items-center gap-2 rounded-full bg-lime/20 text-lime px-4 py-2 text-sm font-bold hover:bg-lime/30 transition-colors"
         >
