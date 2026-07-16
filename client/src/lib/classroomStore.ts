@@ -112,6 +112,7 @@ export interface Recording {
   chapters: Chapter[];
   viewStats: ViewStat[];
   uploadedAt: string;
+  folder?: string | null;
 }
 
 export interface Meeting {
@@ -148,6 +149,14 @@ export interface EnrolledStudent {
   certificateUrl?: string;
 }
 
+export interface ClassroomFolder {
+  id: string;
+  name: string;
+  description: string;
+  classroomId: string;
+  createdBy: string;
+}
+
 export interface Classroom {
   id: string;
   name: string;
@@ -162,6 +171,7 @@ export interface Classroom {
   announcements: Announcement[];
   meetings: Meeting[];
   recordings: Recording[];
+  folders: ClassroomFolder[];
   quizzes: Quiz[];
   pendingJoinRequestsCount?: number;
   instructors?: { id: string; name: string }[];

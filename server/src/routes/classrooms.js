@@ -11,6 +11,7 @@ const ClassroomRecording = require('../models/ClassroomRecording');
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const ClassroomJoinRequest = require('../models/ClassroomJoinRequest');
+const ClassroomFolder = require('../models/ClassroomFolder');
 const { sendWelcomeEmail } = require('../services/emailService');
 const { protect, restrictTo, verifyClassroomAccess } = require('../middleware/auth');
 const mongoose = require('mongoose');
@@ -162,6 +163,11 @@ const attachClassroomDetails = async (classrooms) => {
   const list = Array.isArray(withMeetings) ? withMeetings : [withMeetings];
   const classroomIds = list.map((classroom) => classroom._id);
 
+  // Fetch folders
+  const folders = await ClassroomFolder.find({ classroom: { $in: classroomIds } })
+    .sort({ order: 1, createdAt: -1 })
+    .lean();
+
   // Fetch recordings with creator populated, student details will be manual
   const recordings = await ClassroomRecording.find({ classroom: { $in: classroomIds } })
     .populate('uploadedBy', 'fullName')
@@ -188,6 +194,13 @@ const attachClassroomDetails = async (classrooms) => {
 
   // Manual populate student details in quizAttempts
   await manualPopulate(quizAttempts, 'student', 'fullName email phone');
+
+  const foldersByClassroom = folders.reduce((acc, folder) => {
+    const key = folder.classroom.toString();
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(folder);
+    return acc;
+  }, {});
 
   const recordingsByClassroom = recordings.reduce((acc, rec) => {
     const key = rec.classroom.toString();
@@ -233,6 +246,10 @@ const attachClassroomDetails = async (classrooms) => {
   const withDetails = list.map((classroom) => ({
     ...classroom,
     pendingJoinRequestsCount: joinReqCountByClassroom[classroom._id.toString()] || 0,
+    folders: (foldersByClassroom[classroom._id.toString()] || []).map(f => ({
+      ...f,
+      id: f._id.toString()
+    })),
     recordings: (recordingsByClassroom[classroom._id.toString()] || []).map(r => ({
       ...r,
       id: r._id.toString()

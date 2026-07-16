@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const classroomRecordingSchema = new mongoose.Schema({
   classroom: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom', required: true },
+  folder: { type: mongoose.Schema.Types.ObjectId, ref: 'ClassroomFolder', default: null },
   title: { type: String, required: true },
   description: { type: String },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

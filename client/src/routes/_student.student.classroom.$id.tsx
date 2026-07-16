@@ -1,14 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import {
   ArrowLeft, Megaphone, Video, BookOpen, ClipboardList,
   Play, Check, X, Clock, Calendar, ChevronRight,
-  Trophy, Radio, Lock, ShieldAlert, Download
+  Trophy, Radio, Lock, ShieldAlert, Download,
+  DollarSign, FileText, MessageSquare, HelpCircle, LifeBuoy
 } from "lucide-react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
-  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy
+  LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy,
+  LuFolder
 } from "react-icons/lu";
 import { useVideoProtection } from "@/lib/video-protection";
 import {
@@ -53,13 +56,25 @@ function fmtDate(iso: string) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: "announcements", label: "Announcements", icon: LuMegaphone },
-  { key: "live", label: "Live Classes", icon: LuVideo },
-  { key: "recordings", label: "Recordings", icon: LuCircleDot },
-  { key: "tests", label: "Tests", icon: LuClipboardList },
-] as const;
-type TabKey = (typeof TABS)[number]["key"];
+interface TabConfig {
+  key: TabKey;
+  label: string;
+  icon: React.ComponentType<any>;
+  bg: string;
+  text: string;
+  border: string;
+  iconColor: string;
+  isLive?: boolean;
+}
+
+type TabKey = "announcements" | "live" | "recordings" | "tests";
+
+const TABS: readonly TabConfig[] = [
+  { key: "announcements", label: "Announcements", icon: BookOpen, bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", border: "border-[#93C5FD]", iconColor: "#2563EB" },
+  { key: "live", label: "Live Class", icon: Video, bg: "bg-[#FFE4E6]", text: "text-[#9F1239]", border: "border-[#FDA4AF]", iconColor: "#E11D48", isLive: true },
+  { key: "recordings", label: "Recording", icon: Play, bg: "bg-[#FFEDD5]", text: "text-[#9A3412]", border: "border-[#FED7AA]", iconColor: "#EA580C" },
+  { key: "tests", label: "Smart Test", icon: ClipboardList, bg: "bg-[#E0F2FE]", text: "text-[#075985]", border: "border-[#7DD3FC]", iconColor: "#0284C7" },
+];
 
 // ─── Announcements Tab ────────────────────────────────────────────────────────
 
@@ -470,9 +485,24 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const cls = classrooms.find((c) => c.id === classroomId)!;
   const [activeRec, setActiveRec] = useState<string | null>(null);
+  
+  // Navigation State
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
-  const published = cls.recordings.filter((r) => r.isPublished);
-  const activeRecording = published.find((r) => r.id === activeRec);
+  const publishedRecordings = (cls.recordings || []).filter((r) => r.isPublished);
+  const activeRecording = publishedRecordings.find((r) => r.id === activeRec);
+
+  // Compute folder list: only show folders containing at least one published recording
+  const folders = (cls.folders || []).filter(folder => 
+    publishedRecordings.some(r => r.folder === folder.id)
+  );
+
+  const currentFolder = folders.find(f => f.id === currentFolderId);
+
+  // Filter recordings for the current view
+  const visibleRecordings = currentFolderId
+    ? publishedRecordings.filter(rec => rec.folder === currentFolderId)
+    : [];
 
   return (
     <>
@@ -480,45 +510,103 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
         <SecurePlayer classroomId={classroomId} recording={activeRecording} onClose={() => setActiveRec(null)} />
       )}
 
-      <div className="space-y-3">
-        {published.length === 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center">
-            <BookOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-slate-500 text-sm">No recordings published yet.</p>
+      <div className="space-y-4">
+        {/* Breadcrumb / Folder Title */}
+        {currentFolderId ? (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <button 
+              className="hover:text-plum flex items-center gap-1 transition-colors font-bold text-plum-dark"
+              onClick={() => setCurrentFolderId(null)}
+            >
+              <LuArrowLeft className="w-4 h-4" /> Recordings
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="font-bold text-plum">
+              {currentFolder?.name}
+            </span>
+          </div>
+        ) : (
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Classroom Library</div>
+        )}
+
+        {/* Folders list (only at root) */}
+        {!currentFolderId && folders.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {folders.map(folder => {
+              const videoCount = publishedRecordings.filter(r => r.folder === folder.id).length;
+              return (
+                <button
+                  key={folder.id}
+                  onClick={() => setCurrentFolderId(folder.id)}
+                  className="flex items-center gap-3 p-4 rounded-2xl border border-slate-200 bg-white hover:border-plum/30 transition-all text-left shadow-sm hover:shadow-md w-full"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-plum/10 text-plum flex items-center justify-center shrink-0">
+                    <LuFolder className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-plum-dark text-sm truncate">{folder.name}</div>
+                    {folder.description && (
+                      <div className="text-xs text-slate-500 truncate mt-0.5">{folder.description}</div>
+                    )}
+                    <div className="text-[10px] text-slate-400 mt-1 font-semibold">{videoCount} videos</div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
-        {published.map((rec) => {
-          const myStats = rec.viewStats.find((v) => v.studentId === CURRENT_STUDENT.id);
-          return (
-            <div key={rec.id} className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-plum/30 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-14 rounded-xl bg-linear-to-br from-plum/20 to-plum-dark/10 flex items-center justify-center shrink-0">
-                  <Play className="h-5 w-5 text-plum" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-display font-bold text-plum-dark text-sm mb-0.5">{rec.title}</h4>
-                  <p className="text-slate-500 text-xs line-clamp-1">{rec.description}</p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
-                    <span className="font-mono">{formatDuration(rec.duration)}</span>
-                    <span>{rec.chapters.length} chapters</span>
-                    {myStats && <span className="text-plum font-medium">{myStats.watchedPercent}% watched</span>}
-                  </div>
-                  {myStats && (
-                    <div className="mt-2 h-1 bg-slate-100 rounded-full overflow-hidden w-48">
-                      <div className="h-full bg-plum rounded-full" style={{ width: `${myStats.watchedPercent}%` }} />
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setActiveRec(rec.id)}
-                  className="rounded-full bg-plum-dark text-cream px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 hover:bg-plum transition-colors"
-                >
-                  <Play className="h-3 w-3" /> {myStats ? "Resume" : "Watch"}
-                </button>
+
+        {!currentFolderId && folders.length === 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center shadow-sm">
+            <BookOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-slate-500 text-sm">No folders created yet.</p>
+          </div>
+        )}
+
+        {/* Videos list */}
+        {currentFolderId && (
+          <div className="space-y-3">
+            {visibleRecordings.length === 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center shadow-sm">
+                <BookOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-slate-500 text-sm">No videos inside this folder.</p>
               </div>
-            </div>
-          );
-        })}
+            )}
+            
+            {visibleRecordings.map((rec) => {
+              const myStats = rec.viewStats.find((v) => v.studentId === CURRENT_STUDENT.id);
+              return (
+                <div key={rec.id} className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-plum/30 hover:shadow-md transition-all shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="w-20 h-14 rounded-xl bg-linear-to-br from-plum/20 to-plum-dark/10 flex items-center justify-center shrink-0">
+                      <Play className="h-5 w-5 text-plum" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-display font-bold text-plum-dark text-sm mb-0.5">{rec.title}</h4>
+                      <p className="text-slate-500 text-xs line-clamp-1">{rec.description}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                        <span className="font-mono">{formatDuration(rec.duration)}</span>
+                        <span>{rec.chapters.length} chapters</span>
+                        {myStats && <span className="text-plum font-medium">{myStats.watchedPercent}% watched</span>}
+                      </div>
+                      {myStats && (
+                        <div className="mt-2 h-1 bg-slate-100 rounded-full overflow-hidden w-48">
+                          <div className="h-full bg-plum rounded-full" style={{ width: `${myStats.watchedPercent}%` }} />
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setActiveRec(rec.id)}
+                      className="rounded-full bg-plum-dark text-cream px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 hover:bg-plum transition-colors shadow-sm"
+                    >
+                      <Play className="h-3 w-3" /> {myStats ? "Resume" : "Watch"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );
@@ -943,7 +1031,7 @@ function StudentClassroomDetail() {
   const id = params.id as string;
   const { classrooms, currentUser } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
-  const [tab, setTab] = useState<TabKey>("announcements");
+  const [tab, setTab] = useState<TabKey>("live");
   const [isLoading, setIsLoading] = useState(!classrooms.some((c) => c.id === id));
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -1044,24 +1132,44 @@ function StudentClassroomDetail() {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 flex-wrap bg-cream/5 rounded-2xl p-1.5">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2.5 transition-colors ${tab === t.key ? "bg-plum-dark text-cream shadow" : "text-slate-600 hover:text-plum-dark"}`}
-          >
-            <t.icon />
-            {t.label}
-          </button>
-        ))}
+      {/* Grid tab bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-xl mx-auto my-6">
+        {TABS.map((t) => {
+          const isActive = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${t.bg} ${t.text} ${t.border} transition-all relative overflow-hidden group aspect-square shadow-xs ${
+                isActive 
+                  ? `scale-[1.04] ring-2 ring-offset-2 ring-offset-slate-50 shadow-md ${t.key === 'live' ? 'ring-[#E11D48]' : t.key === 'recordings' ? 'ring-[#EA580C]' : t.key === 'announcements' ? 'ring-[#2563EB]' : 'ring-[#059669]'}` 
+                  : "hover:scale-[1.02] hover:shadow-sm"
+              }`}
+            >
+              {t.isLive && (
+                <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-[#E11D48] text-white text-[8px] font-extrabold tracking-wider uppercase animate-pulse">
+                  LIVE
+                </span>
+              )}
+              
+              <t.icon className="w-8 h-8 mb-1.5 transition-transform group-hover:scale-110" style={{ color: t.iconColor }} />
+              <span className="text-[10px] sm:text-xs font-black tracking-tight text-center leading-tight">{t.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {tab === "announcements" && <AnnouncementsTab classroomId={cls.id} />}
-      {tab === "live" && <LiveClassesTab classroomId={cls.id} />}
-      {tab === "recordings" && <RecordingsTab classroomId={cls.id} />}
-      {tab === "tests" && <TestsTab classroomId={cls.id} />}
+      {/* Tab Contents Area */}
+      <div className="border-t border-slate-100 pt-6">
+        <h2 className="font-display text-base font-extrabold text-slate-800 mb-4 capitalize">
+          {tab === "announcements" ? "Study Material & Announcements" : tab === "live" ? "Live Classes" : tab === "recordings" ? "Recordings" : "Smart Tests & Quizzes"}
+        </h2>
+        
+        {tab === "announcements" && <AnnouncementsTab classroomId={cls.id} />}
+        {tab === "live" && <LiveClassesTab classroomId={cls.id} />}
+        {tab === "recordings" && <RecordingsTab classroomId={cls.id} />}
+        {tab === "tests" && <TestsTab classroomId={cls.id} />}
+      </div>
     </div>
   );
 }

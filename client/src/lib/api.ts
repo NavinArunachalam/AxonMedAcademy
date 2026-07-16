@@ -159,6 +159,7 @@ function normalizeBackendClassroom(raw: any) {
         storageProvider: r.storageProvider,
         cloudflareKey: r.cloudflareKey,
         cloudflareUrl: r.cloudflareUrl,
+        folder: r.folder ? String(r.folder?._id || r.folder) : null,
         viewStats: Array.isArray(r.viewStats)
           ? r.viewStats.map((v: any) => ({
             studentId: String(v.student?._id || v.student),
@@ -168,6 +169,15 @@ function normalizeBackendClassroom(raw: any) {
             lastPosition: v.lastPosition || 0,
           }))
           : [],
+      }))
+      : [],
+    folders: Array.isArray(raw.folders)
+      ? raw.folders.map((f: any) => ({
+        id: f._id || f.id,
+        name: f.name,
+        description: f.description || '',
+        classroomId: String(f.classroom?._id || f.classroom),
+        createdBy: String(f.createdBy?._id || f.createdBy),
       }))
       : [],
     quizzes: Array.isArray(raw.quizzes)
@@ -747,6 +757,7 @@ export async function uploadClassroomRecordingToCloudflare({
   duration = 0,
   isPublished = false,
   chapters = [],
+  folderId,
   onProgress,
 }: {
   file: File;
@@ -756,6 +767,7 @@ export async function uploadClassroomRecordingToCloudflare({
   duration?: number;
   isPublished?: boolean;
   chapters?: unknown[];
+  folderId?: string;
   onProgress?: (progress: {
     loaded: number;
     total: number;
@@ -844,7 +856,7 @@ export async function uploadClassroomRecordingToCloudflare({
       method: 'POST',
       credentials: 'include',
       headers: baseHeaders,
-      body: JSON.stringify({ classroom, title, description, duration, isPublished, objectKey, publicUrl, chapters }),
+      body: JSON.stringify({ classroom, title, description, duration, isPublished, objectKey, publicUrl, chapters, folderId }),
     });
 
     const saveData = await saveRes.json().catch(() => ({}));
@@ -971,6 +983,7 @@ export async function uploadClassroomRecordingToCloudflare({
       objectKey,
       publicUrl,
       chapters,
+      folderId,
     }),
   });
 
@@ -1176,10 +1189,42 @@ export async function reuseClassroomRecording(payload: {
   targetClassroomId: string;
   title?: string;
   description?: string;
+  folderId?: string;
 }) {
   return fetchJson('/recordings/classroom/reuse', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function createClassroomFolder(classroomId: string, name: string, description?: string) {
+  return fetchJson('/recordings/classroom/folders', {
+    method: 'POST',
+    body: JSON.stringify({ classroomId, name, description }),
+  });
+}
+
+export async function updateClassroomFolder(folderId: string, name: string, description?: string) {
+  return fetchJson(`/recordings/classroom/folders/${encodeURIComponent(folderId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name, description }),
+  });
+}
+
+export async function deleteClassroomFolder(folderId: string) {
+  return fetchJson(`/recordings/classroom/folders/${encodeURIComponent(folderId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getClassroomReuseList() {
+  return fetchJson('/recordings/classroom/reuse-list');
+}
+
+export async function reuseClassroomFolder(sourceFolderId: string, targetClassroomId: string, selectedRecordingIds?: string[]) {
+  return fetchJson('/recordings/classroom/reuse-folder', {
+    method: 'POST',
+    body: JSON.stringify({ sourceFolderId, targetClassroomId, selectedRecordingIds }),
   });
 }
 

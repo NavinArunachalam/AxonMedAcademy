@@ -4,6 +4,7 @@ const multer = require('multer');
 const mongoose = require('mongoose');
 
 const ClassroomRecording = require('../models/ClassroomRecording');
+const ClassroomFolder = require('../models/ClassroomFolder');
 const Classroom = require('../models/Classroom');
 const { protect, restrictTo, verifyClassroomAccess } = require('../middleware/auth');
 const {
@@ -45,6 +46,10 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
+    const isAdmin = ['admin', 'superadmin', 'faculty'].includes(req.user.role);
+
+    const folders = await ClassroomFolder.find({ classroom: req.params.classroomId }).sort({ order: 1, createdAt: -1 }).lean();
+
     const filter = { classroom: req.params.classroomId };
     if (!isAdmin) filter.isPublished = true;
 
@@ -60,7 +65,7 @@ router.get('/classroom/:classroomId', protect, async (req, res, next) => {
       }
     }
 
-    res.json({ success: true, recordings });
+    res.json({ success: true, folders, recordings });
   } catch (error) {
     next(error);
   }
@@ -217,7 +222,7 @@ router.post('/multipart/abort', protect, restrictTo('admin', 'superadmin'), asyn
 // POST /save-recording → Admin/Faculty: Save metadata AFTER the browser PUT to R2 completes
 router.post('/save-recording', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
-    const { classroom, title, description, duration, isPublished, objectKey, publicUrl, chapters } = req.body;
+    const { classroom, title, description, duration, isPublished, objectKey, publicUrl, chapters, folderId } = req.body;
 
     if (!classroom || !title || !objectKey) {
       return res.status(400).json({ success: false, message: 'classroom, title, and objectKey are required' });
@@ -244,6 +249,7 @@ router.post('/save-recording', protect, restrictTo('admin', 'superadmin', 'facul
 
     const recording = await ClassroomRecording.create({
       classroom,
+      folder: isValidId(folderId) ? folderId : null,
       title,
       description,
       uploadedBy: req.user._id,
@@ -303,7 +309,7 @@ router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin', 'fa
       return res.status(400).json({ success: false, message: 'No video file provided' });
     }
 
-    const { classroom, title, description, duration, isPublished } = req.body;
+    const { classroom, title, description, duration, isPublished, folderId } = req.body;
 
     if (!classroom || !title) {
       return res.status(400).json({ success: false, message: 'Classroom and title are required' });
@@ -338,6 +344,7 @@ router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin', 'fa
 
     const recording = await ClassroomRecording.create({
       classroom,
+      folder: isValidId(folderId) ? folderId : null,
       title,
       description,
       uploadedBy: req.user._id,
@@ -425,7 +432,7 @@ router.post('/', protect, restrictTo('admin', 'superadmin', 'faculty'), async (r
 // POST /reuse → Admin/Faculty: reuse/duplicate recording from another classroom (tracking is unique per class)
 router.post('/reuse', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
-    const { sourceRecordingId, targetClassroomId, title, description } = req.body;
+    const { sourceRecordingId, targetClassroomId, title, description, folderId } = req.body;
 
     if (!sourceRecordingId || !targetClassroomId) {
       return res.status(400).json({ success: false, message: 'sourceRecordingId and targetClassroomId are required' });
@@ -451,6 +458,7 @@ router.post('/reuse', protect, restrictTo('admin', 'superadmin', 'faculty'), asy
 
     const newRec = await ClassroomRecording.create({
       classroom: targetClassroomId,
+      folder: isValidId(folderId) ? folderId : null,
       title: title || sourceRec.title,
       description: description || sourceRec.description,
       uploadedBy: req.user._id,
@@ -536,6 +544,215 @@ router.post('/assign-from-library', protect, restrictTo('admin', 'superadmin', '
     });
     
     res.status(201).json({ success: true, message: 'Assigned successfully', recording: newRec });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /folders → Admin/Faculty: Create a new classroom folder
+router.post('/folders', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    const { classroomId, name, description } = req.body;
+    if (!classroomId || !name) {
+      return res.status(400).json({ success: false, message: 'classroomId and name are required' });
+    }
+    if (!isValidId(classroomId)) {
+      return res.status(400).json({ success: false, message: 'Invalid classroom ID' });
+    }
+
+    const folder = await ClassroomFolder.create({
+      name,
+      description,
+      classroom: classroomId,
+      createdBy: req.user._id
+    });
+    res.status(201).json({ success: true, folder });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /folders/:id → Admin/Faculty: Update a folder's name/description
+router.put('/folders/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid folder ID' });
+    }
+    const folder = await ClassroomFolder.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true }
+    );
+    if (!folder) return res.status(404).json({ success: false, message: 'Folder not found' });
+    res.json({ success: true, folder });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /folders/:id → Admin/Faculty: Delete folder and cascadingly delete all recordings inside it
+router.delete('/folders/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid folder ID' });
+    }
+    const folder = await ClassroomFolder.findById(req.params.id);
+    if (!folder) return res.status(404).json({ success: false, message: 'Folder not found' });
+
+    // Find all recordings in this folder
+    const recordings = await ClassroomRecording.find({ folder: folder._id });
+    
+    // Delete files from R2 safely (only if not shared/reused elsewhere)
+    const { deleteFileFromCloudflareR2 } = require('../config/cloudflare');
+    const LibraryRecording = require('../models/LibraryRecording');
+    for (const recording of recordings) {
+      if (recording.cloudflareKey) {
+        const libraryCount = await LibraryRecording.countDocuments({ cloudflareKey: recording.cloudflareKey });
+        const classroomCount = await ClassroomRecording.countDocuments({ cloudflareKey: recording.cloudflareKey });
+
+        // If no library recording references this key, and it's only in this classroom (count <= 1), delete from R2
+        if (libraryCount === 0 && classroomCount <= 1) {
+          await deleteFileFromCloudflareR2(recording.cloudflareKey).catch(err => {
+            console.error(`[R2 Delete Error] Failed to delete key ${recording.cloudflareKey} during folder delete:`, err);
+          });
+        }
+      }
+    }
+
+    // Decrement stats
+    await Classroom.findByIdAndUpdate(folder.classroom, {
+      $inc: { 'stats.totalRecordings': -recordings.length }
+    });
+
+    // Delete recording documents from DB
+    await ClassroomRecording.deleteMany({ folder: folder._id });
+    
+    await folder.deleteOne();
+    res.json({ success: true, message: 'Folder and all videos inside it deleted' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /reuse-list → Admin/Faculty: Get list of other classrooms, their folders, and recordings for reuse
+router.get('/reuse-list', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    let classroomFilter = { status: 'active' };
+    if (req.user.role === 'faculty') {
+      classroomFilter.instructors = req.user._id;
+    }
+    
+    const classrooms = await Classroom.find(classroomFilter).select('name code program').lean();
+    const classroomIds = classrooms.map(c => c._id);
+
+    const folders = await ClassroomFolder.find({ classroom: { $in: classroomIds } }).lean();
+    const recordings = await ClassroomRecording.find({ classroom: { $in: classroomIds } }).lean();
+
+    res.json({
+      success: true,
+      classrooms: classrooms.map(c => ({ ...c, id: c._id.toString() })),
+      folders: folders.map(f => ({ ...f, id: f._id.toString() })),
+      recordings: recordings.map(r => ({ ...r, id: r._id.toString() }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /reuse-folder → Admin/Faculty: reuse/duplicate a folder and all (or selected) videos inside it to target classroom
+router.post('/reuse-folder', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    const { sourceFolderId, targetClassroomId, selectedRecordingIds } = req.body;
+    if (!sourceFolderId || !targetClassroomId) {
+      return res.status(400).json({ success: false, message: 'sourceFolderId and targetClassroomId are required' });
+    }
+
+    if (!isValidId(sourceFolderId) || !isValidId(targetClassroomId)) {
+      return res.status(400).json({ success: false, message: 'Invalid sourceFolderId or targetClassroomId' });
+    }
+
+    const sourceFolder = await ClassroomFolder.findById(sourceFolderId);
+    if (!sourceFolder) {
+      return res.status(404).json({ success: false, message: 'Source folder not found' });
+    }
+
+    const targetClassroom = await Classroom.findById(targetClassroomId);
+    if (!targetClassroom) {
+      return res.status(404).json({ success: false, message: 'Target classroom not found' });
+    }
+
+    if (!verifyClassroomAccess(targetClassroom, req.user, true)) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    // Check if the folder already exists in the target classroom or create a new one
+    let targetFolder = await ClassroomFolder.findOne({ classroom: targetClassroomId, name: sourceFolder.name });
+    if (!targetFolder) {
+      targetFolder = await ClassroomFolder.create({
+        name: sourceFolder.name,
+        description: sourceFolder.description,
+        classroom: targetClassroomId,
+        createdBy: req.user._id
+      });
+    }
+
+    // Fetch recordings to copy
+    const recordFilter = { folder: sourceFolderId };
+    if (Array.isArray(selectedRecordingIds) && selectedRecordingIds.length > 0) {
+      recordFilter._id = { $in: selectedRecordingIds };
+    }
+    const sourceRecs = await ClassroomRecording.find(recordFilter);
+    
+    const newRecs = [];
+    for (const rec of sourceRecs) {
+      // Avoid duplicating if recording with same key/title already exists in this folder in the target classroom
+      const exists = await ClassroomRecording.findOne({
+        classroom: targetClassroomId,
+        folder: targetFolder._id,
+        $or: [
+          { cloudflareKey: rec.cloudflareKey },
+          { title: rec.title }
+        ]
+      });
+      if (exists) continue;
+
+      const newRec = await ClassroomRecording.create({
+        classroom: targetClassroomId,
+        folder: targetFolder._id,
+        title: rec.title,
+        description: rec.description,
+        uploadedBy: req.user._id,
+        storageProvider: rec.storageProvider,
+        muxAssetId: rec.muxAssetId,
+        muxPlaybackId: rec.muxPlaybackId,
+        muxStatus: rec.muxStatus,
+        cloudflareKey: rec.cloudflareKey,
+        cloudflareUrl: rec.cloudflareUrl,
+        duration: rec.duration,
+        thumbnail: rec.thumbnail,
+        chapters: rec.chapters ? rec.chapters.map(c => ({
+          title: c.title,
+          startTimeSec: c.startTimeSec,
+          order: c.order
+        })) : [],
+        security: { ...rec.security },
+        viewStats: [],
+        isPublished: false,
+        version: 1
+      });
+      newRecs.push(newRec);
+    }
+
+    await Classroom.findByIdAndUpdate(targetClassroomId, {
+      $inc: { 'stats.totalRecordings': newRecs.length }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Folder and selected recordings reused successfully',
+      folder: targetFolder,
+      recordings: newRecs
+    });
   } catch (error) {
     next(error);
   }

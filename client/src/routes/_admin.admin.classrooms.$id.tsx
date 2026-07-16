@@ -22,7 +22,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api, createClassroomFolder, updateClassroomFolder, deleteClassroomFolder, getClassroomReuseList, reuseClassroomFolder } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -71,15 +71,26 @@ function MeetingStatusBadge({ status }: { status: Meeting["status"] }) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: "announcements", label: "Announcements", icon: LuMegaphone },
-  { key: "live", label: "Live Classes", icon: LuVideo },
-  { key: "recordings", label: "Recordings", icon: LuCircleDot },
-  { key: "tests", label: "Tests", icon: LuClipboardList },
-  { key: "students", label: "Students", icon: LuUsers },
-  { key: "requests", label: "Join Requests", icon: LuUserPlus },
-] as const;
-type TabKey = (typeof TABS)[number]["key"];
+interface TabConfig {
+  key: TabKey;
+  label: string;
+  icon: React.ComponentType<any>;
+  bg: string;
+  text: string;
+  border: string;
+  iconColor: string;
+}
+
+type TabKey = "announcements" | "live" | "recordings" | "tests" | "students" | "requests";
+
+const TABS: readonly TabConfig[] = [
+  { key: "announcements", label: "Announcements", icon: LuMegaphone, bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", border: "border-[#93C5FD]", iconColor: "#2563EB" },
+  { key: "live", label: "Live Classes", icon: LuVideo, bg: "bg-[#FFE4E6]", text: "text-[#9F1239]", border: "border-[#FDA4AF]", iconColor: "#E11D48" },
+  { key: "recordings", label: "Recordings", icon: LuPlay, bg: "bg-[#FFEDD5]", text: "text-[#9A3412]", border: "border-[#FED7AA]", iconColor: "#EA580C" },
+  { key: "tests", label: "Tests", icon: LuClipboardList, bg: "bg-[#E0F2FE]", text: "text-[#075985]", border: "border-[#7DD3FC]", iconColor: "#0284C7" },
+  { key: "students", label: "Students", icon: LuUsers, bg: "bg-[#D1FAE5]", text: "text-[#065F46]", border: "border-[#A7F3D0]", iconColor: "#059669" },
+  { key: "requests", label: "Join Requests", icon: LuUserPlus, bg: "bg-[#F5F3FF]", text: "text-[#5B21B6]", border: "border-[#DDD6FE]", iconColor: "#7C3AED" },
+];
 
 // ─── Announcements Tab ────────────────────────────────────────────────────────
 
@@ -502,62 +513,245 @@ function LiveClassesTab({ classroomId, refreshClassroom }: { classroomId: string
 
 function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; refreshClassroom: () => Promise<Classroom> }) {
   const cls = classroom;
-  const { accessToken, classrooms } = useClassroomStore();
+  const { accessToken } = useClassroomStore();
   const [activeRec, setActiveRec] = useState<any | null>(null);
 
-  // Global Library states
-  const [showLibraryModal, setShowLibraryModal] = useState(false);
-  const [globalRecordings, setGlobalRecordings] = useState<any[]>([]);
-  const [globalFolders, setGlobalFolders] = useState<any[]>([]);
-  const [currentLibraryFolderId, setCurrentLibraryFolderId] = useState<string | null>(null);
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
+  // Classroom Folders & Selective navigation
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
-  // Fetch library when modal opens
-  React.useEffect(() => {
-    if (showLibraryModal) {
-      api.get("/recordings/library").then((res: any) => setGlobalRecordings(res.recordings || []));
-      api.get("/library-folders").then((res: any) => setGlobalFolders(res.folders || []));
-    }
-  }, [showLibraryModal]);
+  // Folder CRUD States
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderDesc, setNewFolderDesc] = useState("");
+  
+  const [editFolderId, setEditFolderId] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState("");
+  const [editFolderDesc, setEditFolderDesc] = useState("");
 
-  const toggleVideoSelection = (id: string) => {
-    setSelectedVideoIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
+  // Video Upload States
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadDesc, setUploadDesc] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPublished, setUploadPublished] = useState(false);
+  
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'preparing' | 'uploading' | 'saving'>('idle');
+  const [uploadPartInfo, setUploadPartInfo] = useState<{ part: number; totalParts: number } | null>(null);
 
-  const handleBulkAssign = async () => {
-    if (selectedVideoIds.length === 0) return;
-    setIsAssigning(true);
-    let successCount = 0;
+  // Video Edit States
+  const [editRecId, setEditRecId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editTargetFolderId, setEditTargetFolderId] = useState<string>("");
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Reuse Modal States
+  const [showReuseModal, setShowReuseModal] = useState(false);
+  const [reuseClassrooms, setReuseClassrooms] = useState<any[]>([]);
+  const [reuseFolders, setReuseFolders] = useState<any[]>([]);
+  const [reuseRecordings, setReuseRecordings] = useState<any[]>([]);
+  
+  const [selectedSourceClassroomId, setSelectedSourceClassroomId] = useState<string>("");
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  
+  // Selection tracking
+  // Keys are folderId (for whole folder) or recordingId (for individual recording)
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
+  const [selectedRecIds, setSelectedRecIds] = useState<string[]>([]);
+  
+  const [isReusing, setIsReusing] = useState(false);
+
+  const formatMB = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
     try {
-      await Promise.all(
-        selectedVideoIds.map(async (id) => {
-          try {
-            await api.post("/recordings/classroom/assign-from-library", {
-              libraryRecordingId: id,
-              targetClassroomId: cls.id,
-            });
-            successCount++;
-          } catch (err) {
-            console.error(`Failed to assign video ${id}:`, err);
-          }
-        })
-      );
-      if (successCount > 0) {
-        toast.success(`Successfully assigned ${successCount} videos!`);
-      } else {
-        toast.error("Failed to assign selected videos");
-      }
-      setSelectedVideoIds([]);
+      await createClassroomFolder(cls.id, newFolderName.trim(), newFolderDesc.trim());
+      toast.success("Folder created successfully!");
+      setIsFolderModalOpen(false);
+      setNewFolderName("");
+      setNewFolderDesc("");
       await refreshClassroom();
-    } catch (err) {
-      toast.error("Failed to execute bulk assignment");
-    } finally {
-      setIsAssigning(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create folder");
     }
   };
+
+  const handleEditFolder = async () => {
+    if (!editFolderId || !editFolderName.trim()) return;
+    try {
+      await updateClassroomFolder(editFolderId, editFolderName.trim(), editFolderDesc.trim());
+      toast.success("Folder updated successfully!");
+      setEditFolderId(null);
+      setEditFolderName("");
+      setEditFolderDesc("");
+      await refreshClassroom();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update folder");
+    }
+  };
+
+  const handleDeleteFolder = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete folder "${name}"? All videos inside it will be permanently deleted.`)) return;
+    try {
+      await deleteClassroomFolder(id);
+      toast.success("Folder and its videos deleted!");
+      if (currentFolderId === id) setCurrentFolderId(null);
+      await refreshClassroom();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete folder");
+    }
+  };
+
+  const handleUploadVideo = async () => {
+    if (!uploadTitle.trim() || !uploadFile) {
+      toast.error("Title and video file are required");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setUploadBytes({ loaded: 0, total: 0 });
+    setUploadPhase('preparing');
+
+    try {
+      await uploadClassroomRecordingToCloudflare({
+        file: uploadFile,
+        classroom: cls.id,
+        title: uploadTitle.trim(),
+        description: uploadDesc.trim(),
+        isPublished: uploadPublished,
+        folderId: currentFolderId || undefined,
+        onProgress: ({ loaded, total, percentage, part, totalParts }) => {
+          setUploadPhase('uploading');
+          setUploadProgress(percentage);
+          setUploadBytes({ loaded, total });
+          if (part != null && totalParts != null) {
+            setUploadPartInfo({ part, totalParts });
+          }
+          if (percentage === 100) setUploadPhase('saving');
+        }
+      });
+
+      toast.success("Video uploaded successfully!");
+      setIsUploadModalOpen(false);
+      setUploadTitle("");
+      setUploadDesc("");
+      setUploadFile(null);
+      setUploadPublished(false);
+      setUploadPhase('idle');
+      await refreshClassroom();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload video");
+      setUploadPhase('idle');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadBytes({ loaded: 0, total: 0 });
+      setUploadPartInfo(null);
+    }
+  };
+
+  const handleEditRecording = async () => {
+    if (!editRecId || !editTitle.trim()) return;
+    setIsEditing(true);
+    try {
+      const payload: any = {
+        title: editTitle.trim(),
+        description: editDesc.trim(),
+        folder: editTargetFolderId ? editTargetFolderId : null
+      };
+      await api.put(`/recordings/classroom/${editRecId}`, payload);
+      toast.success("Video details updated!");
+      setEditRecId(null);
+      await refreshClassroom();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update video");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const openReuseModal = async () => {
+    try {
+      const res = await getClassroomReuseList() as any;
+      if (res.success) {
+        setReuseClassrooms(res.classrooms || []);
+        setReuseFolders(res.folders || []);
+        setReuseRecordings(res.recordings || []);
+        setShowReuseModal(true);
+      }
+    } catch (err: any) {
+      toast.error("Failed to load classrooms for reuse");
+    }
+  };
+
+  const toggleFolderExpanded = (folderId: string) => {
+    setExpandedFolders(prev => ({ ...prev, [folderId]: !prev[folderId] }));
+  };
+
+  const handleConfirmReuse = async () => {
+    if (selectedFolderIds.length === 0 && selectedRecIds.length === 0) {
+      toast.error("Please select folders or videos to reuse");
+      return;
+    }
+    
+    setIsReusing(true);
+    try {
+      // 1. Reuse whole folders (without subset)
+      const wholeFolderIds = selectedFolderIds.filter(fId => {
+        const folderRecs = reuseRecordings.filter(r => r.folder && r.folder.toString() === fId);
+        const selectedFolderRecs = folderRecs.filter(r => selectedRecIds.includes(r._id.toString()));
+        return selectedFolderRecs.length === folderRecs.length;
+      });
+
+      for (const folderId of wholeFolderIds) {
+        await reuseClassroomFolder(folderId, cls.id);
+      }
+      
+      // 2. Reuse individual recordings from folders (subset)
+      const partialFolderIds = selectedFolderIds.filter(fId => !wholeFolderIds.includes(fId));
+      for (const folderId of partialFolderIds) {
+        const folderRecs = reuseRecordings.filter(r => r.folder && r.folder.toString() === folderId);
+        const selectedFolderRecs = folderRecs.filter(r => selectedRecIds.includes(r._id.toString())).map(r => r._id.toString());
+        if (selectedFolderRecs.length > 0) {
+          await reuseClassroomFolder(folderId, cls.id, selectedFolderRecs);
+        }
+      }
+      
+      // 3. Reuse root recordings
+      const rootRecs = reuseRecordings.filter(r => 
+        selectedRecIds.includes(r.id || r._id.toString()) && !r.folder && r.classroom.toString() === selectedSourceClassroomId
+      );
+      for (const rec of rootRecs) {
+        await reuseClassroomRecording({
+          sourceRecordingId: rec.id || rec._id.toString(),
+          targetClassroomId: cls.id,
+          folderId: currentFolderId || undefined
+        });
+      }
+      
+      toast.success("Assets reused successfully!");
+      setShowReuseModal(false);
+      setSelectedFolderIds([]);
+      setSelectedRecIds([]);
+      setSelectedSourceClassroomId("");
+      await refreshClassroom();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reuse files");
+    } finally {
+      setIsReusing(false);
+    }
+  };
+
+  // Filters for current view
+  const visibleFolders = cls.folders || [];
+  const visibleRecordings = currentFolderId
+    ? (cls.recordings || []).filter(r => r.folder === currentFolderId)
+    : [];
 
   const streamUrl = activeRec
     ? activeRec.storageProvider === 'cloudflare'
@@ -567,312 +761,635 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap justify-end gap-3">
-        <button onClick={() => setShowLibraryModal(!showLibraryModal)} className="inline-flex items-center gap-2 rounded-full bg-[#F4B400] text-plum-dark px-5 py-2.5 text-sm font-bold shadow-sm hover:bg-[#E0A300] transition-colors">
-          <LuBookOpen className="h-4 w-4" /> {showLibraryModal ? "Hide Library" : "Assign from Library"}
-        </button>
+      <div className="flex flex-wrap justify-between items-center gap-3">
+        <div>
+          {currentFolderId ? (
+            <div className="flex items-center gap-2 text-sm text-cream/60">
+              <button 
+                className="hover:text-cream flex items-center gap-1 transition-colors font-bold"
+                onClick={() => setCurrentFolderId(null)}
+              >
+                <LuArrowLeft className="w-4 h-4" /> Recordings
+              </button>
+              <span className="text-cream/40">/</span>
+              <span className="font-bold text-lime">
+                {visibleFolders.find(f => f.id === currentFolderId)?.name}
+              </span>
+            </div>
+          ) : (
+            <div className="text-sm font-semibold text-cream/80">Folder Structure</div>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={openReuseModal} 
+            className="inline-flex items-center gap-2 rounded-full bg-[#F4B400] text-plum-dark px-4 py-2.5 text-xs font-bold shadow-sm hover:bg-[#E0A300] transition-colors"
+          >
+            <LuCopy className="h-4 w-4" /> Reuse Assets
+          </button>
+          {!currentFolderId && (
+            <button 
+              onClick={() => setIsFolderModalOpen(true)} 
+              className="inline-flex items-center gap-2 rounded-full bg-cream/10 text-cream px-4 py-2.5 text-xs font-bold hover:bg-cream/20 transition-colors"
+            >
+              <LuFolder className="h-4 w-4" /> New Folder
+            </button>
+          )}
+          {currentFolderId && (
+            <button 
+              onClick={() => setIsUploadModalOpen(true)} 
+              className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-4 py-2.5 text-xs font-bold hover:bg-lime/90 transition-colors"
+            >
+              <LuUpload className="h-4 w-4" /> Upload Video
+            </button>
+          )}
+        </div>
       </div>
 
-      {showLibraryModal && (
-        <DarkCard>
-          <div className="flex items-center justify-between mb-4 border-b border-cream/10 pb-3">
-            <h3 className="font-display font-bold text-cream">Assign Video from Global Library</h3>
-            <button
-              onClick={() => {
-                setShowLibraryModal(false);
-                setCurrentLibraryFolderId(null);
-              }}
-              className="text-cream/60  p-1"
-            >
-              <LuX className="h-5 w-5" />
-            </button>
-          </div>
-
-          {currentLibraryFolderId === null ? (
-            <div className="space-y-4">
-              {/* Folder list */}
-              {globalFolders.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-[11px] uppercase tracking-widest text-cream/60 mb-1">Folders</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {globalFolders.map((folder) => {
-                      const count = globalRecordings.filter(r => r.folder === folder._id).length;
-                      return (
-                        <button
-                          key={folder._id}
-                          onClick={() => setCurrentLibraryFolderId(folder._id)}
-                          className="flex items-center gap-3 p-3 rounded-xl border border-cream/10 bg-cream/5 hover:border-lime/40 hover:bg-cream/10 text-left transition-all w-full"
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-lime/10 text-lime flex items-center justify-center shrink-0">
-                            <LuFolder className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-cream text-xs truncate">{folder.name}</div>
-                            <div className="text-[10px] text-cream/40">{count} videos</div>
-                          </div>
-                        </button>
-                      );
-                    })}
+      {/* Grid of Folders (only visible at root) */}
+      {!currentFolderId && visibleFolders.length > 0 && (
+        <div className="space-y-3">
+          <div className="text-[10px] uppercase tracking-widest text-cream/50 font-bold">Folders</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {visibleFolders.map((folder) => {
+              const videoCount = (cls.recordings || []).filter(r => r.folder === folder.id).length;
+              return (
+                <div 
+                  key={folder.id}
+                  className="flex items-center justify-between p-3 rounded-xl border border-cream/10 bg-cream/5 hover:border-lime/40 hover:bg-cream/10 transition-all group"
+                >
+                  <button
+                    onClick={() => setCurrentFolderId(folder.id)}
+                    className="flex items-center gap-3 text-left flex-1 min-w-0"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-lime/10 text-lime flex items-center justify-center shrink-0">
+                      <LuFolder className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-cream text-xs truncate">{folder.name}</div>
+                      {folder.description && (
+                        <div className="text-[10px] text-cream/50 truncate mt-0.5">{folder.description}</div>
+                      )}
+                      <div className="text-[9px] text-cream/40 mt-1 font-semibold">{videoCount} videos</div>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button
+                      className="p-1.5 hover:bg-cream/10 rounded-lg text-cream/60 hover:text-cream text-xs font-bold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditFolderId(folder.id);
+                        setEditFolderName(folder.name);
+                        setEditFolderDesc(folder.description || "");
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="p-1.5 hover:bg-red-500/10 rounded-lg text-red-400"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFolder(folder.id, folder.name);
+                      }}
+                    >
+                      <LuTrash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-              )}
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-             
-                
-              </div>
-           
-          ) : (
-            <div className="space-y-4">
-              {/* Back button and Folder Name */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentLibraryFolderId(null)}
-                  className="flex items-center gap-1 text-xs font-bold text-cream/60"
-                >
-                  <LuArrowLeft className="w-3.5 h-3.5" /> Back to Folders
-                </button>
-                <span className="text-xs text-cream/40">/</span>
-                <span className="text-xs font-bold text-lime">
-                  {globalFolders.find(f => f._id === currentLibraryFolderId)?.name}
-                </span>
-              </div>
-
-              {/* Videos inside selected folder */}
-              <div className="space-y-2">
-                {(() => {
-                  const folderVideos = globalRecordings.filter(r => r.folder === currentLibraryFolderId);
-                  const assignableFolderVideos = folderVideos.filter(r => !cls.recordings.some(x => x.cloudflareKey === r.cloudflareKey || x.title === r.title));
-                  const allSelected = assignableFolderVideos.length > 0 && assignableFolderVideos.every(v => selectedVideoIds.includes(v._id));
-                  
-                  return (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <div className="text-[11px] uppercase tracking-widest text-cream/60 font-medium">Videos in Folder</div>
-                        {assignableFolderVideos.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const assignableIds = assignableFolderVideos.map(v => v._id);
-                              if (allSelected) {
-                                setSelectedVideoIds(prev => prev.filter(id => !assignableIds.includes(id)));
-                              } else {
-                                setSelectedVideoIds(prev => Array.from(new Set([...prev, ...assignableIds])));
-                              }
-                            }}
-                            className="text-[10px] text-lime hover:underline font-semibold"
-                          >
-                            {allSelected ? "Deselect All" : "Select All"}
-                          </button>
-                        )}
-                      </div>
-
-                      {folderVideos.length === 0 ? (
-                        <p className="text-xs text-cream/40 italic py-4">No videos in this folder.</p>
-                      ) : (
-                        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                          {folderVideos.map((r) => {
-                            const isAssigned = cls.recordings.some(x => x.cloudflareKey === r.cloudflareKey || x.title === r.title);
-                            return (
-                              <div key={r._id} className="flex items-center justify-between p-2.5 rounded-xl border border-cream/5 bg-cream/5 hover:bg-cream/10 transition-colors gap-3">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  {!isAssigned && (
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedVideoIds.includes(r._id)}
-                                      onChange={() => toggleVideoSelection(r._id)}
-                                      className="accent-lime h-4 w-4 rounded border-cream/20 bg-cream/10 shrink-0 cursor-pointer"
-                                    />
-                                  )}
-                                  <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-semibold text-cream truncate">{r.title}</div>
-                                    {r.duration > 0 && (
-                                      <div className="text-[10px] text-cream/40 font-mono mt-0.5">{formatDuration(r.duration)}</div>
-                                    )}
-                                  </div>
-                                </div>
-                                <button
-                                  disabled={isAssigning || isAssigned}
-                                  onClick={async () => {
-                                    setIsAssigning(true);
-                                    try {
-                                      await api.post("/recordings/classroom/assign-from-library", {
-                                        libraryRecordingId: r._id,
-                                        targetClassroomId: cls.id,
-                                      });
-                                      toast.success(`Assigned "${r.title}" to class!`);
-                                      await refreshClassroom();
-                                    } catch (err: any) {
-                                      toast.error(err.response?.data?.message || "Failed to assign");
-                                    } finally {
-                                      setIsAssigning(false);
-                                    }
-                                  }}
-                                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all shrink-0 ${
-                                    isAssigned
-                                      ? "bg-cream/10 text-cream/40 cursor-not-allowed"
-                                      : "bg-lime text-plum-dark hover:bg-lime/90"
-                                  }`}
-                                >
-                                  {isAssigned ? "Assigned" : "Assign"}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
+      {!currentFolderId && visibleFolders.length === 0 && (
+        <DarkCard className="text-center py-12">
+          <LuFolder className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+          <p className="text-cream/50 text-sm">No folders created yet.</p>
+          <p className="text-cream/40 text-xs mt-1">Create a folder to start uploading and managing videos inside.</p>
         </DarkCard>
       )}
 
-      {/* Recording cards */}
-      {cls.recordings.length === 0 && (
-        <DarkCard className="text-center py-12">
-          <LuBookOpen className="h-8 w-8 text-cream/20 mx-auto mb-2" />
-          <p className="text-cream/50 text-sm">No recordings uploaded yet.</p>
-        </DarkCard>
-      )}
-      <div className="space-y-3">
-      {/* Recording list in Table format */}
-      {cls.recordings.length === 0 ? (
-        <DarkCard className="text-center py-12">
-          <LuBookOpen className="h-8 w-8 text-cream/20 mx-auto mb-2" />
-          <p className="text-cream/50 text-sm">No recordings assigned yet.</p>
-        </DarkCard>
-      ) : (
-        <DarkCard className="p-0 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-cream/5">
-                <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60 border-b border-cream/10">
-                  <th className="p-4 text-center w-12">#</th>
-                  <th>Recording</th>
-                  <th>Duration</th>
-                  <th>Stats</th>
-                  <th>Chapters</th>
-                  <th>Status</th>
-                  <th className="p-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cream/10">
-                {cls.recordings.map((rec, index) => {
-                  const avgWatch = rec.viewStats.length
-                    ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
-                    : 0;
-                  return (
-                    <React.Fragment key={rec.id}>
-                      <tr className="hover:bg-cream/5 transition-colors">
-                        <td className="p-4 text-center font-mono text-cream/60">{index + 1}</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => setActiveRec(rec)}
-                              className="w-12 h-9 rounded bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0 hover:from-lime/30 hover:to-lime/10 transition-colors"
-                            >
-                              <LuPlay className="h-3.5 w-3.5 text-lime" />
-                            </button>
-                            <div className="min-w-0">
-                              <div className="font-semibold text-cream text-xs">{rec.title}</div>
-                              {rec.description && (
-                                <div className="text-[10px] text-cream/50 line-clamp-1 mt-0.5">{rec.description}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 font-mono text-cream/70 text-xs">
-                          {formatDuration(rec.duration)}
-                        </td>
-                        <td className="p-4 text-cream/70 text-xs">
-                          {rec.viewStats.length} viewers · {avgWatch}% avg
-                        </td>
-                        <td className="p-4 font-mono text-cream/70 text-xs">
-                          {rec.chapters.length}
-                        </td>
-                        <td className="p-4">
-                          <span className={`text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${rec.isPublished ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>
-                            {rec.isPublished ? "Published" : "Draft"}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex justify-end items-center gap-2">
-                            <button
-                              onClick={() => setActiveRec(rec)}
-                              className="rounded-full bg-lime text-plum-dark px-2.5 py-1 text-[10px] font-bold flex items-center gap-1 hover:bg-lime/90 transition-colors"
-                            >
-                              <LuPlay className="h-2.5 w-2.5 fill-plum-dark" /> Watch
-                            </button>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  if (rec.isPublished) {
-                                    await unpublishRecording(rec.id);
-                                    toast.success("Recording unpublished.");
-                                  } else {
-                                    await publishRecording(rec.id);
-                                    toast.success("Recording published.");
-                                  }
-                                  await refreshClassroom();
-                                } catch (error) {
-                                  toast.error("Failed to publish/unpublish recording.");
-                                }
-                              }}
-                              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
-                            >
-                              {rec.isPublished ? <><LuEyeOff className="h-2.5 w-2.5" /> Unpublish</> : <><LuEye className="h-2.5 w-2.5" /> Publish</>}
-                            </button>
-                            <button
-                              onClick={async () => {
-                                if (!confirm("Are you sure you want to delete this recording?")) return;
-                                try {
-                                  await deleteRecording(rec.id);
-                                  await refreshClassroom();
-                                  toast.success("Recording deleted.");
-                                } catch (error) {
-                                  toast.error("Failed to delete recording.");
-                                }
-                              }}
-                              className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-1.5 hover:bg-red-500/10 transition-colors"
-                            >
-                              <LuTrash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      
-                      {/* Sub-row for detailed viewer analytics if they exist */}
-                      {rec.viewStats.length > 0 && (
-                        <tr className="bg-cream/[0.02]">
-                          <td colSpan={7} className="p-3 border-t border-cream/5">
-                            <div className="pl-14">
-                              <div className="text-[9px] uppercase tracking-widest text-cream/40 mb-1.5 font-bold">Viewer Progress</div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 max-h-32 overflow-y-auto pr-2">
-                                {rec.viewStats.map((vs) => (
-                                  <div key={vs.studentId} className="flex items-center gap-2">
-                                    <span className="text-[11px] text-cream/70 w-24 truncate">{vs.studentName}</span>
-                                    <div className="flex-1 h-1 bg-cream/10 rounded-full overflow-hidden">
-                                      <div className="h-full bg-lime rounded-full" style={{ width: `${vs.watchedPercent}%` }} />
-                                    </div>
-                                    <span className="text-[10px] font-mono text-cream/50 w-8 text-right">{vs.watchedPercent}%</span>
-                                  </div>
-                                ))}
+      {/* Videos Section */}
+      {currentFolderId && (
+        <div className="space-y-3">
+          <div className="text-[10px] uppercase tracking-widest text-cream/50 font-bold">
+            Videos in Folder
+          </div>
+        {visibleRecordings.length === 0 ? (
+          <DarkCard className="text-center py-10">
+            <LuVideo className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+            <p className="text-cream/50 text-sm">No videos here yet. Upload or reuse to add one.</p>
+          </DarkCard>
+        ) : (
+          <DarkCard className="p-0 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-cream/5">
+                  <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60 border-b border-cream/10">
+                    <th className="p-4 text-center w-12">#</th>
+                    <th>Recording</th>
+                    <th>Duration</th>
+                    <th>Stats</th>
+                    <th>Chapters</th>
+                    <th>Status</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-cream/10">
+                  {visibleRecordings.map((rec, index) => {
+                    const avgWatch = rec.viewStats.length
+                      ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
+                      : 0;
+                    return (
+                      <React.Fragment key={rec.id}>
+                        <tr className="hover:bg-cream/5 transition-colors">
+                          <td className="p-4 text-center font-mono text-cream/60">{index + 1}</td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => setActiveRec(rec)}
+                                className="w-12 h-9 rounded bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0 hover:from-lime/30 hover:to-lime/10 transition-colors"
+                              >
+                                <LuPlay className="h-3.5 w-3.5 text-lime" />
+                              </button>
+                              <div className="min-w-0">
+                                <div className="font-semibold text-cream text-xs">{rec.title}</div>
+                                {rec.description && (
+                                  <div className="text-[10px] text-cream/50 line-clamp-1 mt-0.5">{rec.description}</div>
+                                )}
                               </div>
                             </div>
                           </td>
+                          <td className="p-4 font-mono text-cream/70 text-xs">
+                            {formatDuration(rec.duration)}
+                          </td>
+                          <td className="p-4 text-cream/70 text-xs">
+                            {rec.viewStats.length} viewers · {avgWatch}% avg
+                          </td>
+                          <td className="p-4 font-mono text-cream/70 text-xs">
+                            {rec.chapters.length}
+                          </td>
+                          <td className="p-4">
+                            <span className={`text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${rec.isPublished ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>
+                              {rec.isPublished ? "Published" : "Draft"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex justify-end items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditRecId(rec.id);
+                                  setEditTitle(rec.title);
+                                  setEditDesc(rec.description || "");
+                                  setEditTargetFolderId(rec.folder || "");
+                                }}
+                                className="rounded-full bg-cream/10 text-cream px-2.5 py-1 text-[10px] font-bold flex items-center gap-1 hover:bg-cream/20 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    if (rec.isPublished) {
+                                      await unpublishRecording(rec.id);
+                                      toast.success("Recording unpublished.");
+                                    } else {
+                                      await publishRecording(rec.id);
+                                      toast.success("Recording published.");
+                                    }
+                                    await refreshClassroom();
+                                  } catch (error) {
+                                    toast.error("Failed to publish/unpublish recording.");
+                                  }
+                                }}
+                                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
+                              >
+                                {rec.isPublished ? <><LuEyeOff className="h-2.5 w-2.5" /> Unpublish</> : <><LuEye className="h-2.5 w-2.5" /> Publish</>}
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm("Are you sure you want to delete this recording?")) return;
+                                  try {
+                                    await deleteRecording(rec.id);
+                                    await refreshClassroom();
+                                    toast.success("Recording deleted.");
+                                  } catch (error) {
+                                    toast.error("Failed to delete recording.");
+                                  }
+                                }}
+                                className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-1.5 hover:bg-red-500/10 transition-colors"
+                              >
+                                <LuTrash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </DarkCard>
-      )}
+                        
+                        {/* Sub-row for detailed viewer analytics if they exist */}
+                        {rec.viewStats.length > 0 && (
+                          <tr className="bg-cream/[0.02]">
+                            <td colSpan={7} className="p-3 border-t border-cream/5">
+                              <div className="pl-14">
+                                <div className="text-[9px] uppercase tracking-widest text-cream/40 mb-1.5 font-bold">Viewer Progress</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 max-h-32 overflow-y-auto pr-2">
+                                  {rec.viewStats.map((vs) => (
+                                    <div key={vs.studentId} className="flex items-center gap-2">
+                                      <span className="text-[11px] text-cream/70 w-24 truncate">{vs.studentName}</span>
+                                      <div className="flex-1 h-1 bg-cream/10 rounded-full overflow-hidden">
+                                        <div className="h-full bg-lime rounded-full" style={{ width: `${vs.watchedPercent}%` }} />
+                                      </div>
+                                      <span className="text-[10px] font-mono text-cream/50 w-8 text-right">{vs.watchedPercent}%</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </DarkCard>
+        )}
       </div>
+      )}
+
+      {/* New Folder Modal */}
+      {isFolderModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1A0F33] border border-cream/10 rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-cream/10 flex items-center justify-between">
+              <h3 className="font-display font-bold text-cream">Create New Folder</h3>
+              <button onClick={() => setIsFolderModalOpen(false)} className="text-cream/50 hover:text-cream"><LuX className="h-4 w-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Folder Name</label>
+                <input 
+                  value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  placeholder="e.g. Anatomy & Physiology"
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description (Optional)</label>
+                <textarea 
+                  value={newFolderDesc}
+                  onChange={e => setNewFolderDesc(e.target.value)}
+                  placeholder="Briefly describe the contents of this folder"
+                  rows={2}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3.5 bg-black/20 border-t border-cream/10 flex gap-3">
+              <button onClick={() => setIsFolderModalOpen(false)} className="flex-1 rounded-full bg-cream/10 text-cream py-2 text-xs font-semibold">Cancel</button>
+              <button onClick={handleCreateFolder} className="flex-1 rounded-full bg-lime text-plum-dark py-2 text-xs font-bold">Create Folder</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Folder Modal */}
+      {editFolderId && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1A0F33] border border-cream/10 rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-cream/10 flex items-center justify-between">
+              <h3 className="font-display font-bold text-cream">Edit Folder Details</h3>
+              <button onClick={() => setEditFolderId(null)} className="text-cream/50 hover:text-cream"><LuX className="h-4 w-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Folder Name</label>
+                <input 
+                  value={editFolderName}
+                  onChange={e => setEditFolderName(e.target.value)}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
+                <textarea 
+                  value={editFolderDesc}
+                  onChange={e => setEditFolderDesc(e.target.value)}
+                  rows={2}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3.5 bg-black/20 border-t border-cream/10 flex gap-3">
+              <button onClick={() => setEditFolderId(null)} className="flex-1 rounded-full bg-cream/10 text-cream py-2 text-xs font-semibold">Cancel</button>
+              <button onClick={handleEditFolder} className="flex-1 rounded-full bg-lime text-plum-dark py-2 text-xs font-bold">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Upload Modal */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1A0F33] border border-cream/10 rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-cream/10 flex items-center justify-between">
+              <h3 className="font-display font-bold text-cream">
+                Upload to {currentFolderId ? `Folder: ${visibleFolders.find(f => f.id === currentFolderId)?.name}` : "Classroom Root"}
+              </h3>
+              <button onClick={() => setIsUploadModalOpen(false)} className="text-cream/50 hover:text-cream" disabled={isUploading}><LuX className="h-4 w-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Video Title</label>
+                <input 
+                  value={uploadTitle}
+                  onChange={e => setUploadTitle(e.target.value)}
+                  placeholder="e.g. Introduction to Cells"
+                  disabled={isUploading}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description (Optional)</label>
+                <textarea 
+                  value={uploadDesc}
+                  onChange={e => setUploadDesc(e.target.value)}
+                  placeholder="Brief summary of the video lecture"
+                  rows={2}
+                  disabled={isUploading}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Video File</label>
+                <input 
+                  type="file" 
+                  accept="video/*" 
+                  onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                  disabled={isUploading}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2 text-cream text-xs outline-none focus:border-lime/50 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-lime/25 file:text-lime hover:file:bg-lime/30"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer mt-2">
+                <input 
+                  type="checkbox" 
+                  checked={uploadPublished} 
+                  onChange={e => setUploadPublished(e.target.checked)} 
+                  disabled={isUploading}
+                  className="accent-lime h-4 w-4" 
+                />
+                <span className="text-cream/80 text-xs font-semibold">Publish immediately to students</span>
+              </label>
+
+              {isUploading && (
+                <div className="bg-cream/5 p-4 rounded-xl border border-cream/10 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-cream">
+                      {uploadPhase === 'preparing' && 'Preparing upload...'}
+                      {uploadPhase === 'uploading' && 'Uploading to cloud...'}
+                      {uploadPhase === 'saving' && 'Saving metadata...'}
+                    </span>
+                    <span className="text-cream/50 font-mono">
+                      {formatMB(uploadBytes.loaded)} / {formatMB(uploadBytes.total)}
+                    </span>
+                  </div>
+                  
+                  <div className="h-1.5 bg-cream/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-lime transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-[10px] text-cream/40">
+                    <span>{uploadProgress}% Complete</span>
+                    {uploadPartInfo && (
+                      <span>Part {uploadPartInfo.part} of {uploadPartInfo.totalParts}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3.5 bg-black/20 border-t border-cream/10 flex gap-3">
+              <button onClick={() => setIsUploadModalOpen(false)} disabled={isUploading} className="flex-1 rounded-full bg-cream/10 text-cream py-2 text-xs font-semibold">Cancel</button>
+              <button onClick={handleUploadVideo} disabled={isUploading || !uploadFile || !uploadTitle} className="flex-1 rounded-full bg-lime text-plum-dark py-2 text-xs font-bold disabled:opacity-40">
+                {isUploading ? "Uploading..." : "Upload Video"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Video Modal */}
+      {editRecId && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1A0F33] border border-cream/10 rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-cream/10 flex items-center justify-between">
+              <h3 className="font-display font-bold text-cream">Edit Video Details</h3>
+              <button onClick={() => setEditRecId(null)} className="text-cream/50 hover:text-cream" disabled={isEditing}><LuX className="h-4 w-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Video Title</label>
+                <input 
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  disabled={isEditing}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
+                <textarea 
+                  value={editDesc}
+                  onChange={e => setEditDesc(e.target.value)}
+                  rows={2}
+                  disabled={isEditing}
+                  className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50 resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Move to Folder</label>
+                <select
+                  value={editTargetFolderId}
+                  onChange={e => setEditTargetFolderId(e.target.value)}
+                  disabled={isEditing}
+                  className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                >
+                  <option value="">[Root / No Folder]</option>
+                  {visibleFolders.map(folder => (
+                    <option key={folder.id} value={folder.id}>{folder.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="px-5 py-3.5 bg-black/20 border-t border-cream/10 flex gap-3">
+              <button onClick={() => setEditRecId(null)} disabled={isEditing} className="flex-1 rounded-full bg-cream/10 text-cream py-2 text-xs font-semibold">Cancel</button>
+              <button onClick={handleEditRecording} disabled={isEditing || !editTitle} className="flex-1 rounded-full bg-lime text-plum-dark py-2 text-xs font-bold">
+                {isEditing ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reuse Modal */}
+      {showReuseModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1A0F33] border border-cream/10 rounded-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-cream/10 flex items-center justify-between">
+              <h3 className="font-display font-bold text-cream">Reuse Folders & Videos</h3>
+              <button onClick={() => setShowReuseModal(false)} className="text-cream/50 hover:text-cream" disabled={isReusing}><LuX className="h-4 w-4" /></button>
+            </div>
+            <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Select Source Classroom</label>
+                <select
+                  value={selectedSourceClassroomId}
+                  onChange={e => {
+                    setSelectedSourceClassroomId(e.target.value);
+                    setSelectedFolderIds([]);
+                    setSelectedRecIds([]);
+                  }}
+                  disabled={isReusing}
+                  className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
+                >
+                  <option value="">-- Choose a Class --</option>
+                  {reuseClassrooms
+                    .filter(c => c.id !== cls.id)
+                    .map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                    ))}
+                </select>
+              </div>
+
+              {selectedSourceClassroomId && (
+                <div className="space-y-3">
+                  <div className="text-[10px] uppercase tracking-widest text-cream/50 font-bold">Select Items to Clone</div>
+                  
+                  {/* Folders in source classroom */}
+                  <div className="space-y-2.5">
+                    {reuseFolders
+                      .filter(f => f.classroom.toString() === selectedSourceClassroomId)
+                      .map(folder => {
+                        const folderRecs = reuseRecordings.filter(r => r.folder && r.folder.toString() === folder._id.toString());
+                        const isFolderChecked = selectedFolderIds.includes(folder._id.toString());
+                        const isExpanded = !!expandedFolders[folder._id.toString()];
+                        
+                        return (
+                          <div key={folder._id} className="border border-cream/10 rounded-xl bg-cream/2 overflow-hidden">
+                            <div className="flex items-center justify-between p-3 hover:bg-cream/5">
+                              <div className="flex items-center gap-3">
+                                <input 
+                                  type="checkbox"
+                                  checked={isFolderChecked}
+                                  onChange={e => {
+                                    if (e.target.checked) {
+                                      // Select folder & all its recordings
+                                      setSelectedFolderIds(prev => [...prev, folder._id.toString()]);
+                                      const recIds = folderRecs.map(r => r._id.toString());
+                                      setSelectedRecIds(prev => Array.from(new Set([...prev, ...recIds])));
+                                    } else {
+                                      // Deselect folder & its recordings
+                                      setSelectedFolderIds(prev => prev.filter(id => id !== folder._id.toString()));
+                                      const recIds = folderRecs.map(r => r._id.toString());
+                                      setSelectedRecIds(prev => prev.filter(id => !recIds.includes(id)));
+                                    }
+                                  }}
+                                  className="accent-lime h-4 w-4"
+                                />
+                                <div className="text-xs font-semibold text-cream">{folder.name}</div>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => toggleFolderExpanded(folder._id.toString())}
+                                className="text-[10px] text-lime font-bold hover:underline"
+                              >
+                                {isExpanded ? "Collapse" : `Expand (${folderRecs.length} vids)`}
+                              </button>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="bg-black/20 border-t border-cream/5 p-3 space-y-2 pl-9">
+                                {folderRecs.map(rec => {
+                                  const isRecChecked = selectedRecIds.includes(rec._id.toString());
+                                  return (
+                                    <label key={rec._id} className="flex items-center gap-3 cursor-pointer">
+                                      <input 
+                                        type="checkbox"
+                                        checked={isRecChecked}
+                                        disabled={isFolderChecked} // Locked if parent folder is fully selected
+                                        onChange={e => {
+                                          if (e.target.checked) {
+                                            setSelectedRecIds(prev => [...prev, rec._id.toString()]);
+                                          } else {
+                                            setSelectedRecIds(prev => prev.filter(id => id !== rec._id.toString()));
+                                          }
+                                        }}
+                                        className="accent-lime h-3.5 w-3.5"
+                                      />
+                                      <div className="text-xs text-cream/80 truncate">{rec.title}</div>
+                                    </label>
+                                  );
+                                })}
+                                {folderRecs.length === 0 && (
+                                  <div className="text-[10px] text-cream/40 italic">No recordings in this folder</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Root recordings in source classroom */}
+                  {(() => {
+                    const rootRecs = reuseRecordings.filter(r => r.classroom.toString() === selectedSourceClassroomId && !r.folder);
+                    if (rootRecs.length === 0) return null;
+                    return (
+                      <div className="border border-cream/10 rounded-xl bg-cream/2 p-3 space-y-2">
+                        <div className="text-[10px] uppercase tracking-widest text-cream/40 font-bold mb-1">Root Recordings</div>
+                        {rootRecs.map(rec => {
+                          const isChecked = selectedRecIds.includes(rec._id.toString());
+                          return (
+                            <label key={rec._id} className="flex items-center gap-3 cursor-pointer">
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setSelectedRecIds(prev => [...prev, rec._id.toString()]);
+                                  } else {
+                                    setSelectedRecIds(prev => prev.filter(id => id !== rec._id.toString()));
+                                  }
+                                }}
+                                className="accent-lime h-3.5 w-3.5"
+                              />
+                              <div className="text-xs text-cream">{rec.title}</div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3.5 bg-black/20 border-t border-cream/10 flex gap-3">
+              <button onClick={() => setShowReuseModal(false)} disabled={isReusing} className="flex-1 rounded-full bg-cream/10 text-cream py-2 text-xs font-semibold">Cancel</button>
+              <button 
+                onClick={handleConfirmReuse} 
+                disabled={isReusing || (!selectedSourceClassroomId) || (selectedFolderIds.length === 0 && selectedRecIds.length === 0)} 
+                className="flex-1 rounded-full bg-lime text-plum-dark py-2 text-xs font-bold disabled:opacity-40"
+              >
+                {isReusing ? "Reusing..." : "Confirm Reuse"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Video Preview Modal */}
       {activeRec && (
@@ -914,7 +1431,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                 <div className="p-3 border-b border-cream/10 text-white/70 text-xs uppercase tracking-widest font-bold">Chapters</div>
                 {activeRec.chapters.map((ch: any) => (
                   <button
-                    key={ch.id}
+                    key={ch.id || ch.title}
                     onClick={() => {
                       const video = document.querySelector('video');
                       if (video) {
@@ -2212,29 +2729,42 @@ function AdminClassroomDetail() {
         </button>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto bg-cream/5 rounded-2xl p-1.5 whitespace-nowrap [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
-        {visibleTabs.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2 transition-colors ${tab === t.key ? "bg-lime text-plum-dark" : "text-cream/70 hover:text-cream"}`}>
-            <t.icon className="h-3.5 w-3.5 shrink-0" />
-            {t.label}
-            {t.key === 'requests' && (classroom.pendingJoinRequestsCount || 0) > 0 && (
-              <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full ${tab === t.key ? "bg-plum text-lime" : "bg-red-500 text-white"}`}>
-                {classroom.pendingJoinRequestsCount}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Grid tab bar */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3.5 max-w-2xl mx-auto my-6">
+        {visibleTabs.map((t) => {
+          const isActive = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${t.bg} ${t.text} ${t.border} transition-all relative overflow-hidden group aspect-square shadow-xs ${
+                isActive 
+                  ? `scale-[1.04] ring-2 ring-offset-2 ring-offset-slate-900 shadow-md ${t.key === 'live' ? 'ring-[#E11D48]' : t.key === 'recordings' ? 'ring-[#EA580C]' : t.key === 'announcements' ? 'ring-[#2563EB]' : t.key === 'tests' ? 'ring-[#0284C7]' : t.key === 'students' ? 'ring-[#059669]' : 'ring-[#7C3AED]'}` 
+                  : "hover:scale-[1.02] hover:shadow-sm"
+              }`}
+            >
+              {t.key === 'requests' && (classroom.pendingJoinRequestsCount || 0) > 0 && (
+                <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#E11D48] text-white text-[9px] font-extrabold flex items-center justify-center animate-bounce">
+                  {classroom.pendingJoinRequestsCount}
+                </span>
+              )}
+              
+              <t.icon className="w-8 h-8 mb-1.5 transition-transform group-hover:scale-110" style={{ color: t.iconColor }} />
+              <span className="text-[10px] sm:text-xs font-black tracking-tight text-center leading-tight">{t.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Tab content */}
-      {tab === "announcements" && <AnnouncementsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "live" && <LiveClassesTab classroomId={classroom.id} refreshClassroom={refreshClassroom} />}
-      {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "tests" && <TestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "students" && <StudentsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
-      {tab === "requests" && <JoinRequestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+      {/* Tab content area */}
+      <div className="border-t border-cream/10 pt-6">
+        {tab === "announcements" && <AnnouncementsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+        {tab === "live" && <LiveClassesTab classroomId={classroom.id} refreshClassroom={refreshClassroom} />}
+        {tab === "recordings" && <RecordingsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+        {tab === "tests" && <TestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+        {tab === "students" && <StudentsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+        {tab === "requests" && <JoinRequestsTab classroom={classroom} refreshClassroom={refreshClassroom} />}
+      </div>
     </div>
   );
 }
