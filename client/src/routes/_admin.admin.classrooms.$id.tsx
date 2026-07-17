@@ -833,7 +833,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                       <div className="text-[9px] text-cream/40 mt-1 font-semibold">{videoCount} videos</div>
                     </div>
                   </button>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
                     <button
                       className="p-1.5 hover:bg-cream/10 rounded-lg text-cream/60 hover:text-cream text-xs font-bold"
                       onClick={(e) => {
