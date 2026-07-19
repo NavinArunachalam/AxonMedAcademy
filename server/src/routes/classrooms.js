@@ -559,6 +559,43 @@ router.put('/:id/announcements/:annoId/read', protect, async (req, res, next) =>
   }
 });
 
+// GET /:id/join-status → Public: Check status of a student's join request by email
+router.get('/:id/join-status', async (req, res, next) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email query parameter is required.' });
+    }
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found.' });
+    }
+
+    // 1. Check if user exists and is enrolled in the classroom
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (user) {
+      const isEnrolled = classroom.students.some(s => s.student.toString() === user._id.toString());
+      if (isEnrolled) {
+        return res.json({ success: true, status: 'approved' });
+      }
+    }
+
+    // 2. Check ClassroomJoinRequests
+    const joinReq = await ClassroomJoinRequest.findOne({
+      email: email.toLowerCase(),
+      classroom: req.params.id
+    }).sort({ createdAt: -1 });
+
+    if (joinReq) {
+      return res.json({ success: true, status: joinReq.status });
+    }
+
+    res.json({ success: true, status: 'none' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /:id/join-request → Public: Student request to join classroom
 router.post('/:id/join-request', async (req, res, next) => {
   try {
@@ -570,10 +607,26 @@ router.post('/:id/join-request', async (req, res, next) => {
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found.' });
     }
+
+    // Check if they are already registered and enrolled
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (user) {
+      const isEnrolled = classroom.students.some(s => s.student.toString() === user._id.toString());
+      if (isEnrolled) {
+        return res.status(400).json({ success: false, code: 'ALREADY_APPROVED', message: 'Your request has already been approved. Please login.' });
+      }
+    }
+
+    const existingApprovedReq = await ClassroomJoinRequest.findOne({ email: email.toLowerCase(), classroom: req.params.id, status: 'approved' });
+    if (existingApprovedReq) {
+      return res.status(400).json({ success: false, code: 'ALREADY_APPROVED', message: 'Your request has already been approved. Please login.' });
+    }
+
     const existingReq = await ClassroomJoinRequest.findOne({ email: email.toLowerCase(), classroom: req.params.id, status: 'pending' });
     if (existingReq) {
       return res.status(400).json({ success: false, message: 'You already have a pending request for this classroom.' });
     }
+
     const request = await ClassroomJoinRequest.create({
       fullName,
       email,

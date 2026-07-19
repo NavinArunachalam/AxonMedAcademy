@@ -17,6 +17,43 @@ function ClassroomJoin() {
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [previousStatus, setPreviousStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+  const [savedEmail, setSavedEmail] = useState('');
+
+  useEffect(() => {
+    const checkRequestStatus = async () => {
+      const email = localStorage.getItem(`classroom_join_email_${classroomId}`);
+      if (!email) {
+        setCheckingStatus(false);
+        return;
+      }
+      setSavedEmail(email);
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/classrooms/${classroomId}/join-status?email=${encodeURIComponent(email)}`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setPreviousStatus(data.status);
+            if (data.status === 'approved') {
+              toast.success('Your request was approved! Redirecting to login...');
+              setTimeout(() => {
+                navigate({ to: '/login' });
+              }, 1500);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking join request status:', error);
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+
+    checkRequestStatus();
+  }, [classroomId, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -33,6 +70,7 @@ function ClassroomJoin() {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/classrooms/${classroomId}/join-request`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
@@ -41,16 +79,83 @@ function ClassroomJoin() {
 
       if (response.ok && data.success) {
         toast.success('Join request sent successfully!');
+        localStorage.setItem(`classroom_join_email_${classroomId}`, formData.email);
         setSubmitted(true);
       } else {
-        toast.error(data.message || 'Failed to submit request.');
+        if (data.code === 'ALREADY_APPROVED' || (data.message && (data.message.includes('approved') || data.message.includes('login')))) {
+          toast.success('Request already approved! Redirecting to login...');
+          localStorage.setItem(`classroom_join_email_${classroomId}`, formData.email);
+          setTimeout(() => {
+            navigate({ to: '/login' });
+          }, 1500);
+        } else {
+          toast.error(data.message || 'Failed to submit request.');
+        }
       }
     } catch (error) {
+      console.error('Submit join request error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (checkingStatus) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center px-4">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
+          <p className="text-gray-600 font-semibold">Checking request status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (previousStatus === 'approved') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center px-4">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
+          <p className="text-gray-600 font-semibold">Redirecting you to login page...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (previousStatus === 'pending') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center px-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center border border-gray-100">
+          <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Request Awaiting Approval</h2>
+          <p className="text-gray-600 mb-6">
+            You have already submitted a join request for this classroom under <span className="font-semibold text-gray-800">{savedEmail}</span>. Please wait for the admin to approve it.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate({ to: '/login' })}
+              className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition shadow-sm"
+            >
+              Go to Login
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem(`classroom_join_email_${classroomId}`);
+                setPreviousStatus('none');
+              }}
+              className="w-full bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            >
+              Submit a new request
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (

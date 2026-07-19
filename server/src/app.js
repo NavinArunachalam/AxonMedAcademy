@@ -9,6 +9,9 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+// Trust proxy
+app.set('trust proxy', 1);
+
 // Security
 app.use(helmet());
 
@@ -50,6 +53,11 @@ const corsOptions = {
 
     // Exact match against configured origins
     if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Allow Capacitor/local origins for mobile apps
+    if (origin === 'http://localhost' || origin === 'https://localhost' || origin.startsWith('capacitor://')) {
       return callback(null, true);
     }
 
