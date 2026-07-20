@@ -22,7 +22,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api, createClassroomFolder, updateClassroomFolder, deleteClassroomFolder, getClassroomReuseList, reuseClassroomFolder } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, removeStudentFromClassroom, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api, createClassroomFolder, updateClassroomFolder, deleteClassroomFolder, getClassroomReuseList, reuseClassroomFolder } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -2372,6 +2372,22 @@ function StudentsTab({ classroom, refreshClassroom }: { classroom: Classroom; re
   };
 
   const handleStatusChange = async (studentId: string, status: "active" | "held" | "removed") => {
+    if (status === "removed") {
+      if (!confirm("Are you sure you want to remove this student from the classroom?")) {
+        await refreshClassroomLocal();
+        return;
+      }
+      try {
+        await removeStudentFromClassroom(classroom.id, studentId);
+        await refreshClassroomLocal();
+        toast.success("Student removed from classroom.");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not remove student");
+        await refreshClassroomLocal();
+      }
+      return;
+    }
+
     try {
       await updateClassroomStudentStatus(classroom.id, studentId, status);
       await refreshClassroomLocal();

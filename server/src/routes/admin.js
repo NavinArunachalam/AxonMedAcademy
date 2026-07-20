@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const StudentProfile = require('../models/StudentProfile');
+const Classroom = require('../models/Classroom');
 const FacultyMember = require('../models/FacultyMember');
 const AboutDetail = require('../models/AboutDetail');
 const Milestone = require('../models/Milestone');
@@ -161,9 +162,34 @@ router.put('/users/:id/role', (req, res) => {
   res.json({ success: true, message: 'User role updated (placeholder)' });
 });
 
-// DELETE /users/:id → Soft delete user
-router.delete('/users/:id', (req, res) => {
-  res.json({ success: true, message: 'User deleted (placeholder)' });
+// DELETE /users/:id → Delete user from DB entirely
+router.delete('/users/:id', protect, restrictTo('admin', 'superadmin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Delete User
+    await User.findByIdAndDelete(id);
+
+    // If role is student, delete StudentProfile
+    if (user.role === 'student') {
+      await StudentProfile.deleteOne({ user: id });
+    }
+
+    // Remove student from all classrooms
+    await Classroom.updateMany(
+      {},
+      { $pull: { students: { student: id } } }
+    );
+
+    res.json({ success: true, message: 'Student user deleted from DB entirely' });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ==========================================

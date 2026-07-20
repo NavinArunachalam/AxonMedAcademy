@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import React from "react";
-import { Search, Plus, Download, Mail, ChevronDown, ChevronUp, Video, BookOpen, ClipboardList, X, Loader2 } from "lucide-react";
+import { Search, Plus, Download, Mail, ChevronDown, ChevronUp, Video, BookOpen, ClipboardList, X, Loader2, Trash2 } from "lucide-react";
 import { DarkCard } from "@/components/portal/PortalShell";
 import { useClassroomStore, adminActions, classroomActions, messageActions, type EnrolledStudent } from "@/lib/classroomStore";
 import { useState, useMemo, useEffect } from "react";
-import { getAdminUsers, getClassrooms as apiGetClassrooms, createAdminUser, addStudentsToClassroom } from "@/lib/api";
+import { getAdminUsers, getClassrooms as apiGetClassrooms, createAdminUser, addStudentsToClassroom, deleteAdminUser, removeStudentFromClassroom, updateClassroomStudentStatus } from "@/lib/api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_admin/admin/students")({
   component: AdminStudents,
@@ -64,7 +65,7 @@ function SendMessageModal({ studentId, studentName, onClose }: { studentId: stri
   );
 }
 
-function StudentDetail({ studentId }: { studentId: string }) {
+function StudentDetail({ studentId, onRefresh }: { studentId: string; onRefresh: () => void }) {
   const { classrooms } = useClassroomStore();
   const enrolled = classrooms.filter(c => c.students.some(s => s.id === studentId));
 
@@ -87,6 +88,30 @@ function StudentDetail({ studentId }: { studentId: string }) {
       return ss + (vs?.watchedPercent || 0);
     }, 0), 0) / totalPublishedRecs)
     : 0;
+
+  const handleClassroomStatusChange = async (classroomId: string, status: string) => {
+    if (status === "removed") {
+      if (!confirm("Are you sure you want to remove this student from the classroom?")) {
+        return;
+      }
+      try {
+        await removeStudentFromClassroom(classroomId, studentId);
+        onRefresh();
+        toast.success("Student removed from classroom.");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not remove student from classroom");
+      }
+      return;
+    }
+
+    try {
+      await updateClassroomStudentStatus(classroomId, studentId, status);
+      onRefresh();
+      toast.success("Student classroom status updated.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update status");
+    }
+  };
 
   return (
     <div className="bg-cream/5 rounded-xl p-4 mt-2 space-y-4">
@@ -120,7 +145,7 @@ function StudentDetail({ studentId }: { studentId: string }) {
                 <div className="text-cream font-semibold text-sm">{c.name}</div>
                 <div className="text-cream/50 text-[10px]">{c.program}</div>
               </div>
-              <select value={me.status} onChange={e => classroomActions.updateStudentStatus(c.id, studentId, e.target.value as EnrolledStudent["status"])}
+              <select value={me.status} onChange={e => handleClassroomStatusChange(c.id, e.target.value)}
                 className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded border border-cream/10 bg-[#1A0F33] text-cream outline-none`}>
                 <option value="active">Active</option>
                 <option value="held">Hold</option>
@@ -189,28 +214,36 @@ function AdminStudents() {
   const [msgStudent, setMsgStudent] = useState<{ id: string; name: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const refreshData = async () => {
+    try {
+      const [data, students] = await Promise.all([
+        apiGetClassrooms(),
+        getAdminUsers("student"),
+      ]);
+      classroomActions.setClassrooms(data);
+      setMongoStudents(students);
+      setBackendError(null);
+    } catch (err) {
+      setBackendError(err instanceof Error ? err.message : "Could not load students");
+    }
+  };
+
   useEffect(() => {
-    let active = true;
-    const loadClassrooms = async () => {
-      try {
-        const [data, students] = await Promise.all([
-          apiGetClassrooms(),
-          getAdminUsers("student"),
-        ]);
-        if (!active) return;
-        classroomActions.setClassrooms(data);
-        setMongoStudents(students);
-        setBackendError(null);
-      } catch (err) {
-        if (!active) return;
-        setBackendError(err instanceof Error ? err.message : "Could not load students");
-      }
-    };
-    loadClassrooms();
-    return () => {
-      active = false;
-    };
+    refreshData();
   }, []);
+
+  const handleDeleteStudent = async (studentId: string, studentName: string) => {
+    if (!confirm(`Are you sure you want to delete student "${studentName}" entirely from the database? This will remove all their enrollments and cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteAdminUser(studentId);
+      await refreshData();
+      toast.success("Student deleted from database entirely.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete student");
+    }
+  };
   const getStudentOverallStatus = (courses: Array<{ status: string }>) => {
     const statuses = courses.map(c => c.status);
     if (statuses.includes("at risk")) return "at risk";
@@ -622,6 +655,11 @@ function AdminStudents() {
                     </td>
                     <td className="pr-4">
                       <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        {(currentUser?.role === "admin" || currentUser?.role === "superadmin") && (
+                          <button onClick={() => handleDeleteStudent(s.id, s.name)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-cream/10 text-red-400 hover:text-red-300" title="Delete Student Entirely">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                         <button onClick={() => setMsgStudent({ id: s.id, name: s.name })} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-cream/10" title="Send message">
                           <Mail className="h-4 w-4" />
                         </button>
@@ -634,7 +672,7 @@ function AdminStudents() {
                   {expandedId === s.id && (
                     <tr className="border-t border-cream/10">
                       <td colSpan={9} className="px-4 pb-4">
-                        <StudentDetail studentId={s.id} />
+                        <StudentDetail studentId={s.id} onRefresh={refreshData} />
                       </td>
                     </tr>
                   )}

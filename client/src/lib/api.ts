@@ -428,6 +428,12 @@ export async function createAdminUser(data: {
   });
 }
 
+export async function deleteAdminUser(id: string) {
+  return fetchJson(`/admin/users/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function getClassrooms() {
   const payload = await fetchJson('/classrooms');
   return payload.classrooms.map(normalizeBackendClassroom);
@@ -1008,6 +1014,13 @@ export async function updateClassroomStudentStatus(classroomId: string, studentI
   const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/students/${encodeURIComponent(studentId)}/status`, {
     method: 'PUT',
     body: JSON.stringify({ status }),
+  });
+  return payload;
+}
+
+export async function removeStudentFromClassroom(classroomId: string, studentId: string) {
+  const payload = await fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/students/${encodeURIComponent(studentId)}`, {
+    method: 'DELETE',
   });
   return payload;
 }
