@@ -125,6 +125,10 @@ const apiLimiter = rateLimit({
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    const url = req.originalUrl || req.url || '';
+    return url.includes('/auth/login') || url.includes('/auth/register');
+  },
   message: {
     success: false,
     message:
