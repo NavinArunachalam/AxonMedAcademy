@@ -78,7 +78,7 @@ function CreateClassroomModal({
         // Only show published programs in the classroom create dropdown
         const published = data.filter((p) => p.status === "published");
         setPrograms(published);
-        setForm((f) => ({ ...f, program: published[0]?.title ?? "" }));
+        setForm((f) => ({ ...f, program: published[0]?.id ?? "" }));
       })
       .catch((err) => {
         if (!active) return;
@@ -221,7 +221,7 @@ function CreateClassroomModal({
                 className="w-full bg-[#1A0F33] border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
               >
                 {programs.map((p) => (
-                  <option key={p.id} value={p.title}>
+                  <option key={p.id} value={p.id}>
                     {p.title}
                     {p.category ? ` — ${p.category}` : ""}
                   </option>
@@ -314,7 +314,7 @@ function EditClassroomModal({
     name: classroom.name,
     description: classroom.description || "",
     code: classroom.code,
-    program: classroom.program || "",
+    program: classroom.programId || "",
     maxStudents: classroom.maxStudents,
     status: classroom.status,
   });
@@ -453,7 +453,7 @@ function EditClassroomModal({
               >
                 <option value="">— No program —</option>
                 {programs.map((p) => (
-                  <option key={p.id} value={p.title}>
+                  <option key={p.id} value={p.id}>
                     {p.title}{p.category ? ` — ${p.category}` : ""}
                   </option>
                 ))}

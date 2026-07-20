@@ -109,6 +109,7 @@ function normalizeBackendClassroom(raw: any) {
     status: raw.status || 'active',
     maxStudents: raw.maxStudents ?? 100,
     program: raw.program?.name || raw.program?.title || raw.program || '',
+    programId: raw.program?._id || raw.program?.id || (typeof raw.program === 'string' && raw.program.length === 24 ? raw.program : ''),
     createdAt: raw.createdAt || new Date().toISOString(),
     pendingJoinRequestsCount: raw.pendingJoinRequestsCount || 0,
     students: Array.isArray(raw.students)

@@ -165,6 +165,7 @@ export interface Classroom {
   status: "active" | "archived" | "draft";
   maxStudents: number;
   program: string;
+  programId?: string;
   certificateUrl?: string;
   createdAt: string;
   students: EnrolledStudent[];
