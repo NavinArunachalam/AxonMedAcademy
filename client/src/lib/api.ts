@@ -1719,3 +1719,30 @@ export async function uploadLibraryRecordingToCloudflare({
     throw error;
   }
 }
+
+export async function getClassroomJoinStatus(classroomId: string, email: string) {
+  return fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/join-status?email=${encodeURIComponent(email)}`);
+}
+
+export async function submitClassroomJoinRequest(classroomId: string, data: any) {
+  return fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/join-request`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getClassroomJoinRequests(classroomId: string) {
+  return fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/join-requests`);
+}
+
+export async function approveClassroomJoinRequest(classroomId: string, requestId: string) {
+  return fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/join-requests/${encodeURIComponent(requestId)}/approve`, {
+    method: 'POST',
+  });
+}
+
+export async function rejectClassroomJoinRequest(classroomId: string, requestId: string) {
+  return fetchJson(`/classrooms/${encodeURIComponent(classroomId)}/join-requests/${encodeURIComponent(requestId)}/reject`, {
+    method: 'POST',
+  });
+}

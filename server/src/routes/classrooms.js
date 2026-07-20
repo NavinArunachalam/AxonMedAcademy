@@ -608,6 +608,14 @@ router.post('/:id/join-request', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Classroom not found.' });
     }
 
+    // Check if phone number is already registered to someone else
+    if (phone) {
+      const existingPhone = await User.findOne({ phone: phone.trim() });
+      if (existingPhone) {
+        return res.status(400).json({ success: false, message: 'Phone number already registered to another user.' });
+      }
+    }
+
     // Check if they are already registered and enrolled
     const user = await User.findOne({ email: email.toLowerCase() });
     if (user) {
@@ -1043,6 +1051,14 @@ router.post('/:id/join-requests/:requestId/approve', protect, restrictTo('admin'
     let user = await User.findOne({ email: joinReq.email.toLowerCase() });
 
     if (!user) {
+      // Check if the phone number is already registered to a different user
+      if (joinReq.phone) {
+        const existingPhone = await User.findOne({ phone: joinReq.phone.trim() });
+        if (existingPhone) {
+          return res.status(400).json({ success: false, message: `Phone number ${joinReq.phone} is already registered to another user.` });
+        }
+      }
+
       // 1. Generate student user ID: Axon + last 2 year digits + random letters + numbers
       const yearSuffix = String(new Date().getFullYear()).slice(-2);
       const randomLetters = String.fromCharCode(65 + Math.floor(Math.random() * 26), 65 + Math.floor(Math.random() * 26));
@@ -1059,6 +1075,33 @@ router.post('/:id/join-requests/:requestId/approve', protect, restrictTo('admin'
         isVerified: true,
         isActive: true
       });
+    } else {
+      // If user already exists, make sure they are verified and active
+      let needsSave = false;
+      if (!user.isVerified) {
+        user.isVerified = true;
+        needsSave = true;
+      }
+      if (!user.isActive) {
+        user.isActive = true;
+        needsSave = true;
+      }
+      if (needsSave) {
+        await user.save();
+      }
+
+      // Also approve the StudentRequest if it exists
+      const studentReq = await StudentRequest.findOne({ user: user._id });
+      if (studentReq && studentReq.status !== 'approved') {
+        studentReq.status = 'approved';
+        if (!studentReq.timeline) studentReq.timeline = [];
+        studentReq.timeline.push({
+          status: 'approved',
+          note: 'Approved via classroom join request',
+          changedAt: new Date()
+        });
+        await studentReq.save();
+      }
     }
 
     const isEnrolled = classroom.students.some(s => s.student.toString() === user._id.toString());

@@ -22,7 +22,7 @@ import {
   type Option,
   type QuizAttempt,
 } from "@/lib/classroomStore";
-import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, removeStudentFromClassroom, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api, createClassroomFolder, updateClassroomFolder, deleteClassroomFolder, getClassroomReuseList, reuseClassroomFolder } from "@/lib/api";
+import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, removeStudentFromClassroom, getClassroomJoinRequests, approveClassroomJoinRequest, rejectClassroomJoinRequest, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api, createClassroomFolder, updateClassroomFolder, deleteClassroomFolder, getClassroomReuseList, reuseClassroomFolder } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
@@ -2512,17 +2512,14 @@ function JoinRequestsTab({ classroom, refreshClassroom }: { classroom: Classroom
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/classrooms/${classroom.id}/join-requests`, {
-        credentials: "include"
-      });
-      const data = await res.json();
+      const data = await getClassroomJoinRequests(classroom.id);
       if (data.success) {
         setRequests(data.requests);
       } else {
         toast.error(data.message || "Failed to load requests");
       }
-    } catch (err) {
-      toast.error("Error loading join requests");
+    } catch (err: any) {
+      toast.error(err.message || "Error loading join requests");
     } finally {
       setLoading(false);
     }
@@ -2535,11 +2532,7 @@ function JoinRequestsTab({ classroom, refreshClassroom }: { classroom: Classroom
   const handleApprove = async (reqId: string) => {
     setProcessing(reqId);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/classrooms/${classroom.id}/join-requests/${reqId}/approve`, {
-        method: "POST",
-        credentials: "include"
-      });
-      const data = await res.json();
+      const data = await approveClassroomJoinRequest(classroom.id, reqId);
       if (data.success) {
         await refreshClassroom();
         fetchRequests();
@@ -2547,8 +2540,8 @@ function JoinRequestsTab({ classroom, refreshClassroom }: { classroom: Classroom
       } else {
         toast.error(data.message || "Failed to approve request");
       }
-    } catch (err) {
-      toast.error("Error approving request");
+    } catch (err: any) {
+      toast.error(err.message || "Error approving request");
     } finally {
       setProcessing(null);
     }
@@ -2557,19 +2550,15 @@ function JoinRequestsTab({ classroom, refreshClassroom }: { classroom: Classroom
   const handleReject = async (reqId: string) => {
     setProcessing(reqId);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/classrooms/${classroom.id}/join-requests/${reqId}/reject`, {
-        method: "POST",
-        credentials: "include"
-      });
-      const data = await res.json();
+      const data = await rejectClassroomJoinRequest(classroom.id, reqId);
       if (data.success) {
         fetchRequests();
         toast.success("Join request rejected.");
       } else {
         toast.error(data.message || "Failed to reject request");
       }
-    } catch (err) {
-      toast.error("Error rejecting request");
+    } catch (err: any) {
+      toast.error(err.message || "Error rejecting request");
     } finally {
       setProcessing(null);
     }

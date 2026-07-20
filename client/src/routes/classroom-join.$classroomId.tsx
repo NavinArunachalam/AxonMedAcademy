@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createFileRoute, useParams, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
+import { getClassroomJoinStatus, submitClassroomJoinRequest } from '@/lib/api';
 
 export const Route = createFileRoute('/classroom-join/$classroomId')({
   component: ClassroomJoin,
@@ -30,19 +31,14 @@ function ClassroomJoin() {
       }
       setSavedEmail(email);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/classrooms/${classroomId}/join-status?email=${encodeURIComponent(email)}`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setPreviousStatus(data.status);
-            if (data.status === 'approved') {
-              toast.success('Your request was approved! Redirecting to login...');
-              setTimeout(() => {
-                navigate({ to: '/login' });
-              }, 1500);
-            }
+        const data = await getClassroomJoinStatus(classroomId, email);
+        if (data.success) {
+          setPreviousStatus(data.status);
+          if (data.status === 'approved') {
+            toast.success('Your request was approved! Redirecting to login...');
+            setTimeout(() => {
+              navigate({ to: '/login' });
+            }, 1500);
           }
         }
       } catch (error) {
@@ -68,16 +64,8 @@ function ClassroomJoin() {
     
     setLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/classrooms/${classroomId}/join-request`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      const data = await submitClassroomJoinRequest(classroomId, formData);
+      if (data.success) {
         toast.success('Join request sent successfully!');
         localStorage.setItem(`classroom_join_email_${classroomId}`, formData.email);
         setSubmitted(true);
@@ -92,9 +80,9 @@ function ClassroomJoin() {
           toast.error(data.message || 'Failed to submit request.');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submit join request error:', error);
-      toast.error('An error occurred. Please try again.');
+      toast.error(error.message || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

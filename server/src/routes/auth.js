@@ -77,6 +77,13 @@ router.post('/register', upload.any(), async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
+    if (phone) {
+      const existingPhone = await User.findOne({ phone: phone.trim() });
+      if (existingPhone) {
+        return res.status(400).json({ success: false, message: 'Phone number already registered' });
+      }
+    }
+
     // 1. Generate student user ID: Axon + last 2 year digits + random letters + numbers (e.g., Axon26AB7812)
     const yearSuffix = String(new Date().getFullYear()).slice(-2);
     const randomLetters = String.fromCharCode(
