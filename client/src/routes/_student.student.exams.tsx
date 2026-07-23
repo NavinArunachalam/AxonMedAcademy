@@ -354,6 +354,15 @@ function QuizModal({ quiz, classroomId, reviewAttemptId, onClose }: {
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtDate(iso: string) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+}
+
 // ─── Exams Page ───────────────────────────────────────────────────────────────
 
 function Exams() {
@@ -431,12 +440,18 @@ function Exams() {
               <div className="flex-1">
                 <div className="font-semibold" style={{color:'#0B1F3A'}}>{e.title}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {new Date(e.availableFrom).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
-                  {e.duration ? ` · ${e.duration} min` : ""}
+                  {e.duration ? `${e.duration} min timer` : "No limit"}
                   {e.questions.length ? ` · ${e.questions.length} questions` : ""}
                   {` · Pass: ${e.passPercent}%`}
                 </div>
-                <div className="text-[10px] uppercase tracking-widest mt-1" style={{color:'rgba(11,31,58,0.5)'}}>{e.classroomName}</div>
+                {(e.availableFrom || e.availableUntil) && (
+                  <div className="text-[11px] text-[#0284C7] font-medium mt-1.5 bg-[#F0F9FF] rounded-lg px-2.5 py-1 inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 border border-[#BAE6FD] max-w-max">
+                    <span className="font-bold text-[#0369A1]">Available:</span>
+                    {e.availableFrom && <span>Starts: {fmtDate(e.availableFrom)}</span>}
+                    {e.availableUntil && <span>Ends: {fmtDate(e.availableUntil)}</span>}
+                  </div>
+                )}
+                <div className="text-[10px] uppercase tracking-widest mt-1.5" style={{color:'rgba(11,31,58,0.5)'}}>{e.classroomName}</div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full font-bold" style={{background:'rgba(244,180,0,0.15)',color:'#B8870A'}}>Pending</span>

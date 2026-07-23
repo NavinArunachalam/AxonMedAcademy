@@ -770,6 +770,13 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                     <span>Pass: {q.passPercent}%</span>
                     <span>Attempts: {myAttempts.length}/{q.maxAttempts}</span>
                   </div>
+                  {(q.availableFrom || q.availableUntil) && (
+                    <div className="text-xs text-[#0284C7] font-medium mt-2 bg-[#F0F9FF] rounded-lg px-3 py-1.5 inline-flex flex-wrap items-center gap-x-2 gap-y-1 border border-[#BAE6FD]">
+                      <span className="font-bold text-[#0369A1]">Availability:</span>
+                      {q.availableFrom && <span>Starts: {fmtDate(q.availableFrom)}</span>}
+                      {q.availableUntil && <span>Ends: {fmtDate(q.availableUntil)}</span>}
+                    </div>
+                  )}
                   {bestAttempt && (
                     <div className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${bestAttempt.score.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
                       {bestAttempt.score.passed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}

@@ -4,7 +4,7 @@ import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
   LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink, LuAward, LuShare2, LuUserPlus,
-  LuFolder
+  LuFolder, LuSearch
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
@@ -35,6 +35,29 @@ function fmtDate(iso: string) {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit", hour12: true,
   });
+}
+
+function toDatetimeLocal(isoString?: string) {
+  if (!isoString) return "";
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  } catch {
+    return "";
+  }
+}
+
+function toISODateString(localDateStr?: string) {
+  if (!localDateStr) return null;
+  try {
+    const d = new Date(localDateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  } catch {
+    return null;
+  }
 }
 
 function fmtShortDate(iso: string) {
@@ -1555,6 +1578,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
   const cls = classroom;
   const classroomId = classroom.id;
   const { classrooms } = useClassroomStore();
+  const [searchQuery, setSearchQuery] = useState("");
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [quizOperationQuizId, setQuizOperationQuizId] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
@@ -1620,11 +1644,18 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     if (!quiz.title || quiz.questions.length === 0) return;
     setIsSavingQuiz(true);
     try {
+      const quizPayload = {
+        ...quiz,
+        status,
+        availableFrom: toISODateString(quiz.availableFrom),
+        availableUntil: toISODateString(quiz.availableUntil),
+      };
+
       if (editingQuizId) {
-        const updatedQuiz = await updateQuiz(editingQuizId, { ...quiz, status });
+        const updatedQuiz = await updateQuiz(editingQuizId, quizPayload);
         classroomActions.updateQuiz(classroomId, editingQuizId, updatedQuiz);
       } else {
-        const createdQuiz = await createQuiz(classroomId, { ...quiz, status });
+        const createdQuiz = await createQuiz(classroomId, quizPayload);
         classroomActions.addQuiz(classroomId, createdQuiz);
       }
       setShowBuilder(false);
@@ -2112,10 +2143,32 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     );
   }
 
+  // Filter quizzes by search query
+  const filteredQuizzes = cls.quizzes.filter((q) =>
+    q.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // Quiz list
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        {/* Search Input */}
+        <div className="flex items-center gap-2 bg-cream/5 rounded-full px-4 py-2.5 flex-1 max-w-md border border-cream/10">
+          <LuSearch className="h-4 w-4 text-cream/50" />
+          <input
+            type="text"
+            placeholder="Search tests by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent border-none outline-none text-sm text-cream w-full placeholder:text-cream/40"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="text-cream/50 hover:text-cream">
+              <LuX className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <button onClick={() => {
           setEditingQuizId(null);
           setQuiz({ title: "", instructions: "", duration: null, maxAttempts: 1, randomizeQuestions: true, randomizeOptions: true, showLeaderboard: false, negativeMarking: true, negativeMarkValue: 1, passPercent: 60, availableFrom: "", availableUntil: "", status: "draft", questions: [] });
@@ -2124,20 +2177,22 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           setBulkNegEnabled(false);
           setBulkNegValue(1);
           setShowBuilder(true);
-        }} className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold">
+        }} className="inline-flex items-center justify-center gap-2 rounded-full bg-lime text-plum-dark px-5 py-2.5 text-sm font-bold shrink-0">
           <LuPlus className="h-4 w-4" /> Create Quiz
         </button>
       </div>
 
-      {cls.quizzes.length === 0 && (
+      {filteredQuizzes.length === 0 && (
         <DarkCard className="text-center py-12">
           <LuClipboardList className="h-8 w-8 text-cream/20 mx-auto mb-2" />
-          <p className="text-cream/50 text-sm">No quizzes created yet.</p>
+          <p className="text-cream/50 text-sm">
+            {searchQuery ? "No tests match your search query." : "No quizzes created yet."}
+          </p>
         </DarkCard>
       )}
 
       <div className="space-y-3">
-        {cls.quizzes.map((q) => {
+        {filteredQuizzes.map((q) => {
           const subCount = q.attempts.filter((a) => a.status === "submitted").length;
           return (
             <DarkCard key={q.id}>
@@ -2156,6 +2211,13 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
                     <span>{subCount} submissions</span>
                     <span>Pass: {q.passPercent}%</span>
                   </div>
+                  {(q.availableFrom || q.availableUntil) && (
+                    <div className="text-[11px] text-lime font-medium mt-2 bg-lime/10 rounded-lg px-2.5 py-1 inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 border border-lime/20">
+                      <span className="font-bold text-lime">Availability:</span>
+                      {q.availableFrom && <span>Starts: {fmtDate(q.availableFrom)}</span>}
+                      {q.availableUntil && <span>Ends: {fmtDate(q.availableUntil)}</span>}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setViewQuizId(q.id)} className="rounded-full bg-cream/10 text-cream px-3 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors">
@@ -2175,8 +2237,8 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
                         negativeMarking: q.negativeMarking ?? false,
                         negativeMarkValue: q.negativeMarkValue ?? 0.25,
                         passPercent: q.passPercent || 60,
-                        availableFrom: q.availableFrom || "",
-                        availableUntil: q.availableUntil || "",
+                        availableFrom: toDatetimeLocal(q.availableFrom),
+                        availableUntil: toDatetimeLocal(q.availableUntil),
                         status: q.status || "draft",
                         questions: q.questions || [],
                       });
