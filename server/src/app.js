@@ -6,8 +6,12 @@ const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler');
+const compression = require('compression');
 
 const app = express();
+
+// Apply Gzip compression
+app.use(compression());
 
 // Trust proxy
 app.set('trust proxy', 1);

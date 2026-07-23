@@ -68,4 +68,6 @@ const classroomRecordingSchema = new mongoose.Schema({
   version: { type: Number, default: 1 } // increments on re-upload
 }, { timestamps: true });
 
+classroomRecordingSchema.index({ classroom: 1 });
+
 module.exports = mongoose.model('ClassroomRecording', classroomRecordingSchema);

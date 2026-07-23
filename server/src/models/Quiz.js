@@ -54,4 +54,6 @@ quizSchema.pre('save', function(next) {
   next();
 });
 
+quizSchema.index({ classroom: 1, status: 1 });
+
 module.exports = mongoose.model('Quiz', quizSchema);

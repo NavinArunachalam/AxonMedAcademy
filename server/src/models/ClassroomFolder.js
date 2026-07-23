@@ -8,4 +8,6 @@ const classroomFolderSchema = new mongoose.Schema({
   order: { type: Number, default: 0 }
 }, { timestamps: true });
 
+classroomFolderSchema.index({ classroom: 1, order: 1 });
+
 module.exports = mongoose.model('ClassroomFolder', classroomFolderSchema);

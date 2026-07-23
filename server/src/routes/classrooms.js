@@ -189,6 +189,7 @@ const attachClassroomDetails = async (classrooms) => {
 
   // Fetch quiz attempts for the classrooms
   const quizAttempts = await QuizAttempt.find({ classroom: { $in: classroomIds } })
+    .select('-answers -questionOrder')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -285,6 +286,7 @@ router.get('/r2-proxy', async (req, res, next) => {
     }
 
     const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+    const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
     const s3Client = new S3Client({
       endpoint: process.env.S3_API,
@@ -302,21 +304,8 @@ router.get('/r2-proxy', async (req, res, next) => {
       Key: key,
     });
 
-    const response = await s3Client.send(command);
-
-    // Set appropriate headers
-    const contentType = response.ContentType || 'application/octet-stream';
-    res.setHeader('Content-Type', contentType);
-    if (response.ContentLength) {
-      res.setHeader('Content-Length', response.ContentLength);
-    }
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    if (contentType === 'application/pdf') {
-      res.setHeader('Content-Disposition', 'inline');
-    }
-
-    // Pipe the file stream to response
-    response.Body.pipe(res);
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    res.redirect(signedUrl);
   } catch (error) {
     console.error('[R2 Proxy] Error:', error);
     if (error.name === 'NoSuchKey') {
