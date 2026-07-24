@@ -636,7 +636,7 @@ router.post('/:id/join-request', async (req, res, next) => {
       fullName,
       email,
       phone,
-      rawPassword: password,
+      rawPassword: typeof password === 'string' ? password.trim() : password,
       classroom: req.params.id
     });
     res.status(201).json({ success: true, message: 'Join request sent successfully. Awaiting admin approval.' });

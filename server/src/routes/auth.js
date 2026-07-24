@@ -262,6 +262,20 @@ router.post('/login', async (req, res, next) => {
     }
 
     let isMatch = await user.comparePassword(password);
+    if (!isMatch && typeof password === 'string') {
+      if (password.trim() !== password) {
+        isMatch = await user.comparePassword(password.trim());
+      }
+      if (!isMatch) {
+        // Fallback: If DB stored password with trailing space, check password + ' '
+        isMatch = await user.comparePassword(password + ' ');
+        if (isMatch) {
+          // Auto-repair: Update DB password to clean trimmed version
+          user.password = password.trim();
+          await user.save();
+        }
+      }
+    }
     if (!isMatch && defaultAccount && password === defaultAccount.password) {
       user.password = defaultAccount.password;
       await user.save();

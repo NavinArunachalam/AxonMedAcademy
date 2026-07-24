@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Stethoscope, ArrowRight } from "lucide-react";
+import { Stethoscope, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { classroomStore, type User } from "@/lib/classroomStore";
 import { loginUser, forgotPassword, resetPassword } from "@/lib/api";
@@ -11,6 +11,7 @@ function Login() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -153,7 +154,24 @@ function Login() {
                   <label className="block text-xs font-bold text-navy">Password</label>
                   <a href="#" onClick={(e) => { e.preventDefault(); setError(""); setStep("forgot"); }} className="text-xs text-sky font-semibold hover:underline">Forgot?</a>
                 </div>
-                <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" className="w-full rounded-full border border-gray-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-navy" required />
+                <div className="relative">
+                  <input
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="w-full rounded-full border border-gray-200 bg-white pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy focus:outline-none"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <button type="submit" disabled={isSubmitting} className="group w-full inline-flex items-center justify-center gap-2 rounded-full bg-gold px-6 py-3.5 text-sm font-bold text-navy hover:bg-gold/90 transition disabled:cursor-not-allowed disabled:opacity-70">
