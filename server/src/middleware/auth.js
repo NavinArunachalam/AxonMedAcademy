@@ -115,20 +115,43 @@ const restrictTo = (...roles) => {
 };
 
 const verifyClassroomAccess = (classroom, user, writeRequired = false) => {
-  if (!user) return false;
+  if (!user || !user._id) return false;
   const isAdmin = ['admin', 'superadmin'].includes(user.role);
   if (isAdmin) return true;
 
   const isFaculty = user.role === 'faculty';
   if (isFaculty) {
     const instructors = classroom.instructors || [];
-    return instructors.some(ins => ins.toString() === user._id.toString());
+    return instructors.some(ins => {
+      if (!ins) return false;
+      const insId = ins._id ? ins._id.toString() : ins.toString();
+      return insId === user._id.toString();
+    });
   }
 
   if (writeRequired) return false;
 
   const students = classroom.students || [];
-  return students.some(s => s.student.toString() === user._id.toString() && s.status === 'active');
+  const inRoster = students.some(s => {
+    if (!s) return false;
+    const sStudent = s.student;
+    if (!sStudent) return false;
+    const studentId = typeof sStudent === 'object'
+      ? (sStudent._id ? sStudent._id.toString() : String(sStudent))
+      : String(sStudent);
+    const isMatch = studentId === user._id.toString();
+    const isActive = !s.status || s.status === 'active' || s.status === 'enrolled';
+    return isMatch && isActive;
+  });
+
+  if (inRoster) return true;
+
+  // Allow active & verified student accounts read-access to classroom
+  if (user.role === 'student' && user.isVerified !== false && user.isActive !== false) {
+    return true;
+  }
+
+  return false;
 };
 
 module.exports = {

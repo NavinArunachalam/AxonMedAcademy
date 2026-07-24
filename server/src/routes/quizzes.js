@@ -17,6 +17,19 @@ const verifyClassroomAccessById = async (classroomId, user, writeRequired = fals
   return verifyClassroomAccess(classroom, user, writeRequired);
 };
 
+const verifyAttemptAccess = async (attempt, user) => {
+  if (!attempt || !user) return false;
+  // If the logged-in student owns this attempt, grant access immediately
+  const studentId = attempt.student ? (attempt.student._id ? attempt.student._id.toString() : attempt.student.toString()) : '';
+  if (studentId && studentId === user._id.toString()) return true;
+  // Otherwise check classroom access
+  const classroomId = attempt.quiz ? (attempt.quiz.classroom ? (attempt.quiz.classroom._id ? attempt.quiz.classroom._id.toString() : attempt.quiz.classroom.toString()) : null) : null;
+  if (classroomId) {
+    return verifyClassroomAccessById(classroomId, user, false);
+  }
+  return false;
+};
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Retry configuration
@@ -321,7 +334,7 @@ router.put('/:id/attempt/answer', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Active attempt not found' });
     }
 
-    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+    if (!(await verifyAttemptAccess(attempt, req.user))) {
       return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
@@ -365,7 +378,7 @@ router.put('/:id/attempt/answers', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Active attempt not found' });
     }
 
-    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+    if (!(await verifyAttemptAccess(attempt, req.user))) {
       return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
@@ -412,7 +425,7 @@ router.post('/:id/attempt/submit', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Active attempt not found' });
     }
 
-    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+    if (!(await verifyAttemptAccess(attempt, req.user))) {
       return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
@@ -514,7 +527,7 @@ router.get('/:id/attempt/my-result', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Attempt result not found' });
     }
 
-    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+    if (!(await verifyAttemptAccess(attempt, req.user))) {
       return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
