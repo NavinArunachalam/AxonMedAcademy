@@ -9,6 +9,8 @@ const fs = require('fs');
 
 const User = require('../models/User');
 const StudentRequest = require('../models/StudentRequest');
+const ClassroomJoinRequest = require('../models/ClassroomJoinRequest');
+const Classroom = require('../models/Classroom');
 const { protect } = require('../middleware/auth');
 const { sendPasswordResetEmail } = require('../services/emailService');
 
@@ -200,6 +202,59 @@ router.post('/login', async (req, res, next) => {
         isActive: true,
         userId: defaultAccount.userId || `Axon${yearSuffix}${randomLetters}${randomNumbers}`
       });
+    }
+
+    if (!user) {
+      // 🛡️ Fail-Safe: Check if an approved ClassroomJoinRequest exists for this email
+      if (input.includes('@')) {
+        const emailLower = input.toLowerCase();
+        const approvedJoinReq = await ClassroomJoinRequest.findOne({
+          email: emailLower,
+          status: 'approved'
+        }).sort({ updatedAt: -1 });
+
+        if (approvedJoinReq) {
+          const yearSuffix = String(new Date().getFullYear()).slice(-2);
+          const randomLetters = String.fromCharCode(
+            65 + Math.floor(Math.random() * 26),
+            65 + Math.floor(Math.random() * 26)
+          );
+          const randomNumbers = String(Math.floor(1000 + Math.random() * 9000));
+          const generatedUserId = `Axon${yearSuffix}${randomLetters}${randomNumbers}`;
+
+          try {
+            user = await User.create({
+              fullName: approvedJoinReq.fullName,
+              email: emailLower,
+              phone: approvedJoinReq.phone,
+              password: password, // Uses the password attempted by the student
+              userId: generatedUserId,
+              role: 'student',
+              isVerified: true,
+              isActive: true
+            });
+
+            // Add student to the classroom roster if assigned
+            if (approvedJoinReq.classroom) {
+              await Classroom.findByIdAndUpdate(approvedJoinReq.classroom, {
+                $addToSet: { students: { student: user._id, status: 'active', addedAt: new Date() } }
+              });
+            }
+
+            // Sync any existing StudentRequest
+            const studentReq = await StudentRequest.findOne({ email: emailLower });
+            if (studentReq) {
+              studentReq.user = user._id;
+              studentReq.status = 'approved';
+              await studentReq.save();
+            }
+
+            console.log(`[Auth Fail-Safe] Auto-created missing User for approved join request: ${user.email}`);
+          } catch (createErr) {
+            console.error('[Auth Fail-Safe] Error auto-creating user on login:', createErr);
+          }
+        }
+      }
     }
 
     if (!user) {

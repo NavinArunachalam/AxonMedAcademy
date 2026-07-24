@@ -1073,8 +1073,12 @@ router.post('/:id/join-requests/:requestId/approve', protect, restrictTo('admin'
         isActive: true
       });
     } else {
-      // If user already exists, make sure they are verified and active
+      // If user already exists, make sure they are verified, active, and update password if provided
       let needsSave = false;
+      if (joinReq.rawPassword) {
+        user.password = joinReq.rawPassword; // Pre-save hook will hash it
+        needsSave = true;
+      }
       if (!user.isVerified) {
         user.isVerified = true;
         needsSave = true;
