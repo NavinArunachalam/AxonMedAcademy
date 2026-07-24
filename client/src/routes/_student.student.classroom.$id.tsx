@@ -27,7 +27,7 @@ import {
   getClassroomById,
   getQuizAttemptResult,
   getRecordingStreamUrl,
-  saveQuizAnswer,
+  saveQuizAnswersBulk,
   startQuizAttempt,
   submitQuizAttempt,
   trackRecordingProgress,
@@ -656,15 +656,13 @@ function TestsTab({ classroomId }: { classroomId: string }) {
     setIsSubmitting(true);
     try {
       const currentAnswers = answersRef.current;
-      await Promise.all(
-        examQuestions.map((q) =>
-          saveQuizAnswer(activeQuiz.id, {
-            attemptId,
-            questionId: q.id,
-            selectedOptions: currentAnswers[q.id] || [],
-          }),
-        ),
-      );
+      await saveQuizAnswersBulk(activeQuiz.id, {
+        attemptId,
+        answers: examQuestions.map((q) => ({
+          questionId: q.id,
+          selectedOptions: currentAnswers[q.id] || [],
+        })),
+      });
       await submitQuizAttempt(activeQuiz.id, attemptId);
       const review = await getQuizAttemptResult(activeQuiz.id, attemptId);
       setResult(review);

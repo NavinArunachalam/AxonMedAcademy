@@ -576,6 +576,22 @@ export async function saveQuizAnswer(
   });
 }
 
+export interface QuizAnswerItem {
+  questionId: string;
+  selectedOptions: string[];
+  timeTakenSec?: number;
+}
+
+export async function saveQuizAnswersBulk(
+  quizId: string,
+  data: { attemptId: string; answers: QuizAnswerItem[] },
+) {
+  return fetchJson(`/quizzes/${encodeURIComponent(quizId)}/attempt/answers`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function submitQuizAttempt(quizId: string, attemptId: string) {
   const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}/attempt/submit`, {
     method: 'POST',

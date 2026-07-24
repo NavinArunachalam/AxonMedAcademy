@@ -4,7 +4,7 @@ import { Card } from "@/components/portal/PortalShell";
 import { useClassroomStore, classroomActions, getGrade, formatTime, type Quiz, type Question } from "@/lib/classroomStore";
 import {
   getClassroomById,
-  saveQuizAnswer,
+  saveQuizAnswersBulk,
   startQuizAttempt,
   submitQuizAttempt,
   getQuizAttemptResult,
@@ -71,15 +71,13 @@ function QuizModal({ quiz, classroomId, reviewAttemptId, onClose }: {
     setIsSubmitting(true);
     try {
       const currentSelected = selectedRef.current;
-      await Promise.all(
-        examQuestions.map((q) =>
-          saveQuizAnswer(quiz.id, {
-            attemptId,
-            questionId: q.id,
-            selectedOptions: currentSelected[q.id] || [],
-          }),
-        ),
-      );
+      await saveQuizAnswersBulk(quiz.id, {
+        attemptId,
+        answers: examQuestions.map((q) => ({
+          questionId: q.id,
+          selectedOptions: currentSelected[q.id] || [],
+        })),
+      });
       await submitQuizAttempt(quiz.id, attemptId);
       const review = await getQuizAttemptResult(quiz.id, attemptId);
       setResult(review);

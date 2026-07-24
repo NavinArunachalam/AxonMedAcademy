@@ -313,6 +313,55 @@ router.put('/:id/attempt/answer', protect, async (req, res, next) => {
   }
 });
 
+// PUT /:id/attempt/answers → Student: save/update multiple answers in bulk
+router.put('/:id/attempt/answers', protect, async (req, res, next) => {
+  try {
+    const { attemptId, answers } = req.body;
+    if (!attemptId || !Array.isArray(answers)) {
+      return res.status(400).json({ success: false, message: 'Invalid payload. attemptId and answers array are required.' });
+    }
+
+    const attempt = await QuizAttempt.findOne({ _id: attemptId, student: req.user._id }).populate('quiz');
+
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Active attempt not found' });
+    }
+
+    if (!(await verifyClassroomAccessById(attempt.quiz.classroom, req.user, false))) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
+    }
+
+    if (attempt.status !== 'in_progress') {
+      return res.status(400).json({ success: false, message: 'Attempt has already been submitted' });
+    }
+
+    // Process each answer in the array
+    for (const ans of answers) {
+      const { questionId, selectedOptions, timeTakenSec } = ans;
+      if (!questionId) continue;
+      
+      const answerIndex = attempt.answers.findIndex(a => a.questionId.toString() === questionId.toString());
+      if (answerIndex > -1) {
+        attempt.answers[answerIndex].selectedOptions = selectedOptions || [];
+        if (timeTakenSec !== undefined) {
+          attempt.answers[answerIndex].timeTakenSec = timeTakenSec;
+        }
+      } else {
+        attempt.answers.push({
+          questionId,
+          selectedOptions: selectedOptions || [],
+          timeTakenSec: timeTakenSec || 0
+        });
+      }
+    }
+
+    await attempt.save();
+    res.json({ success: true, message: 'Answers saved successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /:id/attempt/submit → Student: submit quiz and auto-score
 router.post('/:id/attempt/submit', protect, async (req, res, next) => {
   try {
