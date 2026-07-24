@@ -576,6 +576,9 @@ router.get('/:id/join-status', async (req, res, next) => {
     }).sort({ createdAt: -1 });
 
     if (joinReq) {
+      if (joinReq.status === 'approved' && !user) {
+        return res.json({ success: true, status: 'none' });
+      }
       return res.json({ success: true, status: joinReq.status });
     }
 
@@ -616,7 +619,12 @@ router.post('/:id/join-request', async (req, res, next) => {
 
     const existingApprovedReq = await ClassroomJoinRequest.findOne({ email: email.toLowerCase(), classroom: req.params.id, status: 'approved' });
     if (existingApprovedReq) {
-      return res.status(400).json({ success: false, code: 'ALREADY_APPROVED', message: 'Your request has already been approved. Please login.' });
+      if (user) {
+        return res.status(400).json({ success: false, code: 'ALREADY_APPROVED', message: 'Your request has already been approved. Please login.' });
+      } else {
+        // User was deleted, so clean up all old join requests for this email in this classroom
+        await ClassroomJoinRequest.deleteMany({ email: email.toLowerCase(), classroom: req.params.id });
+      }
     }
 
     const existingReq = await ClassroomJoinRequest.findOne({ email: email.toLowerCase(), classroom: req.params.id, status: 'pending' });

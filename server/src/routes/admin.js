@@ -3,6 +3,8 @@ const router = express.Router();
 const User = require('../models/User');
 const StudentProfile = require('../models/StudentProfile');
 const Classroom = require('../models/Classroom');
+const ClassroomJoinRequest = require('../models/ClassroomJoinRequest');
+const StudentRequest = require('../models/StudentRequest');
 const FacultyMember = require('../models/FacultyMember');
 const AboutDetail = require('../models/AboutDetail');
 const Milestone = require('../models/Milestone');
@@ -175,9 +177,13 @@ router.delete('/users/:id', protect, restrictTo('admin', 'superadmin'), async (r
     // Delete User
     await User.findByIdAndDelete(id);
 
-    // If role is student, delete StudentProfile
+    // If role is student, delete StudentProfile, StudentRequest, and ClassroomJoinRequest
     if (user.role === 'student') {
       await StudentProfile.deleteOne({ user: id });
+      await StudentRequest.deleteMany({ user: id });
+      if (user.email) {
+        await ClassroomJoinRequest.deleteMany({ email: user.email.toLowerCase() });
+      }
     }
 
     // Remove student from all classrooms
