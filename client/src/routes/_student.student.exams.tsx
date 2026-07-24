@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { ClipboardList, CheckCircle2, Clock, X, ChevronLeft, ChevronRight, AlertCircle, Trophy, Check } from "lucide-react";
 import { Card } from "@/components/portal/PortalShell";
 import { useClassroomStore, classroomActions, getGrade, formatTime, type Quiz, type Question } from "@/lib/classroomStore";
@@ -65,8 +66,11 @@ function QuizModal({ quiz, classroomId, reviewAttemptId, onClose }: {
     }
   }, [reviewAttemptId, quiz.id]);
 
+  const submittingRef = useRef(false);
+
   const handleSubmit = useCallback(async () => {
-    if (!attemptId || isSubmitting) return;
+    if (!attemptId || submittingRef.current) return;
+    submittingRef.current = true;
     setError("");
     setIsSubmitting(true);
     try {
@@ -81,15 +85,19 @@ function QuizModal({ quiz, classroomId, reviewAttemptId, onClose }: {
       await submitQuizAttempt(quiz.id, attemptId);
       const review = await getQuizAttemptResult(quiz.id, attemptId);
       setResult(review);
+      toast.success("Quiz submitted successfully!");
       const refreshed = await getClassroomById(classroomId);
       classroomActions.updateClassroom(classroomId, refreshed);
       setPhase("result");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit exam");
+      submittingRef.current = false;
+      const msg = err instanceof Error ? err.message : "Could not submit exam";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
-  }, [attemptId, classroomId, examQuestions, isSubmitting, quiz.id]);
+  }, [attemptId, classroomId, examQuestions, quiz.id]);
 
   useEffect(() => {
     submitRef.current = () => { void handleSubmit(); };
@@ -101,14 +109,25 @@ function QuizModal({ quiz, classroomId, reviewAttemptId, onClose }: {
     setIsStarting(true);
     try {
       const started = await startQuizAttempt(quiz.id);
-      setAttemptId(started.attemptId);
+      if (started.alreadySubmitted) {
+        toast.info(started.message || "You have already submitted this quiz.");
+        if (started.attemptId) {
+          const review = await getQuizAttemptResult(quiz.id, started.attemptId);
+          setResult(review);
+        }
+        setPhase("result");
+        return;
+      }
+      setAttemptId(started.attemptId!);
       setExamQuestions(started.questions);
       setSelected({});
       setQIdx(0);
       setTimeLeft((started.duration || quiz.duration || 0) * 60);
       setPhase("taking");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start exam");
+      const msg = err instanceof Error ? err.message : "Could not start exam";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsStarting(false);
     }
@@ -303,7 +322,7 @@ function QuizModal({ quiz, classroomId, reviewAttemptId, onClose }: {
                           {myAns.isCorrect ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                         </span>
                         <p className="text-slate-800 text-sm font-semibold flex-1">Q{i + 1}. {myAns.questionText || quizQ?.text || ""}</p>
-                        <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns.marksAwarded} marks</span>
+                        <span className="text-xs font-mono text-slate-500 shrink-0">{myAns.marksAwarded} marks</span>
                       </div>
                       {/* Options */}
                       {quizQ && quizQ.options && quizQ.options.length > 0 && (

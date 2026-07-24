@@ -650,8 +650,11 @@ function TestsTab({ classroomId }: { classroomId: string }) {
     answersRef.current = answers;
   }, [answers]);
 
+  const submittingQuizRef = useRef(false);
+
   const submitQuiz = useCallback(async () => {
-    if (!activeQuiz || !attemptId || isSubmitting) return;
+    if (!activeQuiz || !attemptId || submittingQuizRef.current) return;
+    submittingQuizRef.current = true;
     setError("");
     setIsSubmitting(true);
     try {
@@ -666,15 +669,19 @@ function TestsTab({ classroomId }: { classroomId: string }) {
       await submitQuizAttempt(activeQuiz.id, attemptId);
       const review = await getQuizAttemptResult(activeQuiz.id, attemptId);
       setResult(review);
+      toast.success("Quiz submitted successfully!");
       const refreshed = await getClassroomById(classroomId);
       classroomActions.updateClassroom(classroomId, refreshed);
       setPhase("result");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit quiz");
+      submittingQuizRef.current = false;
+      const msg = err instanceof Error ? err.message : "Could not submit quiz";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
-  }, [activeQuiz, attemptId, classroomId, examQuestions, isSubmitting]);
+  }, [activeQuiz, attemptId, classroomId, examQuestions]);
 
   useEffect(() => {
     submitQuizRef.current = () => { void submitQuiz(); };
@@ -713,12 +720,23 @@ function TestsTab({ classroomId }: { classroomId: string }) {
     setIsStarting(true);
     try {
       const started = await startQuizAttempt(activeQuiz.id);
-      setAttemptId(started.attemptId);
+      if (started.alreadySubmitted) {
+        toast.info(started.message || "You have already submitted this quiz.");
+        if (started.attemptId) {
+          const review = await getQuizAttemptResult(activeQuiz.id, started.attemptId);
+          setResult(review);
+        }
+        setPhase("result");
+        return;
+      }
+      setAttemptId(started.attemptId!);
       setExamQuestions(started.questions);
       setAnswers({});
       setPhase("taking");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start quiz");
+      const msg = err instanceof Error ? err.message : "Could not start quiz";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsStarting(false);
     }
@@ -983,7 +1001,7 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                     {myAns.isCorrect ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                   </span>
                   <p className="text-slate-800 text-sm font-semibold flex-1">Q{i + 1}. {myAns.questionText || quizQ?.text || ""}</p>
-                  <span className="text-xs font-mono text-slate-500 shrink-0">+{myAns.marksAwarded} marks</span>
+                  <span className="text-xs font-mono text-slate-500 shrink-0">{myAns.marksAwarded} marks</span>
                 </div>
                 {quizQ && quizQ.options.length > 0 && (
                   <div className="ml-8 space-y-1.5 mb-3">

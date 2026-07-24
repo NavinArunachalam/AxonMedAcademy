@@ -557,11 +557,20 @@ function normalizeApiQuizQuestion(q: any) {
 
 export async function startQuizAttempt(quizId: string) {
   const payload = await fetchJson(`/quizzes/${encodeURIComponent(quizId)}/attempt/start`, { method: 'POST' });
+  if (payload.alreadySubmitted) {
+    return {
+      alreadySubmitted: true,
+      attemptId: payload.attemptId ? String(payload.attemptId) : undefined,
+      message: payload.message || 'You have already submitted this quiz.',
+      questions: [],
+    };
+  }
   return {
-    attemptId: String(payload.attempt._id || payload.attempt.id),
-    startedAt: payload.attempt.startedAt,
-    attemptNo: payload.attempt.attemptNo,
-    duration: payload.attempt.duration,
+    alreadySubmitted: false,
+    attemptId: String(payload.attempt?._id || payload.attempt?.id || ''),
+    startedAt: payload.attempt?.startedAt,
+    attemptNo: payload.attempt?.attemptNo,
+    duration: payload.attempt?.duration,
     questions: Array.isArray(payload.questions) ? payload.questions.map(normalizeApiQuizQuestion) : [],
   };
 }

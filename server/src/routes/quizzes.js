@@ -217,10 +217,48 @@ router.post('/:id/attempt/start', protect, async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'This quiz deadline has passed' });
     }
 
-    // Check attempt limits
-    const existingAttempts = await QuizAttempt.countDocuments({ quiz: id, student: req.user._id });
-    if (existingAttempts >= quiz.maxAttempts) {
-      return res.status(400).json({ success: false, message: 'You have reached the maximum number of attempts allowed for this quiz' });
+    // 1. Check if there is an active in_progress attempt for this student
+    const activeAttempt = await QuizAttempt.findOne({ quiz: id, student: req.user._id, status: 'in_progress' });
+    if (activeAttempt) {
+      let questionsList = activeAttempt.questionOrder && activeAttempt.questionOrder.length > 0
+        ? activeAttempt.questionOrder.map(qId => quiz.questions.find(q => q._id.toString() === qId.toString())).filter(Boolean)
+        : quiz.questions;
+
+      if (questionsList.length === 0) questionsList = quiz.questions;
+
+      const sanitizedQuestions = questionsList.map(q => ({
+        _id: q._id,
+        type: q.type,
+        text: q.text,
+        image: q.image,
+        marks: q.marks,
+        options: (q.options || []).map(o => ({ label: o.label, text: o.text }))
+      }));
+
+      return res.json({
+        success: true,
+        isResumed: true,
+        attempt: {
+          _id: activeAttempt._id,
+          startedAt: activeAttempt.startedAt,
+          attemptNo: activeAttempt.attemptNo,
+          duration: quiz.duration
+        },
+        questions: sanitizedQuestions
+      });
+    }
+
+    // 2. Check attempt limits
+    const submittedCount = await QuizAttempt.countDocuments({ quiz: id, student: req.user._id, status: 'submitted' });
+    const maxAllowed = quiz.maxAttempts || 1;
+    if (submittedCount >= maxAllowed) {
+      const lastCompleted = await QuizAttempt.findOne({ quiz: id, student: req.user._id, status: 'submitted' }).sort({ attemptNo: -1 });
+      return res.json({
+        success: true,
+        alreadySubmitted: true,
+        attemptId: lastCompleted ? lastCompleted._id : null,
+        message: 'You have already submitted this quiz.'
+      });
     }
 
     // Snapshot question order for this student (apply randomization if enabled)
@@ -235,7 +273,7 @@ router.post('/:id/attempt/start', protect, async (req, res, next) => {
       quiz: id,
       student: req.user._id,
       classroom: quiz.classroom,
-      attemptNo: existingAttempts + 1,
+      attemptNo: submittedCount + 1,
       status: 'in_progress',
       startedAt: new Date(),
       questionOrder,
@@ -332,25 +370,27 @@ router.put('/:id/attempt/answers', protect, async (req, res, next) => {
     }
 
     if (attempt.status !== 'in_progress') {
-      return res.status(400).json({ success: false, message: 'Attempt has already been submitted' });
+      return res.json({ success: true, message: 'Attempt has already been submitted' });
     }
 
     // Process each answer in the array
+    if (!Array.isArray(attempt.answers)) attempt.answers = [];
+
     for (const ans of answers) {
       const { questionId, selectedOptions, timeTakenSec } = ans;
       if (!questionId) continue;
       
-      const answerIndex = attempt.answers.findIndex(a => a.questionId.toString() === questionId.toString());
+      const answerIndex = attempt.answers.findIndex(a => a.questionId && a.questionId.toString() === questionId.toString());
       if (answerIndex > -1) {
-        attempt.answers[answerIndex].selectedOptions = selectedOptions || [];
-        if (timeTakenSec !== undefined) {
+        attempt.answers[answerIndex].selectedOptions = Array.isArray(selectedOptions) ? selectedOptions : [];
+        if (timeTakenSec !== undefined && typeof timeTakenSec === 'number') {
           attempt.answers[answerIndex].timeTakenSec = timeTakenSec;
         }
       } else {
         attempt.answers.push({
           questionId,
-          selectedOptions: selectedOptions || [],
-          timeTakenSec: timeTakenSec || 0
+          selectedOptions: Array.isArray(selectedOptions) ? selectedOptions : [],
+          timeTakenSec: (typeof timeTakenSec === 'number') ? timeTakenSec : 0
         });
       }
     }
@@ -377,54 +417,74 @@ router.post('/:id/attempt/submit', protect, async (req, res, next) => {
     }
 
     if (attempt.status !== 'in_progress') {
-      return res.status(400).json({ success: false, message: 'Attempt already submitted' });
+      return res.json({
+        success: true,
+        message: 'Quiz already submitted',
+        score: attempt.score || { rawMarks: 0, totalMarks: 100, percentage: 0, passed: false }
+      });
     }
 
     const quiz = attempt.quiz;
+    const gradedAnswers = [];
     let rawMarks = 0;
 
-    // Loop questions and grade answers
-    attempt.answers = attempt.answers.map(ans => {
-      const q = quiz.questions.find(quest => quest._id.toString() === ans.questionId.toString());
-      if (!q) return ans;
+    const questionsList = Array.isArray(quiz?.questions) ? quiz.questions : [];
 
-      // Extract correct labels
-      const correctOptions = q.options.filter(o => o.isCorrect).map(o => o.label);
+    for (const q of questionsList) {
+      const qId = q._id ? q._id.toString() : '';
+      const qMarks = (typeof q.marks === 'number' && !isNaN(q.marks)) ? q.marks : 1;
 
-      // Check if selected matches correct exactly
-      const isCorrect = ans.selectedOptions.length === correctOptions.length &&
-        ans.selectedOptions.every(opt => correctOptions.includes(opt));
+      // Find answer if student provided one
+      const ans = (attempt.answers || []).find(a => a.questionId && a.questionId.toString() === qId);
+      const selectedOptions = (ans && Array.isArray(ans.selectedOptions)) ? ans.selectedOptions : [];
+      const timeTakenSec = (ans && typeof ans.timeTakenSec === 'number') ? ans.timeTakenSec : 0;
+
+      const correctOptions = Array.isArray(q.options)
+        ? q.options.filter(o => o.isCorrect).map(o => o.label)
+        : [];
+
+      const isCorrect = correctOptions.length > 0 &&
+        selectedOptions.length === correctOptions.length &&
+        selectedOptions.every(opt => correctOptions.includes(opt));
 
       let marksAwarded = 0;
       if (isCorrect) {
-        marksAwarded = q.marks;
-        rawMarks += q.marks;
-      } else {
-        if (quiz.negativeMarking) {
-          marksAwarded = -quiz.negativeMarkValue;
-          rawMarks -= quiz.negativeMarkValue;
-        }
+        marksAwarded = +qMarks;
+        rawMarks += +qMarks;
+      } else if (selectedOptions.length > 0 && quiz.negativeMarking) {
+        const negValue = (typeof quiz.negativeMarkValue === 'number' && !isNaN(quiz.negativeMarkValue)) ? quiz.negativeMarkValue : 0;
+        marksAwarded = -negValue;
+        rawMarks -= negValue;
       }
 
-      return {
-        questionId: ans.questionId,
-        selectedOptions: ans.selectedOptions,
+      gradedAnswers.push({
+        questionId: q._id,
+        selectedOptions,
         isCorrect,
         marksAwarded,
-        timeTakenSec: ans.timeTakenSec
-      };
-    });
+        timeTakenSec
+      });
+    }
 
-    const finalMarks = Math.max(0, rawMarks);
-    const percentage = quiz.totalMarks > 0 ? (finalMarks / quiz.totalMarks) * 100 : 0;
-    const passed = percentage >= quiz.passPercent;
+    attempt.answers = gradedAnswers;
+
+    const calculatedTotalMarks = questionsList.reduce((sum, q) => sum + ((typeof q.marks === 'number' && !isNaN(q.marks)) ? q.marks : 1), 0);
+    const totalMarks = (typeof quiz?.totalMarks === 'number' && !isNaN(quiz.totalMarks) && quiz.totalMarks > 0)
+      ? quiz.totalMarks
+      : (calculatedTotalMarks || 1);
+
+    const safeRawMarks = isNaN(rawMarks) ? 0 : rawMarks;
+    const finalMarks = Math.max(0, safeRawMarks);
+    const percentage = Math.min(100, Math.max(0, Math.round((finalMarks / totalMarks) * 100)));
+    const passPercent = (typeof quiz?.passPercent === 'number' && !isNaN(quiz.passPercent)) ? quiz.passPercent : 50;
+    const passed = percentage >= passPercent;
 
     attempt.status = 'submitted';
     attempt.submittedAt = new Date();
-    attempt.totalTimeTakenSec = Math.max(0, Math.round((attempt.submittedAt - attempt.startedAt) / 1000));
+    attempt.totalTimeTakenSec = Math.max(0, Math.round((attempt.submittedAt - (attempt.startedAt || new Date())) / 1000));
     attempt.score = {
       rawMarks: finalMarks,
-      totalMarks: quiz.totalMarks,
+      totalMarks,
       percentage,
       passed
     };
