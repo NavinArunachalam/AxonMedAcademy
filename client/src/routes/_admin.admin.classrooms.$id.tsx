@@ -777,9 +777,9 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     : [];
 
   const streamUrl = activeRec
-    ? activeRec.storageProvider === 'cloudflare'
+    ? activeRec.cloudflareUrl || (activeRec.storageProvider === 'cloudflare'
       ? `${getRecordingStreamUrl(activeRec.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
-      : activeRec.cloudflareUrl
+      : activeRec.cloudflareUrl || '')
     : '';
 
   return (

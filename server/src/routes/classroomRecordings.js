@@ -814,28 +814,11 @@ router.get('/:id/stream', protect, async (req, res, next) => {
     }
 
     try {
-      const { getS3Client, getCloudflareConfig } = require('../config/cloudflare');
-      const { GetObjectCommand } = require('@aws-sdk/client-s3');
-
-      const s3 = getS3Client();
-      const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
-      const command = new GetObjectCommand({
-        Bucket: CLOUDFLARE_R2_BUCKET,
-        Key: recording.cloudflareKey,
-        Range: req.headers.range,
-      });
-
-      const s3Response = await s3.send(command);
-
-      if (s3Response.ContentType) res.setHeader('Content-Type', s3Response.ContentType);
-      if (s3Response.ContentLength) res.setHeader('Content-Length', s3Response.ContentLength);
-      if (s3Response.ContentRange) res.setHeader('Content-Range', s3Response.ContentRange);
-      if (s3Response.AcceptRanges) res.setHeader('Accept-Ranges', s3Response.AcceptRanges);
-
-      res.status(s3Response.$metadata.httpStatusCode || 200);
-      s3Response.Body.pipe(res);
+      const { generatePresignedGetUrl } = require('../config/cloudflare');
+      const presignedUrl = await generatePresignedGetUrl(recording.cloudflareKey, 604800);
+      return res.redirect(307, presignedUrl);
     } catch (s3Error) {
-      console.error('[S3 Streaming Error]:', s3Error.message);
+      console.error('[S3 Streaming Redirect Error]:', s3Error.message);
       if (s3Error.name === 'NoSuchKey' || s3Error.$metadata?.httpStatusCode === 404) {
         return res.status(404).json({
           success: false,

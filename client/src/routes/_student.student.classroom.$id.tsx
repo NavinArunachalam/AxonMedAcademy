@@ -251,9 +251,9 @@ function SecurePlayer({
 
   const { isLocked, lockReason, resetLock } = useVideoProtection(true);
 
-  const streamUrl = recording.storageProvider === 'cloudflare'
+  const streamUrl = recording.cloudflareUrl || (recording.storageProvider === 'cloudflare'
     ? `${getRecordingStreamUrl(recording.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
-    : recording.cloudflareUrl;
+    : recording.cloudflareUrl || '');
 
   useEffect(() => {
     totalWatchedRef.current = recording.viewStats?.find((v) => v.studentId === currentUser?.id)?.totalWatchedSec || 0;
