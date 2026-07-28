@@ -43,16 +43,13 @@ export function useVideoProtection(isActive: boolean) {
     const handleKeyDown = (e: KeyboardEvent) => {
       let shouldLock = false;
 
-      // Print Screen or DevTools
-      if (e.key === "PrintScreen" || e.key === "Print" || e.key === "F12") {
-        shouldLock = true;
-      }
-      // Any modifier key (Control, Meta, Alt) pressed alone
-      else if (["Control", "Meta", "Alt"].includes(e.key)) {
-        shouldLock = true;
-      }
-      // Any shortcut with modifier keys active (Ctrl, Meta, Alt)
-      else if (e.ctrlKey || e.metaKey || e.altKey) {
+      // Print Screen, F12, or explicit screen-capture shortcuts
+      if (
+        e.key === "PrintScreen" ||
+        e.key === "Print" ||
+        e.key === "F12" ||
+        (e.shiftKey && (e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S" || e.key === "3" || e.key === "4"))
+      ) {
         shouldLock = true;
       }
 
@@ -65,62 +62,43 @@ export function useVideoProtection(isActive: boolean) {
       }
     };
 
-    // Keyup fallback for PrintScreen and modifier keys (OS level intercepts)
+    // Keyup fallback for PrintScreen
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (
-        e.key === "PrintScreen" ||
-        e.key === "Print" ||
-        ["Control", "Meta", "Alt"].includes(e.key) ||
-        e.ctrlKey ||
-        e.metaKey ||
-        e.altKey
-      ) {
+      if (e.key === "PrintScreen" || e.key === "Print") {
         setIsLocked(true);
         setLockReason("shortcut");
       }
     };
 
-    // 3a. Tab Visibility — lock immediately when tab is hidden.
+    // 3. Tab Visibility — lock when tab is hidden.
     const handleVisibilityChange = () => {
-      if (!readyRef.current) return; // still in grace period
+      if (!readyRef.current) return;
       if (document.hidden) {
         setIsLocked(true);
         setLockReason("blur");
       }
     };
 
-    // 3b. Window blur — now enabled on mobile to detect notification shade / control center swipe
-    const handleBlur = () => {
-      if (!readyRef.current) return; // still in grace period
-      setIsLocked(true);
-      setLockReason("blur");
-    };
-
-    // 4. Detect DevTools Opening & Focus loss (Desktop only)
+    // 4. Detect DevTools Opening (Desktop only)
     let intervalCheck: ReturnType<typeof setInterval> | null = null;
     if (!mobile) {
       intervalCheck = setInterval(() => {
-        // DevTools check
-        const threshold = 160;
+        const threshold = 260;
         const isDevToolsOpen =
           window.outerWidth - window.innerWidth > threshold ||
           window.outerHeight - window.innerHeight > threshold;
-        
-        // document.hasFocus check
-        const isFocused = document.hasFocus();
 
-        if (isDevToolsOpen || (readyRef.current && !isFocused)) {
+        if (isDevToolsOpen && readyRef.current) {
           setIsLocked(true);
-          setLockReason(isDevToolsOpen ? "shortcut" : "blur");
+          setLockReason("shortcut");
         }
-      }, 1000);
+      }, 2000);
     }
 
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keyup", handleKeyUp);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleBlur);
 
     return () => {
       clearTimeout(gracePeriod);
@@ -129,7 +107,6 @@ export function useVideoProtection(isActive: boolean) {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleBlur);
     };
   }, [isActive]);
 

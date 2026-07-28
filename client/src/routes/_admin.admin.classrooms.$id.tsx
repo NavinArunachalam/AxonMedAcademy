@@ -776,10 +776,16 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     ? (cls.recordings || []).filter(r => r.folder === currentFolderId)
     : [];
 
+  const isAdminDirectSigned = Boolean(
+    activeRec?.cloudflareUrl &&
+    (activeRec.cloudflareUrl.includes('X-Amz-Signature') || activeRec.cloudflareUrl.includes('X-Amz-Algorithm')) &&
+    !activeRec.cloudflareUrl.includes('r2.cloudflarestorage.com')
+  );
+
   const streamUrl = activeRec
-    ? activeRec.cloudflareUrl || (activeRec.storageProvider === 'cloudflare'
-      ? `${getRecordingStreamUrl(activeRec.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
-      : activeRec.cloudflareUrl || '')
+    ? (isAdminDirectSigned
+      ? activeRec.cloudflareUrl
+      : `${getRecordingStreamUrl(activeRec.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`)
     : '';
 
   return (
@@ -1437,7 +1443,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               {streamUrl ? (
                 <video
                   src={streamUrl}
-                  crossOrigin="use-credentials"
+                  crossOrigin="anonymous"
                   className="w-full h-full max-h-[85vh] object-contain bg-black"
                   controls
                   autoPlay

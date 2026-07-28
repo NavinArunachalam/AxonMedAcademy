@@ -5,7 +5,8 @@ import {
   ArrowLeft, Megaphone, Video, BookOpen, ClipboardList,
   Play, Check, X, Clock, Calendar, ChevronRight,
   Trophy, Radio, Lock, ShieldAlert, Download,
-  DollarSign, FileText, MessageSquare, HelpCircle, LifeBuoy
+  DollarSign, FileText, MessageSquare, HelpCircle, LifeBuoy,
+  Pause, RotateCcw, RotateCw, Settings, Gauge
 } from "lucide-react";
 import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
@@ -80,17 +81,20 @@ const TABS: readonly TabConfig[] = [
 
 function AnnouncementsTab({ classroomId }: { classroomId: string }) {
   const { classrooms } = useClassroomStore();
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+  const cls = classrooms.find((c) => c.id === classroomId || (c as any)._id === classroomId);
+  if (!cls) return null;
+
+  const announcements = cls.announcements || [];
 
   return (
     <div className="space-y-3">
-      {cls.announcements.length === 0 && (
+      {announcements.length === 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center">
           <Megaphone className="h-8 w-8 text-slate-300 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">No announcements yet. Check back later.</p>
         </div>
       )}
-      {cls.announcements.map((ann) => (
+      {announcements.map((ann) => (
         <div key={ann.id} className="rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex items-start gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-plum-dark text-cream font-bold text-xs">
@@ -132,17 +136,20 @@ function AnnouncementsTab({ classroomId }: { classroomId: string }) {
 
 function LiveClassesTab({ classroomId }: { classroomId: string }) {
   const { classrooms } = useClassroomStore();
-  const cls = classrooms.find((c) => c.id === classroomId)!;
-  const upcoming = cls.meetings
+  const cls = classrooms.find((c) => c.id === classroomId || (c as any)._id === classroomId);
+  if (!cls) return null;
+
+  const meetings = cls.meetings || [];
+  const upcoming = meetings
     .filter((m) => m.status === "scheduled" || m.status === "live")
     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
-  const past = cls.meetings
+  const past = meetings
     .filter((m) => m.status === "ended")
     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
   return (
     <div className="space-y-5">
-      {cls.meetings.length === 0 && (
+      {meetings.length === 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center">
           <Video className="h-8 w-8 text-slate-300 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">No live classes scheduled yet.</p>
@@ -243,21 +250,103 @@ function SecurePlayer({
   const { currentUser, accessToken } = useClassroomStore();
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedQuality, setSelectedQuality] = useState<'Auto (1080p)' | '1080p' | '720p' | '480p' | '360p'>('Auto (1080p)');
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [showQualityMenu, setShowQualityMenu] = useState<boolean>(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState<boolean>(false);
+  const [gestureEffect, setGestureEffect] = useState<{ type: 'play' | 'pause' | 'rewind' | 'forward'; id: number } | null>(null);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pendingWatchedRef = useRef(0);
   const totalWatchedRef = useRef(0);
   const lastVideoTimeRef = useRef(0);
   const lastSentAtRef = useRef(0);
+  const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
+  const tapTimeoutRef = useRef<any>(null);
 
   const { isLocked, lockReason, resetLock } = useVideoProtection(true);
 
-  const streamUrl = recording.cloudflareUrl || (recording.storageProvider === 'cloudflare'
-    ? `${getRecordingStreamUrl(recording.id)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`
-    : recording.cloudflareUrl || '');
+  const recordingId = recording.id || (recording as any)._id || '';
+  const chapters = recording.chapters || [];
+
+  const isDirectSignedUrl = Boolean(
+    recording.cloudflareUrl &&
+    (recording.cloudflareUrl.includes('X-Amz-Signature') || recording.cloudflareUrl.includes('X-Amz-Algorithm')) &&
+    !recording.cloudflareUrl.includes('r2.cloudflarestorage.com')
+  );
+
+  const streamUrl = isDirectSignedUrl
+    ? recording.cloudflareUrl
+    : `${getRecordingStreamUrl(recordingId)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`;
 
   useEffect(() => {
     totalWatchedRef.current = recording.viewStats?.find((v) => v.studentId === currentUser?.id)?.totalWatchedSec || 0;
-  }, [currentUser?.id, recording.id]);
+  }, [currentUser?.id, recordingId]);
+
+  useEffect(() => {
+    if (gestureEffect) {
+      const timer = setTimeout(() => setGestureEffect(null), 700);
+      return () => clearTimeout(timer);
+    }
+  }, [gestureEffect]);
+
+  const handleQualityChange = (quality: 'Auto (1080p)' | '1080p' | '720p' | '480p' | '360p') => {
+    setSelectedQuality(quality);
+    setShowQualityMenu(false);
+    toast.success(`Video quality set to ${quality}`);
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed;
+    }
+    setShowSpeedMenu(false);
+    toast.success(`Playback speed set to ${speed}x`);
+  };
+
+  const handleVideoAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.no-gesture')) return;
+    if (isLocked) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const now = Date.now();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+    const isDoubleTap = now - lastTapRef.current.time < 300 && Math.abs(clickX - lastTapRef.current.x) < 100;
+
+    if (isDoubleTap) {
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      if (clickX < width * 0.35) {
+        video.currentTime = Math.max(0, video.currentTime - 10);
+        setGestureEffect({ type: 'rewind', id: now });
+      } else if (clickX > width * 0.65) {
+        video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+        setGestureEffect({ type: 'forward', id: now });
+      }
+      lastTapRef.current = { time: 0, x: 0 };
+    } else {
+      lastTapRef.current = { time: now, x: clickX };
+      tapTimeoutRef.current = setTimeout(() => {
+        if (video.paused) {
+          void video.play().catch(() => {});
+          setIsPlaying(true);
+          setGestureEffect({ type: 'play', id: now });
+        } else {
+          video.pause();
+          setIsPlaying(false);
+          setGestureEffect({ type: 'pause', id: now });
+        }
+      }, 250);
+    }
+  };
 
   const sendProgress = useCallback(async (force = false) => {
     const video = videoRef.current;
@@ -275,7 +364,7 @@ function SecurePlayer({
     lastSentAtRef.current = now;
 
     try {
-      await trackRecordingProgress(recording.id, {
+      await trackRecordingProgress(recordingId, {
         position: currentPosition,
         watchedSec,
         completed,
@@ -284,11 +373,11 @@ function SecurePlayer({
       const watchedPercent = recording.duration > 0
         ? Math.min(100, Math.round((totalWatchedRef.current / recording.duration) * 100))
         : 0;
-      classroomActions.updateViewStat(classroomId, recording.id, currentUser.id, currentUser.name, watchedPercent, currentPosition);
+      classroomActions.updateViewStat(classroomId, recordingId, currentUser.id, currentUser.name, watchedPercent, currentPosition);
     } catch {
       pendingWatchedRef.current += watchedSec;
     }
-  }, [classroomId, currentUser?.id, currentUser?.name, recording.duration, recording.id, recording.viewStats]);
+  }, [classroomId, currentUser?.id, currentUser?.name, recording.duration, recordingId, recording.viewStats]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -309,6 +398,9 @@ function SecurePlayer({
         video.currentTime = savedPosition;
         lastVideoTimeRef.current = savedPosition;
         setPosition(Math.floor(savedPosition));
+      }
+      if (videoRef.current) {
+        videoRef.current.playbackRate = playbackSpeed;
       }
     };
     const handlePlay = () => {
@@ -345,7 +437,7 @@ function SecurePlayer({
       video.removeEventListener('ended', handleEnded);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [currentUser?.id, recording.id, recording.viewStats, sendProgress]);
+  }, [currentUser?.id, recording.id, recording.viewStats, sendProgress, playbackSpeed]);
 
   // Pause video if locked
   useEffect(() => {
@@ -377,23 +469,89 @@ function SecurePlayer({
       `}</style>
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-3 bg-black/80">
-        <span className="text-white font-semibold text-sm truncate">{recording.title}</span>
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
+      <div className="flex items-center justify-between px-5 py-3 bg-black/90 border-b border-white/10 z-40 relative">
+        <span className="text-white font-semibold text-sm truncate max-w-md">{recording.title}</span>
+        <div className="flex items-center gap-3 no-gesture">
+          {/* Quality Selector */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowQualityMenu((v) => !v);
+                setShowSpeedMenu(false);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors border border-white/10"
+              title="Select video quality"
+            >
+              <Settings className="h-3.5 w-3.5 text-lime" />
+              <span>{selectedQuality}</span>
+            </button>
+
+            {showQualityMenu && (
+              <div className="absolute right-0 mt-2 w-44 bg-[#18181B] border border-white/10 rounded-xl shadow-2xl py-1 z-50">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-white/40 uppercase tracking-wider">Quality</div>
+                {(['Auto (1080p)', '1080p', '720p', '480p', '360p'] as const).map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => handleQualityChange(q)}
+                    className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-white/10 transition-colors ${selectedQuality === q ? 'text-lime font-bold' : 'text-white/80'}`}
+                  >
+                    <span>{q}</span>
+                    {selectedQuality === q && <Check className="h-3.5 w-3.5 text-lime" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Playback Speed Selector */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowSpeedMenu((v) => !v);
+                setShowQualityMenu(false);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors border border-white/10"
+              title="Select playback speed"
+            >
+              <Gauge className="h-3.5 w-3.5 text-lime" />
+              <span>{playbackSpeed}x</span>
+            </button>
+
+            {showSpeedMenu && (
+              <div className="absolute right-0 mt-2 w-36 bg-[#18181B] border border-white/10 rounded-xl shadow-2xl py-1 z-50">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-white/40 uppercase tracking-wider">Speed</div>
+                {[0.5, 0.75, 1, 1.25, 1.5, 2].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handleSpeedChange(s)}
+                    className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-white/10 transition-colors ${playbackSpeed === s ? 'text-lime font-bold' : 'text-white/80'}`}
+                  >
+                    <span>{s === 1 ? '1.0x (Normal)' : `${s}x`}</span>
+                    {playbackSpeed === s && <Check className="h-3.5 w-3.5 text-lime" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button onClick={onClose} className="text-white/60 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
       {/* Video area */}
       <div className="flex flex-1 relative select-none">
-        <div className="flex-1 bg-linear-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative">
-
+        <div
+          onClick={handleVideoAreaClick}
+          className="flex-1 bg-linear-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative cursor-pointer"
+        >
           {streamUrl ? (
             <video
               ref={videoRef}
               src={streamUrl}
-              crossOrigin="use-credentials"
-              className="w-full h-[95vh] object-contain bg-black no-select select-none"
+              crossOrigin="anonymous"
+              className="w-full h-[95vh] object-contain bg-black no-select select-none pointer-events-auto"
               controls
               controlsList="nodownload nofullscreen noremoteplayback"
               disablePictureInPicture
@@ -424,6 +582,41 @@ function SecurePlayer({
             </>
           )}
 
+          {/* Gesture Ripple Overlay */}
+          {gestureEffect && (
+            <div
+              key={gestureEffect.id}
+              className="absolute inset-0 pointer-events-none flex items-center justify-center z-30"
+            >
+              <div className="bg-black/80 backdrop-blur-md text-white rounded-2xl px-6 py-5 flex flex-col items-center justify-center shadow-2xl border border-white/20 animate-in fade-in zoom-in duration-200">
+                {gestureEffect.type === 'play' && (
+                  <>
+                    <Play className="h-10 w-10 fill-lime text-lime mb-1" />
+                    <span className="text-xs font-bold tracking-wider uppercase text-lime">Play</span>
+                  </>
+                )}
+                {gestureEffect.type === 'pause' && (
+                  <>
+                    <Pause className="h-10 w-10 text-white mb-1" />
+                    <span className="text-xs font-bold tracking-wider uppercase text-white">Pause</span>
+                  </>
+                )}
+                {gestureEffect.type === 'rewind' && (
+                  <>
+                    <RotateCcw className="h-10 w-10 text-lime mb-1" />
+                    <span className="text-xs font-bold tracking-wider text-lime">-10 Seconds</span>
+                  </>
+                )}
+                {gestureEffect.type === 'forward' && (
+                  <>
+                    <RotateCw className="h-10 w-10 text-lime mb-1" />
+                    <span className="text-xs font-bold tracking-wider text-lime">+10 Seconds</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Security Lock overlay */}
           {isLocked && (
             <div className="absolute inset-0 backdrop-blur-xl bg-black/95 flex flex-col items-center justify-center z-30 p-6 transition-all duration-300">
@@ -444,26 +637,40 @@ function SecurePlayer({
                   : "Focus was lost — this may indicate a screen recording tool, notification shade, or app switch."}
               </p>
 
-              <button
-                onClick={() => {
-                  void sendProgress(true);
-                  onClose();
-                }}
-                className="rounded-full px-8 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-gradient-to-r from-red-600 to-red-500 text-white hover:shadow-red-500/20 hover:scale-105 active:scale-95 flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Recordings
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    resetLock();
+                    if (videoRef.current) {
+                      void videoRef.current.play().catch(() => {});
+                    }
+                  }}
+                  className="rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-lime text-plum-dark hover:scale-105 active:scale-95 flex items-center gap-2"
+                >
+                  <Play className="h-4 w-4 fill-current" />
+                  Resume Playback
+                </button>
+                <button
+                  onClick={() => {
+                    void sendProgress(true);
+                    onClose();
+                  }}
+                  className="rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-white/10 text-white hover:bg-white/20 hover:scale-105 active:scale-95 flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Recordings
+                </button>
+              </div>
             </div>
           )}
 
         </div>
 
         {/* Chapters sidebar */}
-        {recording.chapters.length > 0 && (
+        {chapters.length > 0 && (
           <div className="w-56 bg-[#111] border-l border-white/10 overflow-y-auto">
             <div className="p-3 border-b border-white/10 text-white/70 text-xs uppercase tracking-widest">Chapters</div>
-            {recording.chapters.map((ch) => (
+            {chapters.map((ch) => (
               <button
                 key={ch.id}
                 onClick={() => setPosition(ch.startTimeSec)}
@@ -483,21 +690,23 @@ function SecurePlayer({
 function RecordingsTab({ classroomId }: { classroomId: string }) {
   const { classrooms, currentUser } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+  const cls = classrooms.find((c) => c.id === classroomId || (c as any)._id === classroomId);
   const [activeRec, setActiveRec] = useState<string | null>(null);
   
   // Navigation State
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
+  if (!cls) return null;
+
   const publishedRecordings = (cls.recordings || []).filter((r) => r.isPublished);
-  const activeRecording = publishedRecordings.find((r) => r.id === activeRec);
+  const activeRecording = publishedRecordings.find((r) => (r.id || (r as any)._id) === activeRec);
 
   // Compute folder list: only show folders containing at least one published recording
   const folders = (cls.folders || []).filter(folder => 
-    publishedRecordings.some(r => r.folder === folder.id)
+    publishedRecordings.some(r => r.folder === (folder.id || (folder as any)._id))
   );
 
-  const currentFolder = folders.find(f => f.id === currentFolderId);
+  const currentFolder = folders.find(f => (f.id || (f as any)._id) === currentFolderId);
 
   // Filter recordings for the current view
   const visibleRecordings = currentFolderId
@@ -574,9 +783,12 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
             )}
             
             {visibleRecordings.map((rec) => {
-              const myStats = rec.viewStats.find((v) => v.studentId === CURRENT_STUDENT.id);
+              const recId = rec.id || (rec as any)._id || '';
+              const viewStats = rec.viewStats || [];
+              const chapters = rec.chapters || [];
+              const myStats = viewStats.find((v) => v.studentId === CURRENT_STUDENT.id);
               return (
-                <div key={rec.id} className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-plum/30 hover:shadow-md transition-all shadow-sm">
+                <div key={recId} className="rounded-2xl border border-slate-200 bg-white p-5 hover:border-plum/30 hover:shadow-md transition-all shadow-sm">
                   <div className="flex items-start gap-4">
                     <div className="w-20 h-14 rounded-xl bg-linear-to-br from-plum/20 to-plum-dark/10 flex items-center justify-center shrink-0">
                       <Play className="h-5 w-5 text-plum" />
@@ -585,8 +797,8 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
                       <h4 className="font-display font-bold text-plum-dark text-sm mb-0.5">{rec.title}</h4>
                       <p className="text-slate-500 text-xs line-clamp-1">{rec.description}</p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
-                        <span className="font-mono">{formatDuration(rec.duration)}</span>
-                        <span>{rec.chapters.length} chapters</span>
+                        <span className="font-mono">{formatDuration(rec.duration || 0)}</span>
+                        <span>{chapters.length} chapters</span>
                         {myStats && <span className="text-plum font-medium">{myStats.watchedPercent}% watched</span>}
                       </div>
                       {myStats && (
@@ -596,7 +808,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
                       )}
                     </div>
                     <button
-                      onClick={() => setActiveRec(rec.id)}
+                      onClick={() => setActiveRec(recId)}
                       className="rounded-full bg-plum-dark text-cream px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 hover:bg-plum transition-colors shadow-sm"
                     >
                       <Play className="h-3 w-3" /> {myStats ? "Resume" : "Watch"}
@@ -632,7 +844,9 @@ type QuizResultReview = {
 function TestsTab({ classroomId }: { classroomId: string }) {
   const { classrooms, currentUser } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
-  const cls = classrooms.find((c) => c.id === classroomId)!;
+  const cls = classrooms.find((c) => c.id === classroomId || (c as any)._id === classroomId);
+  if (!cls) return null;
+
   const [phase, setPhase] = useState<QuizPhase>("list");
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [examQuestions, setExamQuestions] = useState<Question[]>([]);
@@ -1055,23 +1269,23 @@ function StudentClassroomDetail() {
   const { classrooms, currentUser } = useClassroomStore();
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const [tab, setTab] = useState<TabKey>("live");
-  const [isLoading, setIsLoading] = useState(!classrooms.some((c) => c.id === id));
+  const [isLoading, setIsLoading] = useState(!classrooms.some((c) => c.id === id || (c as any)._id === id));
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const cls = classrooms.find((c) => c.id === id);
-  const myInfo = cls?.students.find((s) => s.id === CURRENT_STUDENT.id);
+  const cls = classrooms.find((c) => c.id === id || (c as any)._id === id);
+  const myInfo = cls?.students?.find((s) => s.id === CURRENT_STUDENT.id);
 
   React.useEffect(() => {
     let active = true;
     const load = async () => {
       try {
         setLoadError(null);
-        const hasCached = classrooms.some((c) => c.id === id);
+        const hasCached = classrooms.some((c) => c.id === id || (c as any)._id === id);
         if (hasCached && !isClassroomStale(id)) return;
         if (!hasCached) setIsLoading(true);
         const refreshed = await getClassroomById(id);
         if (!active) return;
-        if (classrooms.some((c) => c.id === id)) {
+        if (classrooms.some((c) => c.id === id || (c as any)._id === id)) {
           classroomActions.updateClassroom(id, refreshed);
         } else {
           classroomActions.addClassroom(refreshed);
@@ -1137,20 +1351,20 @@ function StudentClassroomDetail() {
             <span className="text-slate-300">·</span>
             <span className="text-slate-500 text-xs">{cls.program}</span>
             <span className="text-slate-300">·</span>
-            <span className="text-slate-500 text-xs">{cls.students.filter((s) => s.status === "active").length} students enrolled</span>
+            <span className="text-slate-500 text-xs">{(cls.students || []).filter((s) => s.status === "active").length} students enrolled</span>
             {cls.instructors && cls.instructors.length > 0 && (
               <>
                 <span className="text-slate-300">·</span>
-                <span className="text-slate-500 text-xs font-semibold text-plum">Faculty: {cls.instructors.map(i => i.name).join(", ")}</span>
+                <span className="text-slate-500 text-xs font-semibold text-plum">Faculty: {(cls.instructors || []).map(i => i.name).join(", ")}</span>
               </>
             )}
           </div>
           {/* My progress bar */}
           <div className="mt-3 flex items-center gap-3 max-w-sm">
             <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-plum rounded-full" style={{ width: `${myInfo.progress}%` }} />
+              <div className="h-full bg-plum rounded-full" style={{ width: `${myInfo?.progress || 0}%` }} />
             </div>
-            <span className="text-xs font-mono text-plum-dark font-bold">{myInfo.progress}% complete</span>
+            <span className="text-xs font-mono text-plum-dark font-bold">{myInfo?.progress || 0}% complete</span>
           </div>
         </div>
       </div>
@@ -1188,10 +1402,17 @@ function StudentClassroomDetail() {
           {tab === "announcements" ? "Study Material & Announcements" : tab === "live" ? "Live Classes" : tab === "recordings" ? "Recordings" : "Smart Tests & Quizzes"}
         </h2>
         
-        {tab === "announcements" && <AnnouncementsTab classroomId={cls.id} />}
-        {tab === "live" && <LiveClassesTab classroomId={cls.id} />}
-        {tab === "recordings" && <RecordingsTab classroomId={cls.id} />}
-        {tab === "tests" && <TestsTab classroomId={cls.id} />}
+        {(() => {
+          const classroomId = cls.id || (cls as any)._id || '';
+          return (
+            <>
+              {tab === "announcements" && <AnnouncementsTab classroomId={classroomId} />}
+              {tab === "live" && <LiveClassesTab classroomId={classroomId} />}
+              {tab === "recordings" && <RecordingsTab classroomId={classroomId} />}
+              {tab === "tests" && <TestsTab classroomId={classroomId} />}
+            </>
+          );
+        })()}
       </div>
     </div>
   );
