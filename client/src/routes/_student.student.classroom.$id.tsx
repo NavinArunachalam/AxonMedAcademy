@@ -250,6 +250,7 @@ function SecurePlayer({
   const { currentUser, accessToken } = useClassroomStore();
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true);
   const [selectedQuality, setSelectedQuality] = useState<'Auto (1080p)' | '1080p' | '720p' | '480p' | '360p'>('Auto (1080p)');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showQualityMenu, setShowQualityMenu] = useState<boolean>(false);
@@ -560,8 +561,18 @@ function SecurePlayer({
               // @ts-ignore — non-standard AirPlay attribute for Safari iOS
               x-webkit-airplay="deny"
               poster="/default-video-thumb.jpg"
-              onPlay={() => setIsPlaying(true)}
+              onPlay={() => {
+                setIsPlaying(true);
+                setIsBuffering(false);
+              }}
               onPause={() => setIsPlaying(false)}
+              onWaiting={() => setIsBuffering(true)}
+              onPlaying={() => setIsBuffering(false)}
+              onCanPlay={() => setIsBuffering(false)}
+              onSeeking={() => setIsBuffering(true)}
+              onSeeked={() => setIsBuffering(false)}
+              onLoadStart={() => setIsBuffering(true)}
+              onLoadedData={() => setIsBuffering(false)}
               onDragStart={(e) => e.preventDefault()}
             />
           ) : (
@@ -581,6 +592,15 @@ function SecurePlayer({
                 )}
               </button>
             </>
+          )}
+
+          {streamUrl && isBuffering && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 z-20 pointer-events-none backdrop-blur-[2px] transition-all duration-300">
+              <div className="w-14 h-14 border-[5px] border-lime/20 border-t-lime rounded-full animate-spin" />
+              <span className="text-white text-xs font-bold tracking-wider uppercase mt-4 drop-shadow-md animate-pulse">
+                Buffering video...
+              </span>
+            </div>
           )}
 
           {/* Gesture Ripple Overlay */}
