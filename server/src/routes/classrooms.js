@@ -367,6 +367,11 @@ router.get('/files', async (req, res, next) => {
         res.setHeader('Content-Disposition', 'inline');
       }
 
+      // Destroy streamRes if client closes connection to release Cloudinary socket
+      req.on('close', () => {
+        streamRes.destroy();
+      });
+
       streamRes.pipe(res);
     });
 

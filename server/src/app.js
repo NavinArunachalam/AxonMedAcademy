@@ -89,10 +89,13 @@ const corsOptions = {
   allowedHeaders: [
     'Content-Type',
     'Authorization',
+    'Range',
     'x-dev-user-email',
     'x-dev-user-role',
     'x-dev-user-name'
   ],
+
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
 
   optionsSuccessStatus: 200
 };

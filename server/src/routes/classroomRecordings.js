@@ -836,6 +836,22 @@ router.get('/:id/stream', protect, async (req, res, next) => {
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
       res.status(s3Response.$metadata.httpStatusCode || 200);
+
+      // Handle stream errors
+      s3Response.Body.on('error', (err) => {
+        console.error('[S3 Stream Error]:', err.message);
+        if (!res.headersSent) {
+          res.status(500).send(err.message);
+        }
+      });
+
+      // Handle connection aborts and ensure the stream is destroyed to prevent socket leaks
+      req.on('close', () => {
+        if (s3Response.Body && typeof s3Response.Body.destroy === 'function') {
+          s3Response.Body.destroy();
+        }
+      });
+
       s3Response.Body.pipe(res);
     } catch (s3Error) {
       console.error('[S3 Streaming Error]:', s3Error.message);

@@ -78,7 +78,7 @@ function pipeRemoteUrl(remoteUrl, req, res, next) {
     options.headers['Range'] = req.headers.range;
   }
 
-  transport
+  const clientReq = transport
     .get(options, (remoteRes) => {
       // Forward the status code (206 Partial Content for range requests)
       res.status(remoteRes.statusCode);
@@ -108,10 +108,20 @@ function pipeRemoteUrl(remoteUrl, req, res, next) {
 
       // Pipe the remote data to the client
       remoteRes.pipe(res);
+
+      // Destroy the remote response stream if the client closes the connection
+      req.on('close', () => {
+        remoteRes.destroy();
+      });
     })
     .on('error', (err) => {
       next(err);
     });
+
+  // Destroy the remote request if the client closes the connection before response is received
+  req.on('close', () => {
+    clientReq.destroy();
+  });
 }
 
 // GET /review-videos/:id/stream → Proxy stream a review video via presigned GET URL
