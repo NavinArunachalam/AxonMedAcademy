@@ -553,6 +553,7 @@ function SecurePlayer({
               crossOrigin="anonymous"
               className="w-full h-[95vh] object-contain bg-black no-select select-none pointer-events-auto"
               controls
+              autoPlay
               controlsList="nodownload nofullscreen noremoteplayback"
               disablePictureInPicture
               disableRemotePlayback
