@@ -25,6 +25,10 @@ import {
 import { addStudentsToClassroom, createMeeting, createClassroomAnnouncement, deleteClassroomAnnouncement, deleteMeeting, endMeeting as apiEndMeeting, getAdminUsers, getClassroomById, getQuizReport, publishQuiz, closeQuiz, deleteQuiz as apiDeleteQuiz, createQuiz, startMeeting as apiStartMeeting, updateClassroomStudentStatus, removeStudentFromClassroom, getClassroomJoinRequests, approveClassroomJoinRequest, rejectClassroomJoinRequest, uploadClassroomRecordingToCloudflare, publishRecording, unpublishRecording, deleteRecording, getRecordingStreamUrl, updateQuiz, reuseClassroomRecording, uploadClassroomFileToCloudinary, generateQuizFromPdf, api, createClassroomFolder, updateClassroomFolder, deleteClassroomFolder, getClassroomReuseList, reuseClassroomFolder } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+// @ts-ignore
+import html2pdf from "html2pdf.js";
 export const Route = createFileRoute("/_admin/admin/classrooms/$id")({
   component: AdminClassroomDetail,
 });
@@ -1836,16 +1840,98 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } else if (format === 'pdf') {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(fullHtml);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      } else {
-        alert("Please allow popups to generate PDF");
+      const element = document.createElement('div');
+      element.innerHTML = `
+        <div style="font-family: 'Times New Roman', serif; line-height: 1.5; padding: 25px; color: black; background: white; width: 680px; box-sizing: border-box;">
+          <style>
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+            .header h1 { margin: 0 0 5px 0; font-size: 22px; text-transform: uppercase; }
+            .header h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: normal; }
+            
+            .meta { margin-bottom: 8px; overflow: hidden; font-size: 13px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
+            .meta span:first-child { float: left; font-weight: bold; }
+            .meta span:last-child { float: right; font-weight: bold; }
+            
+            .instructions { font-size: 13px; text-align: left; font-style: italic; margin-top: 5px; clear: both; }
+            
+            .question { margin-bottom: 20px; clear: both; page-break-inside: avoid; }
+            
+            .q-header { margin-bottom: 8px; overflow: hidden; }
+            .q-num { float: left; font-weight: bold; width: 30px; }
+            .q-text { float: left; width: 500px; font-size: 14px; text-align: left; word-wrap: break-word; }
+            .q-marks { float: right; font-size: 11px; font-weight: bold; }
+            
+            .options { margin-left: 30px; margin-bottom: 8px; overflow: hidden; clear: both; }
+            .option { float: left; width: 48%; font-size: 13px; margin-bottom: 6px; box-sizing: border-box; text-align: left; }
+            
+            .clear { clear: both; }
+          </style>
+          <div class="clear"></div>
+          ${htmlContent}
+          <div class="clear"></div>
+        </div>
+      `;
+
+      // Position element in the DOM flow but make it fully invisible to prevent WebKit style/layout computation hanging
+      element.style.position = 'fixed';
+      element.style.top = '0';
+      element.style.left = '0';
+      element.style.width = '680px';
+      element.style.height = 'auto';
+      element.style.opacity = '0';
+      element.style.pointerEvents = 'none';
+      element.style.zIndex = '-9999';
+      document.body.appendChild(element);
+
+      const filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.pdf`;
+
+      // Resolve html2pdf function robustly to prevent "html2pdf is not a function" errors in Vite bundling
+      // @ts-ignore
+      const html2pdfFn = html2pdf.default || html2pdf;
+
+      const opt = {
+        margin: 15,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 1.2, useCORS: true, logging: false }, // Use scale: 1.2 to be safe against mobile memory canvas size limits
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const triggerPrintFallback = () => {
+        toast.error("Direct download failed. Opening print window as fallback.");
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(fullHtml);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => {
+            printWindow.print();
+          }, 250);
+        }
+      };
+
+      try {
+        if (typeof html2pdfFn !== 'function') {
+          throw new Error('html2pdf package is not resolving to a function');
+        }
+
+        html2pdfFn().from(element).set(opt).save().then(() => {
+          if (element.parentNode) {
+            document.body.removeChild(element);
+          }
+        }).catch((err: any) => {
+          console.error("html2pdf save promise error:", err);
+          if (element.parentNode) {
+            document.body.removeChild(element);
+          }
+          triggerPrintFallback();
+        });
+      } catch (err) {
+        console.error("html2pdf initialization error:", err);
+        if (element.parentNode) {
+          document.body.removeChild(element);
+        }
+        triggerPrintFallback();
       }
     }
   };
