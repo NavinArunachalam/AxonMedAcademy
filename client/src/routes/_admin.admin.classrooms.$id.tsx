@@ -1872,15 +1872,15 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
         </div>
       `;
 
-      // Position element in the DOM flow but make it fully invisible to prevent WebKit style/layout computation hanging
-      element.style.position = 'fixed';
+      // Position element off-screen but fully visible to browser engine to allow accurate canvas rendering
+      element.style.position = 'absolute';
       element.style.top = '0';
-      element.style.left = '0';
+      element.style.left = '-9999px';
       element.style.width = '680px';
       element.style.height = 'auto';
-      element.style.opacity = '0';
+      element.style.background = '#ffffff';
+      element.style.opacity = '1';
       element.style.pointerEvents = 'none';
-      element.style.zIndex = '-9999';
       document.body.appendChild(element);
 
       const filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.pdf`;
@@ -1893,20 +1893,27 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
         margin: 15,
         filename: filename,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 1.2, useCORS: true, logging: false }, // Use scale: 1.2 to be safe against mobile memory canvas size limits
+        html2canvas: { scale: 1.5, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      const triggerPrintFallback = () => {
-        toast.error("Direct download failed. Opening print window as fallback.");
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(fullHtml);
-          printWindow.document.close();
-          printWindow.focus();
+      const triggerFallback = () => {
+        try {
+          const htmlBlob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+          const htmlUrl = URL.createObjectURL(htmlBlob);
+          const fallbackLink = document.createElement('a');
+          fallbackLink.href = htmlUrl;
+          fallbackLink.target = '_blank';
+          fallbackLink.rel = 'noopener noreferrer';
+          document.body.appendChild(fallbackLink);
+          fallbackLink.click();
+          toast.info("Opened printable quiz document.");
           setTimeout(() => {
-            printWindow.print();
-          }, 250);
+            if (fallbackLink.parentNode) document.body.removeChild(fallbackLink);
+            URL.revokeObjectURL(htmlUrl);
+          }, 10000);
+        } catch (e) {
+          toast.error("Could not download or open quiz document.");
         }
       };
 
@@ -1915,23 +1922,45 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           throw new Error('html2pdf package is not resolving to a function');
         }
 
-        html2pdfFn().from(element).set(opt).save().then(() => {
+        // Generate PDF as Blob to handle downloads cleanly across Desktop, Android, iOS Safari and Tablets
+        html2pdfFn().from(element).set(opt).output('blob').then((pdfBlob: Blob) => {
           if (element.parentNode) {
             document.body.removeChild(element);
           }
+
+          if (!pdfBlob || pdfBlob.size === 0) {
+            triggerFallback();
+            return;
+          }
+
+          const blobUrl = URL.createObjectURL(pdfBlob);
+          const downloadLink = document.createElement('a');
+          downloadLink.href = blobUrl;
+          downloadLink.download = filename;
+          downloadLink.target = '_blank';
+          downloadLink.rel = 'noopener noreferrer';
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+
+          setTimeout(() => {
+            if (downloadLink.parentNode) {
+              document.body.removeChild(downloadLink);
+            }
+            URL.revokeObjectURL(blobUrl);
+          }, 10000);
         }).catch((err: any) => {
-          console.error("html2pdf save promise error:", err);
+          console.error("html2pdf output blob error:", err);
           if (element.parentNode) {
             document.body.removeChild(element);
           }
-          triggerPrintFallback();
+          triggerFallback();
         });
       } catch (err) {
         console.error("html2pdf initialization error:", err);
         if (element.parentNode) {
           document.body.removeChild(element);
         }
-        triggerPrintFallback();
+        triggerFallback();
       }
     }
   };
