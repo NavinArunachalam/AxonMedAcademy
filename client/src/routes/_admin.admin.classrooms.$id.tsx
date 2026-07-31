@@ -1840,148 +1840,130 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } else if (format === 'pdf') {
-      try {
-        const filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.pdf`;
-        const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 40;
-        const contentWidth = pageWidth - margin * 2;
-        let y = 45;
+      const filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.pdf`;
+      const toastId = toast.loading("Preparing PDF download...");
 
-        const checkPageBreak = (neededHeight: number) => {
-          if (y + neededHeight > pageHeight - 40) {
-            doc.addPage();
-            y = 40;
+      setTimeout(async () => {
+        const element = document.createElement('div');
+        element.innerHTML = `
+          <div style="font-family: 'Segoe UI', Arial, 'Noto Sans', 'Noto Sans Devanagari', 'Mangal', 'Nirmala UI', sans-serif; line-height: 1.5; padding: 25px; color: #0f172a; background: #ffffff; width: 680px; box-sizing: border-box;">
+            <style>
+              .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+              .header h1 { margin: 0 0 5px 0; font-size: 22px; text-transform: uppercase; color: #0b1f3a; }
+              .header h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: normal; color: #1e293b; }
+              
+              .meta { margin-bottom: 8px; overflow: hidden; font-size: 13px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; color: #475569; }
+              .meta span:first-child { float: left; font-weight: bold; }
+              .meta span:last-child { float: right; font-weight: bold; }
+              
+              .instructions { font-size: 13px; text-align: left; font-style: italic; margin-top: 5px; clear: both; color: #64748b; }
+              
+              .question { margin-bottom: 20px; clear: both; page-break-inside: avoid; }
+              
+              .q-header { margin-bottom: 8px; overflow: hidden; }
+              .q-num { float: left; font-weight: bold; width: 30px; color: #0f172a; }
+              .q-text { float: left; width: 500px; font-size: 14px; text-align: left; word-wrap: break-word; color: #1e293b; }
+              .q-marks { float: right; font-size: 11px; font-weight: bold; color: #64748b; }
+              
+              .options { margin-left: 30px; margin-bottom: 8px; overflow: hidden; clear: both; }
+              .option { float: left; width: 48%; font-size: 13px; margin-bottom: 6px; box-sizing: border-box; text-align: left; color: #334155; }
+              
+              .clear { clear: both; }
+            </style>
+            <div class="clear"></div>
+            ${htmlContent}
+            <div class="clear"></div>
+          </div>
+        `;
+
+        element.style.position = 'fixed';
+        element.style.top = '0';
+        element.style.left = '0';
+        element.style.width = '680px';
+        element.style.height = 'auto';
+        element.style.background = '#ffffff';
+        element.style.opacity = '0.01';
+        element.style.pointerEvents = 'none';
+        element.style.zIndex = '-9999';
+        document.body.appendChild(element);
+
+        // Resolve html2pdf function robustly
+        // @ts-ignore
+        const html2pdfFn = html2pdf.default || html2pdf;
+
+        const opt = {
+          margin: 12,
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 1.2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        const triggerPrintFallback = () => {
+          try {
+            const htmlBlob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+            const htmlUrl = URL.createObjectURL(htmlBlob);
+            const fallbackLink = document.createElement('a');
+            fallbackLink.href = htmlUrl;
+            fallbackLink.target = '_blank';
+            fallbackLink.rel = 'noopener noreferrer';
+            document.body.appendChild(fallbackLink);
+            fallbackLink.click();
+            toast.dismiss(toastId);
+            toast.info("Opened printable quiz document.");
+            setTimeout(() => {
+              if (fallbackLink.parentNode) document.body.removeChild(fallbackLink);
+              URL.revokeObjectURL(htmlUrl);
+            }, 10000);
+          } catch (e) {
+            toast.dismiss(toastId);
+            toast.error("Could not open document.");
           }
         };
 
-        // 1. Header - Classroom Name
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.setTextColor(11, 31, 58); // #0B1F3A
-        const classNameStr = (cls?.name || "CLASSROOM QUIZ").toUpperCase();
-        doc.text(classNameStr, pageWidth / 2, y, { align: "center" });
-        y += 22;
-
-        // 2. Quiz Title
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(30, 41, 59);
-        doc.text(q.title || "Quiz", pageWidth / 2, y, { align: "center" });
-        y += 18;
-
-        // 3. Meta Bar: Total Marks & Time
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(71, 85, 105);
-        const metaStr = `Total Marks: ${totalMarks}  |  Time: ${q.duration ? q.duration + ' mins' : 'No Limit'}`;
-        doc.text(metaStr, pageWidth / 2, y, { align: "center" });
-        y += 14;
-
-        // Divider Line
-        doc.setDrawColor(203, 213, 225);
-        doc.setLineWidth(1);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 18;
-
-        // Instructions (if present)
-        if (q.instructions) {
-          doc.setFont("helvetica", "italic");
-          doc.setFontSize(9.5);
-          doc.setTextColor(100, 116, 139);
-          const splitInstr = doc.splitTextToSize(`Instructions: ${q.instructions}`, contentWidth);
-          checkPageBreak(splitInstr.length * 13 + 10);
-          doc.text(splitInstr, margin, y);
-          y += splitInstr.length * 13 + 12;
-        }
-
-        // 4. Questions
-        q.questions.forEach((quest, i) => {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10.5);
-          doc.setTextColor(15, 23, 42);
-
-          const qNumStr = `Q${i + 1}. `;
-          const marksStr = `[${quest.marks} Mark${quest.marks > 1 ? 's' : ''}]`;
-          
-          const qTextLines = doc.splitTextToSize(quest.text, contentWidth - 65);
-          const estHeight = qTextLines.length * 14 + (quest.options ? quest.options.length * 14 : 0) + 20;
-          checkPageBreak(Math.min(estHeight, 80));
-
-          doc.text(qNumStr, margin, y);
-          doc.setFont("helvetica", "normal");
-          doc.text(qTextLines, margin + 25, y);
-
-          // Right aligned marks
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(100, 116, 139);
-          doc.text(marksStr, pageWidth - margin, y, { align: "right" });
-
-          y += qTextLines.length * 14 + 6;
-
-          // Options
-          if (quest.options && quest.options.length > 0) {
-            doc.setFontSize(9.5);
-            quest.options.forEach((opt) => {
-              checkPageBreak(16);
-              doc.setFont("helvetica", "bold");
-              doc.setTextColor(51, 65, 85);
-              doc.text(`${opt.label})`, margin + 35, y);
-
-              doc.setFont("helvetica", "normal");
-              doc.setTextColor(71, 85, 105);
-              const optLines = doc.splitTextToSize(opt.text, contentWidth - 60);
-              doc.text(optLines, margin + 52, y);
-              y += optLines.length * 13 + 3;
-            });
-          }
-
-          y += 10;
-        });
-
-        // Generate Blob for universal native download trigger on desktop, mobile, tablet
-        const pdfBlob = doc.output('blob');
-        const blobUrl = URL.createObjectURL(pdfBlob);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = blobUrl;
-        downloadLink.download = filename;
-        downloadLink.target = '_blank';
-        downloadLink.rel = 'noopener noreferrer';
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-
-        toast.success("Quiz PDF downloaded!");
-
-        setTimeout(() => {
-          if (downloadLink.parentNode) {
-            document.body.removeChild(downloadLink);
-          }
-          URL.revokeObjectURL(blobUrl);
-        }, 10000);
-      } catch (err) {
-        console.error("jsPDF generation error:", err);
-        toast.error("Failed to generate PDF. Opening printable document...");
-        
-        // Fallback: Open HTML print view in new tab
         try {
-          const htmlBlob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-          const htmlUrl = URL.createObjectURL(htmlBlob);
-          const fallbackLink = document.createElement('a');
-          fallbackLink.href = htmlUrl;
-          fallbackLink.target = '_blank';
-          fallbackLink.rel = 'noopener noreferrer';
-          document.body.appendChild(fallbackLink);
-          fallbackLink.click();
+          if (typeof html2pdfFn !== 'function') {
+            throw new Error('html2pdf package is not resolving to a function');
+          }
+
+          // Generate PDF Blob cleanly (captures full Unicode/Indic text from DOM)
+          const pdfBlob: Blob = await html2pdfFn().from(element).set(opt).output('blob');
+
+          if (element.parentNode) {
+            document.body.removeChild(element);
+          }
+
+          if (!pdfBlob || pdfBlob.size === 0) {
+            triggerPrintFallback();
+            return;
+          }
+
+          const blobUrl = URL.createObjectURL(pdfBlob);
+          const downloadLink = document.createElement('a');
+          downloadLink.href = blobUrl;
+          downloadLink.download = filename;
+          downloadLink.target = '_blank';
+          downloadLink.rel = 'noopener noreferrer';
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+
+          toast.dismiss(toastId);
+          toast.success("PDF Downloaded!");
+
           setTimeout(() => {
-            if (fallbackLink.parentNode) document.body.removeChild(fallbackLink);
-            URL.revokeObjectURL(htmlUrl);
+            if (downloadLink.parentNode) {
+              document.body.removeChild(downloadLink);
+            }
+            URL.revokeObjectURL(blobUrl);
           }, 10000);
-        } catch (e) {
-          toast.error("Could not open document.");
+        } catch (err) {
+          console.error("PDF generation error:", err);
+          if (element.parentNode) {
+            document.body.removeChild(element);
+          }
+          triggerPrintFallback();
         }
-      }
+      }, 50);
     }
   };
 
