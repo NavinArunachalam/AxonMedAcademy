@@ -778,8 +778,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
 
   const isAdminDirectSigned = Boolean(
     activeRec?.cloudflareUrl &&
-    (activeRec.cloudflareUrl.includes('X-Amz-Signature') || activeRec.cloudflareUrl.includes('X-Amz-Algorithm')) &&
-    !activeRec.cloudflareUrl.includes('r2.cloudflarestorage.com')
+    (activeRec.cloudflareUrl.includes('X-Amz-Signature') || activeRec.cloudflareUrl.includes('X-Amz-Algorithm'))
   );
 
   const streamUrl = activeRec
@@ -1443,7 +1442,6 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               {streamUrl ? (
                 <video
                   src={streamUrl}
-                  crossOrigin="anonymous"
                   className="w-full h-full max-h-[85vh] object-contain bg-black"
                   controls
                   autoPlay

@@ -793,18 +793,18 @@ router.get('/:id', protect, async (req, res, next) => {
   }
 });
 
-// GET /:id/stream → Stream classroom recording from Cloudflare R2
+// GET /:id/stream → Redirect to a secure presigned Cloudflare R2 GET URL
 router.get('/:id/stream', protect, async (req, res, next) => {
   try {
     if (!isValidId(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid recording ID' });
     }
-    const recording = await ClassroomRecording.findById(req.params.id);
+    const recording = await ClassroomRecording.findById(req.params.id).lean();
     if (!recording) {
       return res.status(404).json({ success: false, message: 'Recording not found' });
     }
 
-    const classroom = await Classroom.findById(recording.classroom);
+    const classroom = await Classroom.findById(recording.classroom).lean();
     if (!classroom || !verifyClassroomAccess(classroom, req.user, false)) {
       return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
@@ -813,56 +813,16 @@ router.get('/:id/stream', protect, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Stream not available for this recording' });
     }
 
-    try {
-      const { getS3Client, getCloudflareConfig } = require('../config/cloudflare');
-      const { GetObjectCommand } = require('@aws-sdk/client-s3');
+    const { generatePresignedGetUrl } = require('../config/cloudflare');
 
-      const s3 = getS3Client();
-      const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
-      const command = new GetObjectCommand({
-        Bucket: CLOUDFLARE_R2_BUCKET,
-        Key: recording.cloudflareKey,
-        Range: req.headers.range,
-      });
+    // Generate a fresh 1-hour presigned GET URL
+    const presignedUrl = await generatePresignedGetUrl(recording.cloudflareKey, 3600);
 
-      const s3Response = await s3.send(command);
+    // Set CORP header to cross-origin to permit browser to follow redirect in cross-origin environments
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
-      if (s3Response.ContentType) res.setHeader('Content-Type', s3Response.ContentType);
-      if (s3Response.ContentLength) res.setHeader('Content-Length', s3Response.ContentLength);
-      if (s3Response.ContentRange) res.setHeader('Content-Range', s3Response.ContentRange);
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      res.removeHeader('cross-origin-resource-policy');
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-
-      res.status(s3Response.$metadata.httpStatusCode || 200);
-
-      // Handle stream errors
-      s3Response.Body.on('error', (err) => {
-        console.error('[S3 Stream Error]:', err.message);
-        if (!res.headersSent) {
-          res.status(500).send(err.message);
-        }
-      });
-
-      // Handle connection aborts and ensure the stream is destroyed to prevent socket leaks
-      req.on('close', () => {
-        if (s3Response.Body && typeof s3Response.Body.destroy === 'function') {
-          s3Response.Body.destroy();
-        }
-      });
-
-      s3Response.Body.pipe(res);
-    } catch (s3Error) {
-      console.error('[S3 Streaming Error]:', s3Error.message);
-      if (s3Error.name === 'NoSuchKey' || s3Error.$metadata?.httpStatusCode === 404) {
-        return res.status(404).json({
-          success: false,
-          message: 'The video file could not be found in storage. It may still be processing or was deleted.'
-        });
-      }
-      res.status(s3Error.$metadata?.httpStatusCode || 500).send(s3Error.message);
-    }
+    // Redirect the browser to the presigned URL
+    res.redirect(307, presignedUrl);
   } catch (error) {
     next(error);
   }

@@ -272,8 +272,7 @@ function SecurePlayer({
 
   const isDirectSignedUrl = Boolean(
     recording.cloudflareUrl &&
-    (recording.cloudflareUrl.includes('X-Amz-Signature') || recording.cloudflareUrl.includes('X-Amz-Algorithm')) &&
-    !recording.cloudflareUrl.includes('r2.cloudflarestorage.com')
+    (recording.cloudflareUrl.includes('X-Amz-Signature') || recording.cloudflareUrl.includes('X-Amz-Algorithm'))
   );
 
   const streamUrl = isDirectSignedUrl
@@ -551,7 +550,6 @@ function SecurePlayer({
             <video
               ref={videoRef}
               src={streamUrl}
-              crossOrigin="anonymous"
               className="w-full h-[95vh] object-contain bg-black no-select select-none pointer-events-auto"
               controls
               autoPlay
