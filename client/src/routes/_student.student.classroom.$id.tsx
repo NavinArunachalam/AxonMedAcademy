@@ -25,6 +25,7 @@ import {
   type Question,
 } from "@/lib/classroomStore";
 import {
+  api,
   getClassroomById,
   getQuizAttemptResult,
   getRecordingStreamUrl,
@@ -244,6 +245,14 @@ function SecurePlayer({
     storageProvider?: string;
     cloudflareUrl?: string;
     viewStats?: { studentId: string; studentName: string; watchedPercent: number; totalWatchedSec?: number; lastPosition: number }[];
+    security?: {
+      signedUrlRequired?: boolean;
+      urlExpiryHours?: number;
+      watermark?: boolean;
+      downloadBlocked?: boolean;
+      screenRecordDetect?: boolean;
+      devToolsBlocked?: boolean;
+    };
   };
   onClose: () => void;
 }) {
@@ -265,19 +274,51 @@ function SecurePlayer({
   const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
   const tapTimeoutRef = useRef<any>(null);
 
-  const { isLocked, lockReason, resetLock } = useVideoProtection(true);
+  const [resolvedStreamUrl, setResolvedStreamUrl] = useState<string>('');
+  const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
 
   const recordingId = recording.id || (recording as any)._id || '';
   const chapters = recording.chapters || [];
+
+  const screenRecordDetect = recording.security?.screenRecordDetect !== false;
+  const { isLocked, lockReason, resetLock } = useVideoProtection(screenRecordDetect);
 
   const isDirectSignedUrl = Boolean(
     recording.cloudflareUrl &&
     (recording.cloudflareUrl.includes('X-Amz-Signature') || recording.cloudflareUrl.includes('X-Amz-Algorithm'))
   );
 
-  const streamUrl = isDirectSignedUrl
+  const initialStreamUrl = isDirectSignedUrl
     ? recording.cloudflareUrl
     : `${getRecordingStreamUrl(recordingId)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`;
+
+  useEffect(() => {
+    if (initialStreamUrl) {
+      setResolvedStreamUrl(initialStreamUrl);
+    }
+  }, [initialStreamUrl]);
+
+  const refreshPlaybackUrl = useCallback(async () => {
+    if (isRefreshingUrl) return;
+    setIsRefreshingUrl(true);
+    try {
+      const res = await api.get(`/recordings/classroom/${recordingId}`) as any;
+      if (res.success && res.cloudflareUrl) {
+        setResolvedStreamUrl(res.cloudflareUrl);
+      } else if (res.success && res.recording?.cloudflareUrl) {
+        setResolvedStreamUrl(res.recording.cloudflareUrl);
+      } else {
+        const tokenQuery = accessToken ? `?token=${encodeURIComponent(accessToken)}` : '';
+        setResolvedStreamUrl(`${getRecordingStreamUrl(recordingId)}${tokenQuery}`);
+      }
+    } catch (err) {
+      console.error("Failed to refresh playback URL:", err);
+      const tokenQuery = accessToken ? `?token=${encodeURIComponent(accessToken)}` : '';
+      setResolvedStreamUrl(`${getRecordingStreamUrl(recordingId)}${tokenQuery}`);
+    } finally {
+      setIsRefreshingUrl(false);
+    }
+  }, [recordingId, accessToken, isRefreshingUrl]);
 
   useEffect(() => {
     totalWatchedRef.current = recording.viewStats?.find((v) => v.studentId === currentUser?.id)?.totalWatchedSec || 0;
@@ -307,7 +348,7 @@ function SecurePlayer({
 
   const handleVideoAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    if (target.closest('.no-gesture')) return;
+    if (target.closest('.no-gesture') || target.tagName === 'VIDEO' || target.closest('video')) return;
     if (isLocked) return;
 
     const video = videoRef.current;
@@ -379,6 +420,27 @@ function SecurePlayer({
     }
   }, [classroomId, currentUser?.id, currentUser?.name, recording.duration, recordingId, recording.viewStats]);
 
+  const handleVideoError = useCallback(async () => {
+    console.error("Video playback error detected, attempting to refresh URL...");
+    if (!isRefreshingUrl) {
+      toast.info("Refreshing video link...");
+      const video = videoRef.current;
+      const currentPos = video ? video.currentTime : position;
+      
+      await refreshPlaybackUrl();
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load();
+          if (currentPos > 0) {
+            videoRef.current.currentTime = currentPos;
+          }
+          videoRef.current.play().catch(err => console.error("Auto-play failure after refresh:", err));
+        }
+      }, 500);
+    }
+  }, [isRefreshingUrl, refreshPlaybackUrl, position]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -393,11 +455,19 @@ function SecurePlayer({
       setPosition(Math.floor(currentTime));
     };
     const handleLoadedMetadata = () => {
-      const savedPosition = recording.viewStats?.find((v) => v.studentId === currentUser?.id)?.lastPosition || 0;
-      if (savedPosition > 0 && savedPosition < video.duration - 5) {
+      const stats = recording.viewStats?.find((v) => v.studentId === currentUser?.id || (v as any).student === currentUser?.id);
+      const savedPosition = stats?.lastPosition || 0;
+      const isCompleted = stats?.completedAt || (stats?.watchedPercent && stats.watchedPercent >= 90);
+
+      // If the student has already watched the video fully, start from the beginning instead of resuming at the end
+      if (!isCompleted && savedPosition > 0 && savedPosition < video.duration - 5) {
         video.currentTime = savedPosition;
         lastVideoTimeRef.current = savedPosition;
         setPosition(Math.floor(savedPosition));
+      } else {
+        video.currentTime = 0;
+        lastVideoTimeRef.current = 0;
+        setPosition(0);
       }
       if (videoRef.current) {
         videoRef.current.playbackRate = playbackSpeed;
@@ -546,13 +616,14 @@ function SecurePlayer({
           onClick={handleVideoAreaClick}
           className="flex-1 bg-linear-to-br from-plum-dark/90 to-[#0B0719] flex items-center justify-center relative cursor-pointer"
         >
-          {streamUrl ? (
+          {resolvedStreamUrl ? (
             <video
               ref={videoRef}
-              src={streamUrl}
+              src={resolvedStreamUrl}
               className="w-full h-[95vh] object-contain bg-black no-select select-none pointer-events-auto"
               controls
               autoPlay
+              onError={handleVideoError}
               controlsList="nodownload nofullscreen noremoteplayback"
               disablePictureInPicture
               disableRemotePlayback
@@ -592,7 +663,7 @@ function SecurePlayer({
             </>
           )}
 
-          {streamUrl && isBuffering && (
+          {resolvedStreamUrl && isBuffering && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 z-20 pointer-events-none backdrop-blur-[2px] transition-all duration-300">
               <div className="w-14 h-14 border-[5px] border-lime/20 border-t-lime rounded-full animate-spin" />
               <span className="text-white text-xs font-bold tracking-wider uppercase mt-4 drop-shadow-md animate-pulse">

@@ -645,11 +645,31 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
     setUploadPhase('preparing');
 
     try {
+      // Extract video duration in seconds on the client side
+      let calculatedDuration = 0;
+      try {
+        calculatedDuration = await new Promise<number>((resolve) => {
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = () => {
+            window.URL.revokeObjectURL(video.src);
+            resolve(Math.round(video.duration) || 0);
+          };
+          video.onerror = () => {
+            resolve(0);
+          };
+          video.src = URL.createObjectURL(uploadFile);
+        });
+      } catch (durationErr) {
+        console.error("Failed to parse video duration, defaulting to 0:", durationErr);
+      }
+
       await uploadClassroomRecordingToCloudflare({
         file: uploadFile,
         classroom: cls.id,
         title: uploadTitle.trim(),
         description: uploadDesc.trim(),
+        duration: calculatedDuration,
         isPublished: uploadPublished,
         folderId: currentFolderId || undefined,
         onProgress: ({ loaded, total, percentage, part, totalParts }) => {

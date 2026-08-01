@@ -781,9 +781,21 @@ router.get('/:id', protect, async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'You do not have access to this classroom' });
     }
 
+    // Generate fresh presigned Cloudflare URL dynamically (valid for 1 hour)
+    let cloudflareUrl = undefined;
+    if (recording.storageProvider === 'cloudflare' && recording.cloudflareKey) {
+      try {
+        const { generatePresignedGetUrl } = require('../config/cloudflare');
+        cloudflareUrl = await generatePresignedGetUrl(recording.cloudflareKey, 3600);
+      } catch (err) {
+        console.error('[Cloudflare URL Error] Failed to generate dynamic GET URL:', err);
+      }
+    }
+
     res.json({
       success: true,
       recording,
+      cloudflareUrl,
       playbackUrl: recording.storageProvider === 'cloudflare'
         ? `/api/v1/recordings/classroom/${recording._id}/stream`
         : undefined
