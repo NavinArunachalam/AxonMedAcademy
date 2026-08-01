@@ -4,7 +4,7 @@ import {
   LuArrowLeft, LuMegaphone, LuVideo, LuBookOpen, LuClipboardList,
   LuPlus, LuX, LuTrash2, LuPlay, LuEye, LuEyeOff, LuCheck, LuSend,
   LuCalendar, LuClock, LuRadio, LuUpload, LuUsers, LuCircleDot, LuDownload, LuCopy, LuLink, LuAward, LuShare2, LuUserPlus,
-  LuFolder, LuSearch
+  LuFolder, LuSearch, LuPrinter
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { DarkCard } from "@/components/portal/PortalShell";
@@ -550,7 +550,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderDesc, setNewFolderDesc] = useState("");
-  
+
   const [editFolderId, setEditFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
   const [editFolderDesc, setEditFolderDesc] = useState("");
@@ -561,7 +561,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [uploadDesc, setUploadDesc] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPublished, setUploadPublished] = useState(false);
-  
+
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadBytes, setUploadBytes] = useState({ loaded: 0, total: 0 });
@@ -580,15 +580,15 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
   const [reuseClassrooms, setReuseClassrooms] = useState<any[]>([]);
   const [reuseFolders, setReuseFolders] = useState<any[]>([]);
   const [reuseRecordings, setReuseRecordings] = useState<any[]>([]);
-  
+
   const [selectedSourceClassroomId, setSelectedSourceClassroomId] = useState<string>("");
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
-  
+
   // Selection tracking
   // Keys are folderId (for whole folder) or recordingId (for individual recording)
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [selectedRecIds, setSelectedRecIds] = useState<string[]>([]);
-  
+
   const [isReusing, setIsReusing] = useState(false);
 
   const formatMB = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -725,7 +725,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       toast.error("Please select folders or videos to reuse");
       return;
     }
-    
+
     setIsReusing(true);
     try {
       // 1. Reuse whole folders (without subset)
@@ -738,7 +738,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
       for (const folderId of wholeFolderIds) {
         await reuseClassroomFolder(folderId, cls.id);
       }
-      
+
       // 2. Reuse individual recordings from folders (subset)
       const partialFolderIds = selectedFolderIds.filter(fId => !wholeFolderIds.includes(fId));
       for (const folderId of partialFolderIds) {
@@ -748,9 +748,9 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
           await reuseClassroomFolder(folderId, cls.id, selectedFolderRecs);
         }
       }
-      
+
       // 3. Reuse root recordings
-      const rootRecs = reuseRecordings.filter(r => 
+      const rootRecs = reuseRecordings.filter(r =>
         selectedRecIds.includes(r.id || r._id.toString()) && !r.folder && r.classroom.toString() === selectedSourceClassroomId
       );
       for (const rec of rootRecs) {
@@ -760,7 +760,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
           folderId: currentFolderId || undefined
         });
       }
-      
+
       toast.success("Assets reused successfully!");
       setShowReuseModal(false);
       setSelectedFolderIds([]);
@@ -797,7 +797,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
         <div>
           {currentFolderId ? (
             <div className="flex items-center gap-2 text-sm text-cream/60">
-              <button 
+              <button
                 className="hover:text-cream flex items-center gap-1 transition-colors font-bold"
                 onClick={() => setCurrentFolderId(null)}
               >
@@ -813,23 +813,23 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
           )}
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={openReuseModal} 
+          <button
+            onClick={openReuseModal}
             className="inline-flex items-center gap-2 rounded-full bg-[#F4B400] text-plum-dark px-4 py-2.5 text-xs font-bold shadow-sm hover:bg-[#E0A300] transition-colors"
           >
             <LuCopy className="h-4 w-4" /> Reuse Assets
           </button>
           {!currentFolderId && (
-            <button 
-              onClick={() => setIsFolderModalOpen(true)} 
+            <button
+              onClick={() => setIsFolderModalOpen(true)}
               className="inline-flex items-center gap-2 rounded-full bg-cream/10 text-cream px-4 py-2.5 text-xs font-bold hover:bg-cream/20 transition-colors"
             >
               <LuFolder className="h-4 w-4" /> New Folder
             </button>
           )}
           {currentFolderId && (
-            <button 
-              onClick={() => setIsUploadModalOpen(true)} 
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
               className="inline-flex items-center gap-2 rounded-full bg-lime text-plum-dark px-4 py-2.5 text-xs font-bold hover:bg-lime/90 transition-colors"
             >
               <LuUpload className="h-4 w-4" /> Upload Video
@@ -846,7 +846,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
             {visibleFolders.map((folder) => {
               const videoCount = (cls.recordings || []).filter(r => r.folder === folder.id).length;
               return (
-                <div 
+                <div
                   key={folder.id}
                   className="flex items-center justify-between p-3 rounded-xl border border-cream/10 bg-cream/5 hover:border-lime/40 hover:bg-cream/10 transition-all group"
                 >
@@ -908,146 +908,146 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
           <div className="text-[10px] uppercase tracking-widest text-cream/50 font-bold">
             Videos in Folder
           </div>
-        {visibleRecordings.length === 0 ? (
-          <DarkCard className="text-center py-10">
-            <LuVideo className="h-8 w-8 text-cream/20 mx-auto mb-2" />
-            <p className="text-cream/50 text-sm">No videos here yet. Upload or reuse to add one.</p>
-          </DarkCard>
-        ) : (
-          <DarkCard className="p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-cream/5">
-                  <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60 border-b border-cream/10">
-                    <th className="p-4 text-center w-12">#</th>
-                    <th>Recording</th>
-                    <th>Duration</th>
-                    <th>Stats</th>
-                    <th>Chapters</th>
-                    <th>Status</th>
-                    <th className="p-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cream/10">
-                  {visibleRecordings.map((rec, index) => {
-                    const avgWatch = rec.viewStats.length
-                      ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
-                      : 0;
-                    return (
-                      <React.Fragment key={rec.id}>
-                        <tr className="hover:bg-cream/5 transition-colors">
-                          <td className="p-4 text-center font-mono text-cream/60">{index + 1}</td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => setActiveRec(rec)}
-                                className="w-12 h-9 rounded bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0 hover:from-lime/30 hover:to-lime/10 transition-colors"
-                              >
-                                <LuPlay className="h-3.5 w-3.5 text-lime" />
-                              </button>
-                              <div className="min-w-0">
-                                <div className="font-semibold text-cream text-xs">{rec.title}</div>
-                                {rec.description && (
-                                  <div className="text-[10px] text-cream/50 line-clamp-1 mt-0.5">{rec.description}</div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4 font-mono text-cream/70 text-xs">
-                            {formatDuration(rec.duration)}
-                          </td>
-                          <td className="p-4 text-cream/70 text-xs">
-                            {rec.viewStats.length} viewers · {avgWatch}% avg
-                          </td>
-                          <td className="p-4 font-mono text-cream/70 text-xs">
-                            {rec.chapters.length}
-                          </td>
-                          <td className="p-4">
-                            <span className={`text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${rec.isPublished ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>
-                              {rec.isPublished ? "Published" : "Draft"}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <div className="flex justify-end items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setEditRecId(rec.id);
-                                  setEditTitle(rec.title);
-                                  setEditDesc(rec.description || "");
-                                  setEditTargetFolderId(rec.folder || "");
-                                }}
-                                className="rounded-full bg-cream/10 text-cream px-2.5 py-1 text-[10px] font-bold flex items-center gap-1 hover:bg-cream/20 transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    if (rec.isPublished) {
-                                      await unpublishRecording(rec.id);
-                                      toast.success("Recording unpublished.");
-                                    } else {
-                                      await publishRecording(rec.id);
-                                      toast.success("Recording published.");
-                                    }
-                                    await refreshClassroom();
-                                  } catch (error) {
-                                    toast.error("Failed to publish/unpublish recording.");
-                                  }
-                                }}
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
-                              >
-                                {rec.isPublished ? <><LuEyeOff className="h-2.5 w-2.5" /> Unpublish</> : <><LuEye className="h-2.5 w-2.5" /> Publish</>}
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!confirm("Are you sure you want to delete this recording?")) return;
-                                  try {
-                                    await deleteRecording(rec.id);
-                                    await refreshClassroom();
-                                    toast.success("Recording deleted.");
-                                  } catch (error) {
-                                    toast.error("Failed to delete recording.");
-                                  }
-                                }}
-                                className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-1.5 hover:bg-red-500/10 transition-colors"
-                              >
-                                <LuTrash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        
-                        {/* Sub-row for detailed viewer analytics if they exist */}
-                        {rec.viewStats.length > 0 && (
-                          <tr className="bg-cream/[0.02]">
-                            <td colSpan={7} className="p-3 border-t border-cream/5">
-                              <div className="pl-14">
-                                <div className="text-[9px] uppercase tracking-widest text-cream/40 mb-1.5 font-bold">Viewer Progress</div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 max-h-32 overflow-y-auto pr-2">
-                                  {rec.viewStats.map((vs) => (
-                                    <div key={vs.studentId} className="flex items-center gap-2">
-                                      <span className="text-[11px] text-cream/70 w-24 truncate">{vs.studentName}</span>
-                                      <div className="flex-1 h-1 bg-cream/10 rounded-full overflow-hidden">
-                                        <div className="h-full bg-lime rounded-full" style={{ width: `${vs.watchedPercent}%` }} />
-                                      </div>
-                                      <span className="text-[10px] font-mono text-cream/50 w-8 text-right">{vs.watchedPercent}%</span>
-                                    </div>
-                                  ))}
+          {visibleRecordings.length === 0 ? (
+            <DarkCard className="text-center py-10">
+              <LuVideo className="h-8 w-8 text-cream/20 mx-auto mb-2" />
+              <p className="text-cream/50 text-sm">No videos here yet. Upload or reuse to add one.</p>
+            </DarkCard>
+          ) : (
+            <DarkCard className="p-0 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-cream/5">
+                    <tr className="text-left text-[10px] uppercase tracking-widest text-cream/60 border-b border-cream/10">
+                      <th className="p-4 text-center w-12">#</th>
+                      <th>Recording</th>
+                      <th>Duration</th>
+                      <th>Stats</th>
+                      <th>Chapters</th>
+                      <th>Status</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-cream/10">
+                    {visibleRecordings.map((rec, index) => {
+                      const avgWatch = rec.viewStats.length
+                        ? Math.round(rec.viewStats.reduce((s, v) => s + v.watchedPercent, 0) / rec.viewStats.length)
+                        : 0;
+                      return (
+                        <React.Fragment key={rec.id}>
+                          <tr className="hover:bg-cream/5 transition-colors">
+                            <td className="p-4 text-center font-mono text-cream/60">{index + 1}</td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => setActiveRec(rec)}
+                                  className="w-12 h-9 rounded bg-linear-to-br from-lime/20 to-lime/5 flex items-center justify-center shrink-0 hover:from-lime/30 hover:to-lime/10 transition-colors"
+                                >
+                                  <LuPlay className="h-3.5 w-3.5 text-lime" />
+                                </button>
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-cream text-xs">{rec.title}</div>
+                                  {rec.description && (
+                                    <div className="text-[10px] text-cream/50 line-clamp-1 mt-0.5">{rec.description}</div>
+                                  )}
                                 </div>
                               </div>
                             </td>
+                            <td className="p-4 font-mono text-cream/70 text-xs">
+                              {formatDuration(rec.duration)}
+                            </td>
+                            <td className="p-4 text-cream/70 text-xs">
+                              {rec.viewStats.length} viewers · {avgWatch}% avg
+                            </td>
+                            <td className="p-4 font-mono text-cream/70 text-xs">
+                              {rec.chapters.length}
+                            </td>
+                            <td className="p-4">
+                              <span className={`text-[9px] uppercase tracking-widest font-bold px-2 py-0.5 rounded ${rec.isPublished ? "bg-lime/20 text-lime" : "bg-cream/10 text-cream/60"}`}>
+                                {rec.isPublished ? "Published" : "Draft"}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex justify-end items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditRecId(rec.id);
+                                    setEditTitle(rec.title);
+                                    setEditDesc(rec.description || "");
+                                    setEditTargetFolderId(rec.folder || "");
+                                  }}
+                                  className="rounded-full bg-cream/10 text-cream px-2.5 py-1 text-[10px] font-bold flex items-center gap-1 hover:bg-cream/20 transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      if (rec.isPublished) {
+                                        await unpublishRecording(rec.id);
+                                        toast.success("Recording unpublished.");
+                                      } else {
+                                        await publishRecording(rec.id);
+                                        toast.success("Recording published.");
+                                      }
+                                      await refreshClassroom();
+                                    } catch (error) {
+                                      toast.error("Failed to publish/unpublish recording.");
+                                    }
+                                  }}
+                                  className={`rounded-full px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 ${rec.isPublished ? "bg-cream/10 text-cream/70" : "bg-lime/10 text-lime"}`}
+                                >
+                                  {rec.isPublished ? <><LuEyeOff className="h-2.5 w-2.5" /> Unpublish</> : <><LuEye className="h-2.5 w-2.5" /> Publish</>}
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm("Are you sure you want to delete this recording?")) return;
+                                    try {
+                                      await deleteRecording(rec.id);
+                                      await refreshClassroom();
+                                      toast.success("Recording deleted.");
+                                    } catch (error) {
+                                      toast.error("Failed to delete recording.");
+                                    }
+                                  }}
+                                  className="rounded-full bg-cream/5 text-cream/40 hover:text-red-400 p-1.5 hover:bg-red-500/10 transition-colors"
+                                >
+                                  <LuTrash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </DarkCard>
-        )}
-      </div>
+
+                          {/* Sub-row for detailed viewer analytics if they exist */}
+                          {rec.viewStats.length > 0 && (
+                            <tr className="bg-cream/[0.02]">
+                              <td colSpan={7} className="p-3 border-t border-cream/5">
+                                <div className="pl-14">
+                                  <div className="text-[9px] uppercase tracking-widest text-cream/40 mb-1.5 font-bold">Viewer Progress</div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 max-h-32 overflow-y-auto pr-2">
+                                    {rec.viewStats.map((vs) => (
+                                      <div key={vs.studentId} className="flex items-center gap-2">
+                                        <span className="text-[11px] text-cream/70 w-24 truncate">{vs.studentName}</span>
+                                        <div className="flex-1 h-1 bg-cream/10 rounded-full overflow-hidden">
+                                          <div className="h-full bg-lime rounded-full" style={{ width: `${vs.watchedPercent}%` }} />
+                                        </div>
+                                        <span className="text-[10px] font-mono text-cream/50 w-8 text-right">{vs.watchedPercent}%</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </DarkCard>
+          )}
+        </div>
       )}
 
       {/* New Folder Modal */}
@@ -1061,7 +1061,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
             <div className="p-5 space-y-4">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Folder Name</label>
-                <input 
+                <input
                   value={newFolderName}
                   onChange={e => setNewFolderName(e.target.value)}
                   placeholder="e.g. Anatomy & Physiology"
@@ -1070,7 +1070,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description (Optional)</label>
-                <textarea 
+                <textarea
                   value={newFolderDesc}
                   onChange={e => setNewFolderDesc(e.target.value)}
                   placeholder="Briefly describe the contents of this folder"
@@ -1098,7 +1098,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
             <div className="p-5 space-y-4">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Folder Name</label>
-                <input 
+                <input
                   value={editFolderName}
                   onChange={e => setEditFolderName(e.target.value)}
                   className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2.5 text-cream text-sm outline-none focus:border-lime/50"
@@ -1106,7 +1106,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
-                <textarea 
+                <textarea
                   value={editFolderDesc}
                   onChange={e => setEditFolderDesc(e.target.value)}
                   rows={2}
@@ -1135,7 +1135,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
             <div className="p-5 space-y-4">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Video Title</label>
-                <input 
+                <input
                   value={uploadTitle}
                   onChange={e => setUploadTitle(e.target.value)}
                   placeholder="e.g. Introduction to Cells"
@@ -1145,7 +1145,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description (Optional)</label>
-                <textarea 
+                <textarea
                   value={uploadDesc}
                   onChange={e => setUploadDesc(e.target.value)}
                   placeholder="Brief summary of the video lecture"
@@ -1156,21 +1156,21 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Video File</label>
-                <input 
-                  type="file" 
-                  accept="video/*" 
+                <input
+                  type="file"
+                  accept="video/*"
                   onChange={e => setUploadFile(e.target.files?.[0] || null)}
                   disabled={isUploading}
                   className="w-full bg-cream/5 border border-cream/10 rounded-xl px-4 py-2 text-cream text-xs outline-none focus:border-lime/50 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-lime/25 file:text-lime hover:file:bg-lime/30"
                 />
               </div>
               <label className="flex items-center gap-2 cursor-pointer mt-2">
-                <input 
-                  type="checkbox" 
-                  checked={uploadPublished} 
-                  onChange={e => setUploadPublished(e.target.checked)} 
+                <input
+                  type="checkbox"
+                  checked={uploadPublished}
+                  onChange={e => setUploadPublished(e.target.checked)}
                   disabled={isUploading}
-                  className="accent-lime h-4 w-4" 
+                  className="accent-lime h-4 w-4"
                 />
                 <span className="text-cream/80 text-xs font-semibold">Publish immediately to students</span>
               </label>
@@ -1187,14 +1187,14 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                       {formatMB(uploadBytes.loaded)} / {formatMB(uploadBytes.total)}
                     </span>
                   </div>
-                  
+
                   <div className="h-1.5 bg-cream/10 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-lime transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-[10px] text-cream/40">
                     <span>{uploadProgress}% Complete</span>
                     {uploadPartInfo && (
@@ -1225,7 +1225,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
             <div className="p-5 space-y-4">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Video Title</label>
-                <input 
+                <input
                   value={editTitle}
                   onChange={e => setEditTitle(e.target.value)}
                   disabled={isEditing}
@@ -1234,7 +1234,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-cream/60 block mb-1">Description</label>
-                <textarea 
+                <textarea
                   value={editDesc}
                   onChange={e => setEditDesc(e.target.value)}
                   rows={2}
@@ -1300,7 +1300,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
               {selectedSourceClassroomId && (
                 <div className="space-y-3">
                   <div className="text-[10px] uppercase tracking-widest text-cream/50 font-bold">Select Items to Clone</div>
-                  
+
                   {/* Folders in source classroom */}
                   <div className="space-y-2.5">
                     {reuseFolders
@@ -1309,12 +1309,12 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                         const folderRecs = reuseRecordings.filter(r => r.folder && r.folder.toString() === folder._id.toString());
                         const isFolderChecked = selectedFolderIds.includes(folder._id.toString());
                         const isExpanded = !!expandedFolders[folder._id.toString()];
-                        
+
                         return (
                           <div key={folder._id} className="border border-cream/10 rounded-xl bg-cream/2 overflow-hidden">
                             <div className="flex items-center justify-between p-3 hover:bg-cream/5">
                               <div className="flex items-center gap-3">
-                                <input 
+                                <input
                                   type="checkbox"
                                   checked={isFolderChecked}
                                   onChange={e => {
@@ -1334,7 +1334,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                                 />
                                 <div className="text-xs font-semibold text-cream">{folder.name}</div>
                               </div>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => toggleFolderExpanded(folder._id.toString())}
                                 className="text-[10px] text-lime font-bold hover:underline"
@@ -1342,14 +1342,14 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                                 {isExpanded ? "Collapse" : `Expand (${folderRecs.length} vids)`}
                               </button>
                             </div>
-                            
+
                             {isExpanded && (
                               <div className="bg-black/20 border-t border-cream/5 p-3 space-y-2 pl-9">
                                 {folderRecs.map(rec => {
                                   const isRecChecked = selectedRecIds.includes(rec._id.toString());
                                   return (
                                     <label key={rec._id} className="flex items-center gap-3 cursor-pointer">
-                                      <input 
+                                      <input
                                         type="checkbox"
                                         checked={isRecChecked}
                                         disabled={isFolderChecked} // Locked if parent folder is fully selected
@@ -1387,7 +1387,7 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
                           const isChecked = selectedRecIds.includes(rec._id.toString());
                           return (
                             <label key={rec._id} className="flex items-center gap-3 cursor-pointer">
-                              <input 
+                              <input
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={e => {
@@ -1411,9 +1411,9 @@ function RecordingsTab({ classroom, refreshClassroom }: { classroom: Classroom; 
             </div>
             <div className="px-5 py-3.5 bg-black/20 border-t border-cream/10 flex gap-3">
               <button onClick={() => setShowReuseModal(false)} disabled={isReusing} className="flex-1 rounded-full bg-cream/10 text-cream py-2 text-xs font-semibold">Cancel</button>
-              <button 
-                onClick={handleConfirmReuse} 
-                disabled={isReusing || (!selectedSourceClassroomId) || (selectedFolderIds.length === 0 && selectedRecIds.length === 0)} 
+              <button
+                onClick={handleConfirmReuse}
+                disabled={isReusing || (!selectedSourceClassroomId) || (selectedFolderIds.length === 0 && selectedRecIds.length === 0)}
                 className="flex-1 rounded-full bg-lime text-plum-dark py-2 text-xs font-bold disabled:opacity-40"
               >
                 {isReusing ? "Reusing..." : "Confirm Reuse"}
@@ -1762,7 +1762,7 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
     }
   };
 
-  const handleDownloadQuiz = (q: Quiz, format: 'pdf' | 'doc') => {
+  const handleDownloadQuiz = (q: Quiz, format: 'pdf' | 'doc' | 'print') => {
     const totalMarks = q.questions.reduce((s, quest) => s + quest.marks, 0);
 
     // Create professional HTML structure
@@ -1770,12 +1770,13 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       <div class="header">
         <h1>${cls.name}</h1>
         <h2>${q.title}</h2>
+        ${q.instructions ? `<h3>${q.instructions}</h3>` : ''}
         <div class="meta">
           <span><strong>Total Marks:</strong> ${totalMarks}</span>
           <span><strong>Time:</strong> ${q.duration ? q.duration + ' mins' : 'N/A'}</span>
         </div>
-        ${q.instructions ? `<p class="instructions"><strong>Instructions:</strong> ${q.instructions}</p>` : ''}
       </div>
+      <hr class="header-divider" />
       <div class="questions">
     `;
 
@@ -1783,8 +1784,10 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       htmlContent += `
         <div class="question">
           <div class="q-header">
-            <span class="q-num">Q${i + 1}.</span>
-            <span class="q-text">${quest.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+            <div class="q-title-container">
+              <span class="q-num">Q${i + 1}.</span>
+              <span class="q-text">${quest.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+            </div>
             <span class="q-marks">[${quest.marks} Marks]</span>
           </div>
           <div class="options">
@@ -1792,7 +1795,8 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       quest.options.forEach((opt) => {
         htmlContent += `
             <div class="option">
-              <strong>${opt.label})</strong> ${opt.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+              <span class="option-label">${opt.label})</span>
+              <span class="option-text">${opt.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
             </div>
         `;
       });
@@ -1807,19 +1811,24 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
           <title>${q.title}</title>
           <meta charset="utf-8">
           <style>
-            body { font-family: 'Times New Roman', serif; line-height: 1.5; padding: 40px; color: black; background: white; max-width: 800px; margin: 0 auto; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
-            .header h1 { margin: 0 0 10px 0; font-size: 24px; text-transform: uppercase; }
-            .header h2 { margin: 0 0 15px 0; font-size: 20px; font-weight: normal; }
-            .meta { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px; }
-            .instructions { font-size: 14px; text-align: left; font-style: italic; }
-            .question { margin-bottom: 25px; page-break-inside: avoid; }
-            .q-header { display: flex; align-items: flex-start; margin-bottom: 10px; }
-            .q-num { font-weight: bold; margin-right: 10px; min-width: 30px; }
-            .q-text { flex-grow: 1; }
-            .q-marks { font-size: 12px; font-weight: bold; margin-left: 15px; white-space: nowrap; }
-            .options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-left: 40px; margin-bottom: 10px; }
-            .option { font-size: 14px; }
+            body { font-family: 'Times New Roman', serif; line-height: 1.5; padding: 40px; color: black; background: white; max-width: 820px; margin: 0 auto; }
+            .header { text-align: center; }
+            .header h1 { margin: 0 0 10px 0; font-size: 26px; text-transform: uppercase; font-weight: bold; }
+            .header h2 { margin: 0 0 8px 0; font-size: 19px; font-weight: bold; }
+            .header h3 { margin: 0 0 15px 0; font-size: 16px; font-weight: normal; }
+            .meta { display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; margin-top: 25px; margin-bottom: 5px; }
+            .header-divider { border: none; border-top: 2.5px solid #000; margin: 15px 0 35px 0; }
+            .questions { display: flex; flex-direction: column; gap: 35px; }
+            .question { page-break-inside: avoid; break-inside: avoid; }
+            .q-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; font-size: 16px; line-height: 1.5; }
+            .q-title-container { display: flex; align-items: flex-start; flex-grow: 1; text-align: left; }
+            .q-num { font-weight: bold; min-width: 35px; display: inline-block; flex-shrink: 0; }
+            .q-text { flex-grow: 1; word-break: break-word; }
+            .q-marks { font-weight: bold; font-size: 14px; margin-left: 20px; white-space: nowrap; flex-shrink: 0; }
+            .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 40px; margin-left: 35px; }
+            .option { display: flex; align-items: flex-start; font-size: 15px; line-height: 1.4; }
+            .option-label { font-weight: bold; min-width: 25px; display: inline-block; flex-shrink: 0; }
+            .option-text { flex-grow: 1; word-break: break-word; }
             @media print {
               body { padding: 0; }
             }
@@ -1839,111 +1848,145 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+    } else if (format === 'print') {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(fullHtml);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      } else {
+        toast.error("Failed to open print window. Please allow popups for this site.");
+      }
     } else if (format === 'pdf') {
       const filename = `${q.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_quiz.pdf`;
       const toastId = toast.loading("Preparing PDF download...");
 
       setTimeout(async () => {
-        const element = document.createElement('div');
-        element.innerHTML = `
-          <div style="font-family: 'Segoe UI', Arial, 'Noto Sans', 'Noto Sans Devanagari', 'Mangal', 'Nirmala UI', sans-serif; line-height: 1.5; padding: 25px; color: #0f172a; background: #ffffff; width: 680px; box-sizing: border-box;">
-            <style>
-              .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
-              .header h1 { margin: 0 0 5px 0; font-size: 22px; text-transform: uppercase; color: #0b1f3a; }
-              .header h2 { margin: 0 0 10px 0; font-size: 18px; font-weight: normal; color: #1e293b; }
-              
-              .meta { margin-bottom: 8px; overflow: hidden; font-size: 13px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; color: #475569; }
-              .meta span:first-child { float: left; font-weight: bold; }
-              .meta span:last-child { float: right; font-weight: bold; }
-              
-              .instructions { font-size: 13px; text-align: left; font-style: italic; margin-top: 5px; clear: both; color: #64748b; }
-              
-              .question { margin-bottom: 20px; clear: both; page-break-inside: avoid; }
-              
-              .q-header { margin-bottom: 8px; overflow: hidden; }
-              .q-num { float: left; font-weight: bold; width: 30px; color: #0f172a; }
-              .q-text { float: left; width: 500px; font-size: 14px; text-align: left; word-wrap: break-word; color: #1e293b; }
-              .q-marks { float: right; font-size: 11px; font-weight: bold; color: #64748b; }
-              
-              .options { margin-left: 30px; margin-bottom: 8px; overflow: hidden; clear: both; }
-              .option { float: left; width: 48%; font-size: 13px; margin-bottom: 6px; box-sizing: border-box; text-align: left; color: #334155; }
-              
-              .clear { clear: both; }
-            </style>
-            <div class="clear"></div>
-            ${htmlContent}
-            <div class="clear"></div>
-          </div>
-        `;
-
-        element.style.position = 'fixed';
-        element.style.top = '0';
-        element.style.left = '0';
-        element.style.width = '680px';
-        element.style.height = 'auto';
-        element.style.background = '#ffffff';
-        element.style.opacity = '0.01';
-        element.style.pointerEvents = 'none';
-        element.style.zIndex = '-9999';
-        document.body.appendChild(element);
-
-        // Resolve html2pdf function robustly
-        // @ts-ignore
-        const html2pdfFn = html2pdf.default || html2pdf;
-
-        const opt = {
-          margin: 12,
-          filename: filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 1.2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        const triggerPrintFallback = () => {
-          try {
-            const htmlBlob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-            const htmlUrl = URL.createObjectURL(htmlBlob);
-            const fallbackLink = document.createElement('a');
-            fallbackLink.href = htmlUrl;
-            fallbackLink.target = '_blank';
-            fallbackLink.rel = 'noopener noreferrer';
-            document.body.appendChild(fallbackLink);
-            fallbackLink.click();
-            toast.dismiss(toastId);
-            toast.info("Opened printable quiz document.");
-            setTimeout(() => {
-              if (fallbackLink.parentNode) document.body.removeChild(fallbackLink);
-              URL.revokeObjectURL(htmlUrl);
-            }, 10000);
-          } catch (e) {
-            toast.dismiss(toastId);
-            toast.error("Could not open document.");
-          }
-        };
+        // Create an isolated off-screen iframe to render the HTML document safely without touch/scroll interference
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.left = '-9999px';
+        iframe.style.top = '0';
+        iframe.style.width = '750px';
+        iframe.style.height = '1000px';
+        iframe.style.border = 'none';
+        iframe.style.visibility = 'hidden';
+        document.body.appendChild(iframe);
 
         try {
+          const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+          if (!iframeDoc) {
+            throw new Error("Could not access iframe document");
+          }
+
+          iframeDoc.open();
+          iframeDoc.write(fullHtml);
+          iframeDoc.close();
+
+          // Wait 250ms for fonts and CSS layout to resolve in iframe
+          await new Promise((r) => setTimeout(r, 250));
+
+          // Set iframe height dynamically to match scrollHeight to prevent page clipping in canvas rendering
+          const contentHeight = iframeDoc.documentElement?.scrollHeight || iframeDoc.body?.scrollHeight || 1000;
+          iframe.style.height = `${contentHeight}px`;
+
+          // Resolve html2pdf function robustly
+          // @ts-ignore
+          const html2pdfFn = html2pdf.default || html2pdf;
           if (typeof html2pdfFn !== 'function') {
             throw new Error('html2pdf package is not resolving to a function');
           }
 
-          // Generate PDF Blob cleanly (captures full Unicode/Indic text from DOM)
-          const pdfBlob: Blob = await html2pdfFn().from(element).set(opt).output('blob');
+          const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+          const opt = {
+            margin: 12,
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+              scale: isMobile ? 1.0 : 1.2, // Avoid canvas memory crashes on mobile/tablet devices
+              useCORS: true,
+              logging: false,
+              backgroundColor: '#ffffff', // Force canvas background to white (transparency defaults to black in JPEG)
+              window: iframe.contentWindow || undefined,
+              onclone: (clonedDoc: Document) => {
+                try {
+                  // Remove all parent stylesheets that were copied to the cloned document.
+                  // This prevents parent dark/navy styles and variables from polluting the print template.
+                  const styleSheets = Array.from(clonedDoc.querySelectorAll('style, link[rel="stylesheet"]'));
+                  styleSheets.forEach((s) => {
+                    const text = s.textContent || '';
+                    if (text.includes('Times New Roman') || text.includes('q-header') || text.includes('q-marks')) {
+                      // Keep our custom print styles
+                      return;
+                    }
+                    s.parentNode?.removeChild(s);
+                  });
 
-          if (element.parentNode) {
-            document.body.removeChild(element);
+                  // Ensure document element and body have white background and black text
+                  if (clonedDoc.documentElement) {
+                    clonedDoc.documentElement.style.cssText = 'background-color: #ffffff !important; color: #000000 !important; color-scheme: light !important;';
+                  }
+                  if (clonedDoc.body) {
+                    clonedDoc.body.style.cssText = 'background-color: #ffffff !important; color: #000000 !important; color-scheme: light !important;';
+                  }
+                } catch (e) {
+                  console.warn("onclone clean styles error:", e);
+                }
+              }
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          };
+
+          let pdfBlob: Blob | null = null;
+          try {
+            pdfBlob = await html2pdfFn().from(iframeDoc.body).set(opt).outputPdf('blob');
+          } catch (e1) {
+            console.warn("outputPdf('blob') failed, trying toPdf().output('blob'):", e1);
+            try {
+              pdfBlob = await html2pdfFn().from(iframeDoc.body).set(opt).toPdf().output('blob');
+            } catch (e2) {
+              console.warn("toPdf().output('blob') failed:", e2);
+            }
           }
 
           if (!pdfBlob || pdfBlob.size === 0) {
-            triggerPrintFallback();
+            // Native save fallback
+            await html2pdfFn().from(iframeDoc.body).set(opt).save();
+            toast.dismiss(toastId);
+            toast.success("PDF Downloaded!");
             return;
           }
 
+          const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+
+          // On mobile devices, use native Web Share API if supported for direct Save to Files / Downloads
+          if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+            try {
+              await navigator.share({
+                files: [pdfFile],
+                title: q.title || 'Quiz PDF',
+              });
+              toast.dismiss(toastId);
+              toast.success("PDF saved!");
+              return;
+            } catch (shareErr: any) {
+              if (shareErr.name === 'AbortError') {
+                toast.dismiss(toastId);
+                return;
+              }
+              console.warn("navigator.share failed, falling back to anchor download:", shareErr);
+            }
+          }
+
+          // Direct anchor file download trigger (NO target="_blank") to save file directly
           const blobUrl = URL.createObjectURL(pdfBlob);
           const downloadLink = document.createElement('a');
           downloadLink.href = blobUrl;
           downloadLink.download = filename;
-          downloadLink.target = '_blank';
-          downloadLink.rel = 'noopener noreferrer';
           document.body.appendChild(downloadLink);
           downloadLink.click();
 
@@ -1956,12 +1999,15 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
             }
             URL.revokeObjectURL(blobUrl);
           }, 10000);
-        } catch (err) {
+        } catch (err: any) {
           console.error("PDF generation error:", err);
-          if (element.parentNode) {
-            document.body.removeChild(element);
+          toast.dismiss(toastId);
+          toast.error("Failed to generate PDF. Please try again.");
+        } finally {
+          // ALWAYS clean up iframe so main page touch and scroll are never blocked
+          if (iframe.parentNode) {
+            document.body.removeChild(iframe);
           }
-          triggerPrintFallback();
         }
       }, 50);
     }
@@ -2391,11 +2437,18 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
                     <LuCopy className="h-3 w-3" /> Reuse
                   </button>
                   <button
+                    onClick={() => handleDownloadQuiz(q, 'print')}
+                    className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
+                    title="Print Quiz (or Save Vector PDF)"
+                  >
+                    <LuPrinter className="h-3.5 w-3.5" /> Print / PDF (Vector)
+                  </button>
+                  <button
                     onClick={() => handleDownloadQuiz(q, 'pdf')}
                     className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
-                    title="Download Quiz as PDF"
+                    title="Download Quiz as PDF (Image)"
                   >
-                    <LuDownload className="h-3.5 w-3.5" /> PDF
+                    <LuDownload className="h-3.5 w-3.5" /> PDF (Image)
                   </button>
                   <button
                     onClick={() => handleDownloadQuiz(q, 'doc')}
@@ -2939,18 +2992,17 @@ ${window.location.origin}/classroom-join/${classroom.id}`;
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${t.bg} ${t.text} ${t.border} transition-all relative overflow-hidden group aspect-square shadow-xs ${
-                isActive 
-                  ? `scale-[1.04] ring-2 ring-offset-2 ring-offset-slate-900 shadow-md ${t.key === 'live' ? 'ring-[#E11D48]' : t.key === 'recordings' ? 'ring-[#EA580C]' : t.key === 'announcements' ? 'ring-[#2563EB]' : t.key === 'tests' ? 'ring-[#0284C7]' : t.key === 'students' ? 'ring-[#059669]' : 'ring-[#7C3AED]'}` 
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${t.bg} ${t.text} ${t.border} transition-all relative overflow-hidden group aspect-square shadow-xs ${isActive
+                  ? `scale-[1.04] ring-2 ring-offset-2 ring-offset-slate-900 shadow-md ${t.key === 'live' ? 'ring-[#E11D48]' : t.key === 'recordings' ? 'ring-[#EA580C]' : t.key === 'announcements' ? 'ring-[#2563EB]' : t.key === 'tests' ? 'ring-[#0284C7]' : t.key === 'students' ? 'ring-[#059669]' : 'ring-[#7C3AED]'}`
                   : "hover:scale-[1.02] hover:shadow-sm"
-              }`}
+                }`}
             >
               {t.key === 'requests' && (classroom.pendingJoinRequestsCount || 0) > 0 && (
                 <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#E11D48] text-white text-[9px] font-extrabold flex items-center justify-center animate-bounce">
                   {classroom.pendingJoinRequestsCount}
                 </span>
               )}
-              
+
               <t.icon className="w-8 h-8 mb-1.5 transition-transform group-hover:scale-110" style={{ color: t.iconColor }} />
               <span className="text-[10px] sm:text-xs font-black tracking-tight text-center leading-tight">{t.label}</span>
             </button>
