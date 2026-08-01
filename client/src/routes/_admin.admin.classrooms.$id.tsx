@@ -2439,16 +2439,9 @@ function TestsTab({ classroom, refreshClassroom }: { classroom: Classroom; refre
                   <button
                     onClick={() => handleDownloadQuiz(q, 'print')}
                     className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
-                    title="Print Quiz (or Save Vector PDF)"
+                    title="Download Quiz as PDF"
                   >
-                    <LuPrinter className="h-3.5 w-3.5" /> Print / PDF (Vector)
-                  </button>
-                  <button
-                    onClick={() => handleDownloadQuiz(q, 'pdf')}
-                    className="rounded-full bg-cream/10 text-cream px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-cream/20 transition-colors"
-                    title="Download Quiz as PDF (Image)"
-                  >
-                    <LuDownload className="h-3.5 w-3.5" /> PDF (Image)
+                    <LuDownload className="h-3.5 w-3.5" /> PDF
                   </button>
                   <button
                     onClick={() => handleDownloadQuiz(q, 'doc')}
