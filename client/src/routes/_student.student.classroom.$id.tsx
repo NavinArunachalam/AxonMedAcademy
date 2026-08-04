@@ -384,7 +384,7 @@ function SecurePlayer({
       lastTapRef.current = { time: now, x: clickX };
       tapTimeoutRef.current = setTimeout(() => {
         if (video.paused) {
-          void video.play().catch(() => {});
+          void video.play().catch(() => { });
           setIsPlaying(true);
           setGestureEffect({ type: 'play', id: now });
         } else {
@@ -458,7 +458,7 @@ function SecurePlayer({
       toast.info("Refreshing secure video link...");
       setRetryCount(1);
       await refreshPlaybackUrl();
-      
+
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.load();
@@ -473,7 +473,7 @@ function SecurePlayer({
       toast.info("Switching to backup streaming connection...");
       setRetryCount(2);
       setUseProxyFallback(true);
-      
+
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.load();
@@ -506,18 +506,25 @@ function SecurePlayer({
     const handleLoadedMetadata = () => {
       const stats = recording.viewStats?.find((v) => v.studentId === currentUser?.id || (v as any).student === currentUser?.id);
       const savedPosition = stats?.lastPosition || 0;
-      const isCompleted = (stats as any)?.completedAt || (stats?.watchedPercent && stats.watchedPercent >= 90);
+      const watchedPct = stats?.watchedPercent || 0;
+      const isCompleted = (stats as any)?.completedAt || watchedPct >= 85;
 
-      // If the student has already watched the video fully, start from the beginning instead of resuming at the end
-      if (!isCompleted && savedPosition > 0 && savedPosition < video.duration - 5) {
-        video.currentTime = savedPosition;
-        lastVideoTimeRef.current = savedPosition;
-        setPosition(Math.floor(savedPosition));
-      } else {
-        video.currentTime = 0;
+      // If already watched or near the end (>85% watched), start from beginning for a clean rewatch without seek stalls
+      if (isCompleted || savedPosition <= 2 || (video.duration && savedPosition >= video.duration - 10)) {
+        try { video.currentTime = 0; } catch {}
         lastVideoTimeRef.current = 0;
         setPosition(0);
+      } else if (savedPosition > 2 && video.duration && savedPosition < video.duration - 10) {
+        // Only set savedPosition if media is ready and safely within boundaries
+        try {
+          video.currentTime = savedPosition;
+          lastVideoTimeRef.current = savedPosition;
+          setPosition(Math.floor(savedPosition));
+        } catch (e) {
+          console.error("Failed to restore video position:", e);
+        }
       }
+
       if (videoRef.current) {
         videoRef.current.playbackRate = playbackSpeed;
       }
@@ -782,7 +789,7 @@ function SecurePlayer({
                   onClick={() => {
                     resetLock();
                     if (videoRef.current) {
-                      void videoRef.current.play().catch(() => {});
+                      void videoRef.current.play().catch(() => { });
                     }
                   }}
                   className="rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-lime text-plum-dark hover:scale-105 active:scale-95 flex items-center gap-2"
@@ -825,9 +832,9 @@ function SecurePlayer({
                 <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-left font-mono text-xs text-slate-300">
                   <div><strong>Error Code:</strong> {fatalError.code} ({
                     fatalError.code === 1 ? "Aborted" :
-                    fatalError.code === 2 ? "Network Error" :
-                    fatalError.code === 3 ? "Decoding Error" :
-                    fatalError.code === 4 ? "Source Not Supported" : "Unknown"
+                      fatalError.code === 2 ? "Network Error" :
+                        fatalError.code === 3 ? "Decoding Error" :
+                          fatalError.code === 4 ? "Source Not Supported" : "Unknown"
                   })</div>
                   <div className="truncate"><strong>Details:</strong> {fatalError.message || "No additional information"}</div>
                   <div><strong>Stream Mode:</strong> {useProxyFallback ? "Local Proxy" : "Direct S3 Redirect"}</div>
@@ -835,9 +842,9 @@ function SecurePlayer({
                 <p className="text-xs text-slate-500 italic mt-2">
                   Troubleshooting tip: {
                     fatalError.code === 2 ? "Ensure you have an active internet connection." :
-                    fatalError.code === 3 ? "Try using a different browser (Chrome/Firefox)." :
-                    fatalError.code === 4 ? "Your school firewall may be blocking Cloudflare storage domains, or browser tracking prevention is blocking the redirect. Try streaming via proxy." :
-                    "Refresh the page and try playing again."
+                      fatalError.code === 3 ? "Try using a different browser (Chrome/Firefox)." :
+                        fatalError.code === 4 ? "Your school firewall may be blocking Cloudflare storage domains, or browser tracking prevention is blocking the redirect. Try streaming via proxy." :
+                          "Refresh the page and try playing again."
                   }
                 </p>
               </div>
@@ -854,7 +861,7 @@ function SecurePlayer({
                         if (videoRef.current) {
                           videoRef.current.load();
                           videoRef.current.currentTime = currentPos;
-                          videoRef.current.play().catch(() => {});
+                          videoRef.current.play().catch(() => { });
                         }
                       }, 500);
                     }}
@@ -874,7 +881,7 @@ function SecurePlayer({
                       if (videoRef.current) {
                         videoRef.current.load();
                         videoRef.current.currentTime = currentPos;
-                        videoRef.current.play().catch(() => {});
+                        videoRef.current.play().catch(() => { });
                       }
                     }, 500);
                   }}
@@ -925,7 +932,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
   const CURRENT_STUDENT = { id: currentUser?.id || "", name: currentUser?.name || "" };
   const cls = classrooms.find((c) => c.id === classroomId || (c as any)._id === classroomId);
   const [activeRec, setActiveRec] = useState<string | null>(null);
-  
+
   // Navigation State
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
@@ -935,7 +942,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
   const activeRecording = publishedRecordings.find((r) => (r.id || (r as any)._id) === activeRec);
 
   // Compute folder list: only show folders containing at least one published recording
-  const folders = (cls.folders || []).filter(folder => 
+  const folders = (cls.folders || []).filter(folder =>
     publishedRecordings.some(r => r.folder === (folder.id || (folder as any)._id))
   );
 
@@ -956,7 +963,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
         {/* Breadcrumb / Folder Title */}
         {currentFolderId ? (
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <button 
+            <button
               className="hover:text-plum flex items-center gap-1 transition-colors font-bold text-plum-dark"
               onClick={() => setCurrentFolderId(null)}
             >
@@ -1014,7 +1021,7 @@ function RecordingsTab({ classroomId }: { classroomId: string }) {
                 <p className="text-slate-500 text-sm">No videos inside this folder.</p>
               </div>
             )}
-            
+
             {visibleRecordings.map((rec) => {
               const recId = rec.id || (rec as any)._id || '';
               const viewStats = rec.viewStats || [];
@@ -1091,7 +1098,7 @@ function TestsTab({ classroomId }: { classroomId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const answersRef = useRef(answers);
-  const submitQuizRef = useRef<() => void>(() => {});
+  const submitQuizRef = useRef<() => void>(() => { });
 
   useEffect(() => {
     answersRef.current = answers;
@@ -1465,11 +1472,10 @@ function TestsTab({ classroomId }: { classroomId: string }) {
                       else if (isSelected) badge = <span className="ml-auto text-red-500 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">✗ Your answer (Wrong)</span>;
                       return (
                         <div key={opt.label} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${optClass}`}>
-                          <span className={`h-5 w-5 shrink-0 grid place-items-center rounded-full text-[10px] font-bold border ${
-                            isCorrectOpt ? "bg-green-500 border-green-500 text-white"
-                            : isSelected ? "bg-red-400 border-red-400 text-white"
-                            : "border-slate-300 text-slate-400"
-                          }`}>
+                          <span className={`h-5 w-5 shrink-0 grid place-items-center rounded-full text-[10px] font-bold border ${isCorrectOpt ? "bg-green-500 border-green-500 text-white"
+                              : isSelected ? "bg-red-400 border-red-400 text-white"
+                                : "border-slate-300 text-slate-400"
+                            }`}>
                             {isCorrectOpt ? <Check className="h-3 w-3" /> : isSelected ? <X className="h-3 w-3" /> : opt.label}
                           </span>
                           <span>{opt.text}</span>
@@ -1610,18 +1616,17 @@ function StudentClassroomDetail() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${t.bg} ${t.text} ${t.border} transition-all relative overflow-hidden group aspect-square shadow-xs ${
-                isActive 
-                  ? `scale-[1.04] ring-2 ring-offset-2 ring-offset-slate-50 shadow-md ${t.key === 'live' ? 'ring-[#E11D48]' : t.key === 'recordings' ? 'ring-[#EA580C]' : t.key === 'announcements' ? 'ring-[#2563EB]' : 'ring-[#059669]'}` 
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${t.bg} ${t.text} ${t.border} transition-all relative overflow-hidden group aspect-square shadow-xs ${isActive
+                  ? `scale-[1.04] ring-2 ring-offset-2 ring-offset-slate-50 shadow-md ${t.key === 'live' ? 'ring-[#E11D48]' : t.key === 'recordings' ? 'ring-[#EA580C]' : t.key === 'announcements' ? 'ring-[#2563EB]' : 'ring-[#059669]'}`
                   : "hover:scale-[1.02] hover:shadow-sm"
-              }`}
+                }`}
             >
               {t.isLive && (
                 <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-[#E11D48] text-white text-[8px] font-extrabold tracking-wider uppercase animate-pulse">
                   LIVE
                 </span>
               )}
-              
+
               <t.icon className="w-8 h-8 mb-1.5 transition-transform group-hover:scale-110" style={{ color: t.iconColor }} />
               <span className="text-[10px] sm:text-xs font-black tracking-tight text-center leading-tight">{t.label}</span>
             </button>
@@ -1634,7 +1639,7 @@ function StudentClassroomDetail() {
         <h2 className="font-display text-base font-extrabold text-slate-800 mb-4 capitalize">
           {tab === "announcements" ? "Study Material & Announcements" : tab === "live" ? "Live Classes" : tab === "recordings" ? "Recordings" : "Smart Tests & Quizzes"}
         </h2>
-        
+
         {(() => {
           const classroomId = cls.id || (cls as any)._id || '';
           return (
