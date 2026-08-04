@@ -276,6 +276,9 @@ function SecurePlayer({
 
   const [resolvedStreamUrl, setResolvedStreamUrl] = useState<string>('');
   const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [useProxyFallback, setUseProxyFallback] = useState(false);
+  const [fatalError, setFatalError] = useState<{ code: number; message: string } | null>(null);
 
   const recordingId = recording.id || (recording as any)._id || '';
   const chapters = recording.chapters || [];
@@ -293,10 +296,14 @@ function SecurePlayer({
     : `${getRecordingStreamUrl(recordingId)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`;
 
   useEffect(() => {
-    if (initialStreamUrl) {
+    if (useProxyFallback) {
+      const tokenQuery = accessToken ? `?token=${encodeURIComponent(accessToken)}` : '';
+      const proxyUrl = `${getRecordingStreamUrl(recordingId)}${tokenQuery}${tokenQuery ? '&' : '?'}proxy=true`;
+      setResolvedStreamUrl(proxyUrl);
+    } else if (initialStreamUrl) {
       setResolvedStreamUrl(initialStreamUrl);
     }
-  }, [initialStreamUrl]);
+  }, [useProxyFallback, initialStreamUrl, recordingId, accessToken]);
 
   const refreshPlaybackUrl = useCallback(async () => {
     if (isRefreshingUrl) return;
@@ -421,12 +428,35 @@ function SecurePlayer({
   }, [classroomId, currentUser?.id, currentUser?.name, recording.duration, recordingId, recording.viewStats]);
 
   const handleVideoError = useCallback(async () => {
-    console.error("Video playback error detected, attempting to refresh URL...");
-    if (!isRefreshingUrl) {
-      toast.info("Refreshing video link...");
-      const video = videoRef.current;
-      const currentPos = video ? video.currentTime : position;
-      
+    const err = videoRef.current?.error;
+    const code = err?.code || 0;
+    const msg = err?.message || 'Unknown playback error';
+    const currentUrl = resolvedStreamUrl;
+
+    console.error(`Video playback error: Code ${code}, Message: ${msg}, URL: ${currentUrl}`);
+
+    // Log the error to the database automatically
+    try {
+      await api.post('/recordings/log-error', {
+        recordingId,
+        classroomId,
+        errorCode: code,
+        errorMessage: msg,
+        userAgent: navigator.userAgent,
+        videoUrl: currentUrl
+      });
+    } catch (e) {
+      console.error("Failed to submit playback error log:", e);
+    }
+
+    if (isRefreshingUrl) return;
+
+    const currentPos = videoRef.current ? videoRef.current.currentTime : position;
+
+    if (retryCount === 0) {
+      // First retry: Refresh the signed URL
+      toast.info("Refreshing secure video link...");
+      setRetryCount(1);
       await refreshPlaybackUrl();
       
       setTimeout(() => {
@@ -435,11 +465,30 @@ function SecurePlayer({
           if (currentPos > 0) {
             videoRef.current.currentTime = currentPos;
           }
-          videoRef.current.play().catch(err => console.error("Auto-play failure after refresh:", err));
+          videoRef.current.play().catch(err => console.error("Play failure after URL refresh:", err));
         }
       }, 500);
+    } else if (retryCount === 1) {
+      // Second retry: Switch to proxy streaming
+      toast.info("Switching to backup streaming connection...");
+      setRetryCount(2);
+      setUseProxyFallback(true);
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load();
+          if (currentPos > 0) {
+            videoRef.current.currentTime = currentPos;
+          }
+          videoRef.current.play().catch(err => console.error("Play failure after switching to proxy:", err));
+        }
+      }, 500);
+    } else {
+      // Failed both options: show fatal error overlay
+      setFatalError({ code, message: msg });
+      toast.error("Playback failed. Please see diagnostic details on screen.");
     }
-  }, [isRefreshingUrl, refreshPlaybackUrl, position]);
+  }, [isRefreshingUrl, refreshPlaybackUrl, position, retryCount, recordingId, classroomId, resolvedStreamUrl, useProxyFallback]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -457,7 +506,7 @@ function SecurePlayer({
     const handleLoadedMetadata = () => {
       const stats = recording.viewStats?.find((v) => v.studentId === currentUser?.id || (v as any).student === currentUser?.id);
       const savedPosition = stats?.lastPosition || 0;
-      const isCompleted = stats?.completedAt || (stats?.watchedPercent && stats.watchedPercent >= 90);
+      const isCompleted = (stats as any)?.completedAt || (stats?.watchedPercent && stats.watchedPercent >= 90);
 
       // If the student has already watched the video fully, start from the beginning instead of resuming at the end
       if (!isCompleted && savedPosition > 0 && savedPosition < video.duration - 5) {
@@ -620,6 +669,7 @@ function SecurePlayer({
             <video
               ref={videoRef}
               src={resolvedStreamUrl}
+              crossOrigin="anonymous"
               className="w-full h-[95vh] object-contain bg-black no-select select-none pointer-events-auto"
               controls
               autoPlay
@@ -749,6 +799,99 @@ function SecurePlayer({
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back to Recordings
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Fatal Playback Error overlay */}
+          {fatalError && !isLocked && (
+            <div className="absolute inset-0 backdrop-blur-xl bg-black/95 flex flex-col items-center justify-center z-30 p-6 transition-all duration-300">
+              <div className="relative mb-6">
+                <div className="absolute inset-0 rounded-full bg-red-500/20 blur-xl animate-pulse" />
+                <div className="relative rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                  <ShieldAlert className="h-12 w-12 text-red-500 animate-pulse" />
+                </div>
+              </div>
+
+              <h2 className="text-white font-display text-xl font-bold tracking-wider mb-2 uppercase text-center">
+                Playback Failed
+              </h2>
+
+              <div className="text-slate-400 text-sm max-w-md text-center mb-8 leading-relaxed space-y-2 text-wrap">
+                <p>
+                  We encountered an issue loading this classroom video. This error has been logged automatically for support.
+                </p>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-left font-mono text-xs text-slate-300">
+                  <div><strong>Error Code:</strong> {fatalError.code} ({
+                    fatalError.code === 1 ? "Aborted" :
+                    fatalError.code === 2 ? "Network Error" :
+                    fatalError.code === 3 ? "Decoding Error" :
+                    fatalError.code === 4 ? "Source Not Supported" : "Unknown"
+                  })</div>
+                  <div className="truncate"><strong>Details:</strong> {fatalError.message || "No additional information"}</div>
+                  <div><strong>Stream Mode:</strong> {useProxyFallback ? "Local Proxy" : "Direct S3 Redirect"}</div>
+                </div>
+                <p className="text-xs text-slate-500 italic mt-2">
+                  Troubleshooting tip: {
+                    fatalError.code === 2 ? "Ensure you have an active internet connection." :
+                    fatalError.code === 3 ? "Try using a different browser (Chrome/Firefox)." :
+                    fatalError.code === 4 ? "Your school firewall may be blocking Cloudflare storage domains, or browser tracking prevention is blocking the redirect. Try streaming via proxy." :
+                    "Refresh the page and try playing again."
+                  }
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap justify-center">
+                {!useProxyFallback && (
+                  <button
+                    onClick={() => {
+                      setFatalError(null);
+                      setUseProxyFallback(true);
+                      setRetryCount(2);
+                      const currentPos = videoRef.current ? videoRef.current.currentTime : position;
+                      setTimeout(() => {
+                        if (videoRef.current) {
+                          videoRef.current.load();
+                          videoRef.current.currentTime = currentPos;
+                          videoRef.current.play().catch(() => {});
+                        }
+                      }, 500);
+                    }}
+                    className="rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-[#C084FC] text-black hover:scale-105 active:scale-95 flex items-center gap-2"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Force Proxy Streaming
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setFatalError(null);
+                    setRetryCount(0);
+                    setUseProxyFallback(false);
+                    const currentPos = videoRef.current ? videoRef.current.currentTime : position;
+                    setTimeout(() => {
+                      if (videoRef.current) {
+                        videoRef.current.load();
+                        videoRef.current.currentTime = currentPos;
+                        videoRef.current.play().catch(() => {});
+                      }
+                    }, 500);
+                  }}
+                  className="rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-white/20 text-white hover:bg-white/30 hover:scale-105 active:scale-95 flex items-center gap-2"
+                >
+                  <RotateCw className="h-4 w-4" />
+                  Retry Direct Stream
+                </button>
+                <button
+                  onClick={() => {
+                    void sendProgress(true);
+                    onClose();
+                  }}
+                  className="rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-all duration-200 bg-white/10 text-white hover:bg-white/20 hover:scale-105 active:scale-95 flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Close Player
                 </button>
               </div>
             </div>

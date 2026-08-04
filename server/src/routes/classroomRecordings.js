@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const ClassroomRecording = require('../models/ClassroomRecording');
 const ClassroomFolder = require('../models/ClassroomFolder');
 const Classroom = require('../models/Classroom');
+const VideoPlaybackError = require('../models/VideoPlaybackError');
 const { protect, restrictTo, verifyClassroomAccess } = require('../middleware/auth');
 const {
   uploadFileToCloudflareR2,
@@ -33,6 +34,44 @@ const verifyClassroomAccessById = async (classroomId, user, writeRequired = fals
 // =============================================================================
 // STATIC NAMED ROUTES — must be defined BEFORE any /:id dynamic routes
 // =============================================================================
+
+// POST /log-error → Log video playback errors from students
+router.post('/log-error', protect, async (req, res, next) => {
+  try {
+    const { recordingId, classroomId, errorCode, errorMessage, userAgent, videoUrl } = req.body;
+
+    if (!recordingId) {
+      return res.status(400).json({ success: false, message: 'recordingId is required' });
+    }
+
+    // Clean/sanitize URL to mask sensitive Cloudflare signatures/keys (e.g. AWS access keys / signature parameters)
+    let cleanVideoUrl = videoUrl || '';
+    if (cleanVideoUrl) {
+      try {
+        const urlObj = new URL(cleanVideoUrl);
+        const paramsToRemove = ['X-Amz-Signature', 'X-Amz-Credential', 'X-Amz-Security-Token', 'token', 'sig', 'expires'];
+        paramsToRemove.forEach(p => urlObj.searchParams.delete(p));
+        cleanVideoUrl = urlObj.toString();
+      } catch {
+        cleanVideoUrl = cleanVideoUrl.split('?')[0];
+      }
+    }
+
+    const errorLog = await VideoPlaybackError.create({
+      recording: recordingId,
+      student: req.user._id,
+      classroom: isValidId(classroomId) ? classroomId : null,
+      errorCode: errorCode ? parseInt(errorCode, 10) : null,
+      errorMessage: errorMessage || 'Unknown playback error',
+      userAgent: userAgent || req.headers['user-agent'],
+      videoUrl: cleanVideoUrl
+    });
+
+    res.status(201).json({ success: true, message: 'Error logged successfully', errorLog });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /classroom/:classroomId → Get all recordings for a classroom
 router.get('/classroom/:classroomId', protect, async (req, res, next) => {
@@ -805,7 +844,7 @@ router.get('/:id', protect, async (req, res, next) => {
   }
 });
 
-// GET /:id/stream → Redirect to a secure presigned Cloudflare R2 GET URL
+// GET /:id/stream → Redirect to a secure presigned Cloudflare R2 GET URL or stream via local proxy
 router.get('/:id/stream', protect, async (req, res, next) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -823,6 +862,43 @@ router.get('/:id/stream', protect, async (req, res, next) => {
 
     if (recording.storageProvider !== 'cloudflare' || !recording.cloudflareKey) {
       return res.status(404).json({ success: false, message: 'Stream not available for this recording' });
+    }
+
+    const useProxy = req.query.proxy === 'true';
+
+    if (useProxy) {
+      const { getS3Client, getCloudflareConfig } = require('../config/cloudflare');
+      const { GetObjectCommand } = require('@aws-sdk/client-s3');
+      const client = getS3Client();
+      const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+
+      const range = req.headers.range;
+      const s3Params = {
+        Bucket: CLOUDFLARE_R2_BUCKET,
+        Key: recording.cloudflareKey,
+      };
+
+      if (range) {
+        s3Params.Range = range;
+      }
+
+      const command = new GetObjectCommand(s3Params);
+      const s3Response = await client.send(command);
+
+      // Set headers from S3 response to support proper media range streaming
+      res.status(s3Response.$metadata.httpStatusCode || (range ? 206 : 200));
+
+      if (s3Response.ContentType) res.setHeader('Content-Type', s3Response.ContentType);
+      if (s3Response.ContentLength) res.setHeader('Content-Length', s3Response.ContentLength);
+      if (s3Response.ContentRange) res.setHeader('Content-Range', s3Response.ContentRange);
+      if (s3Response.AcceptRanges) res.setHeader('Accept-Ranges', s3Response.AcceptRanges);
+      if (s3Response.ETag) res.setHeader('ETag', s3Response.ETag);
+
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+      return s3Response.Body.pipe(res);
     }
 
     const { generatePresignedGetUrl } = require('../config/cloudflare');
