@@ -59,6 +59,7 @@ router.post('/log-error', protect, async (req, res, next) => {
 
     const errorLog = await VideoPlaybackError.create({
       recording: recordingId,
+      recordingModel: req.body.recordingModel || 'ClassroomRecording',
       student: req.user._id,
       classroom: isValidId(classroomId) ? classroomId : null,
       errorCode: errorCode ? parseInt(errorCode, 10) : null,

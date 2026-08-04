@@ -1,18 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { Plus, Folder, Video, ChevronRight, ArrowLeft, Play, Edit, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Folder, Video, ChevronRight, ArrowLeft, Play, Edit, Trash2, Settings, RotateCw, ShieldAlert } from "lucide-react";
 import { api, uploadLibraryRecordingToCloudflare } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { useClassroomStore } from "@/lib/classroomStore";
 
 export const Route = createFileRoute("/_admin/admin/recordings")({
   component: GlobalRecordingsLibrary,
 });
 
 function GlobalRecordingsLibrary() {
+  const { accessToken } = useClassroomStore();
   const [folders, setFolders] = useState<any[]>([]);
   const [recordings, setRecordings] = useState<any[]>([]);
   const [currentFolder, setCurrentFolder] = useState<any | null>(null);
@@ -30,6 +32,12 @@ function GlobalRecordingsLibrary() {
   const [uploadPartInfo, setUploadPartInfo] = useState<{ part: number; totalParts: number } | null>(null);
 
   const [activePlayRec, setActivePlayRec] = useState<any | null>(null);
+  const [resolvedStreamUrl, setResolvedStreamUrl] = useState<string>('');
+  const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [useProxyFallback, setUseProxyFallback] = useState(false);
+  const [fatalError, setFatalError] = useState<{ code: number; message: string } | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   
   const [editRecId, setEditRecId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -40,6 +48,106 @@ function GlobalRecordingsLibrary() {
   const [isEditingFolder, setIsEditingFolder] = useState(false);
 
   const formatMB = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+  useEffect(() => {
+    if (activePlayRec) {
+      setRetryCount(0);
+      setUseProxyFallback(false);
+      setFatalError(null);
+
+      const recId = activePlayRec._id || activePlayRec.id || '';
+      const token = accessToken;
+      const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+      
+      if (activePlayRec.cloudflareUrl) {
+        setResolvedStreamUrl(activePlayRec.cloudflareUrl);
+      } else {
+        const streamUrl = `${import.meta.env.VITE_API_URL || '/api/v1'}/recordings/${recId}/stream${tokenQuery}`;
+        setResolvedStreamUrl(streamUrl);
+      }
+    } else {
+      setResolvedStreamUrl('');
+      setFatalError(null);
+    }
+  }, [activePlayRec]);
+
+  useEffect(() => {
+    if (activePlayRec && useProxyFallback) {
+      const recId = activePlayRec._id || activePlayRec.id || '';
+      const token = accessToken;
+      const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+      const proxyUrl = `${import.meta.env.VITE_API_URL || '/api/v1'}/recordings/${recId}/stream${tokenQuery}${tokenQuery ? '&' : '?'}proxy=true`;
+      setResolvedStreamUrl(proxyUrl);
+      toast.info("Switched to proxy streaming fallback...");
+    }
+  }, [useProxyFallback, activePlayRec]);
+
+  const handleVideoError = async () => {
+    if (!activePlayRec) return;
+    const err = videoRef.current?.error;
+    const code = err?.code || 0;
+    const msg = err?.message || 'Unknown playback error';
+    const currentUrl = resolvedStreamUrl;
+    const recId = activePlayRec._id || activePlayRec.id || '';
+
+    console.error(`Admin Preview video playback error: Code ${code}, Message: ${msg}, URL: ${currentUrl}`);
+
+    try {
+      await api.post('/recordings/classroom/log-error', {
+        recordingId: recId,
+        recordingModel: 'LibraryRecording',
+        errorCode: code,
+        errorMessage: msg,
+        userAgent: navigator.userAgent,
+        videoUrl: currentUrl
+      });
+    } catch (e) {
+      console.error("Failed to submit playback error log:", e);
+    }
+
+    if (isRefreshingUrl) return;
+
+    if (retryCount === 0) {
+      toast.info("Refreshing secure video link...");
+      setIsRefreshingUrl(true);
+      setRetryCount(1);
+      try {
+        const res = await api.get(`/recordings/${recId}`) as any;
+        if (res.success && res.recording?.cloudflareUrl) {
+          setResolvedStreamUrl(res.recording.cloudflareUrl);
+        } else {
+          const token = accessToken;
+          const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+          setResolvedStreamUrl(`${import.meta.env.VITE_API_URL || '/api/v1'}/recordings/${recId}/stream${tokenQuery}`);
+        }
+      } catch (err) {
+        console.error("Failed to refresh library video link:", err);
+      } finally {
+        setIsRefreshingUrl(false);
+      }
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load();
+          videoRef.current.play().catch(e => console.error("Play failure after URL refresh:", e));
+        }
+      }, 500);
+    } else if (retryCount === 1) {
+      toast.info("Switching to backup streaming connection...");
+      setRetryCount(2);
+      setUseProxyFallback(true);
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load();
+          videoRef.current.play().catch(e => console.error("Play failure after switching to proxy:", e));
+        }
+      }, 500);
+    } else {
+      setFatalError({ code, message: msg });
+      toast.error("Playback failed. Please see diagnostics.");
+    }
+  };
 
   useEffect(() => {
     fetchFolders();
@@ -466,22 +574,113 @@ function GlobalRecordingsLibrary() {
 
       {/* Play Modal */}
       <Dialog open={!!activePlayRec} onOpenChange={(open) => !open && setActivePlayRec(null)}>
-        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden bg-black border-slate-800">
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden bg-black border-slate-800 relative">
           <DialogHeader className="p-4 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent">
             <DialogTitle className="text-white">{activePlayRec?.title}</DialogTitle>
           </DialogHeader>
-          <div className="aspect-video w-full bg-black">
-            {activePlayRec?.cloudflareUrl ? (
+          <div className="aspect-video w-full bg-black relative">
+            {resolvedStreamUrl ? (
               <video 
-                src={activePlayRec.cloudflareUrl} 
+                ref={videoRef}
+                src={resolvedStreamUrl} 
+                crossOrigin="anonymous"
                 controls 
                 autoPlay 
+                onError={handleVideoError}
                 className="w-full h-full"
                 controlsList="nodownload"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-slate-400">
                 Media URL not available
+              </div>
+            )}
+
+            {/* Fatal Playback Error overlay */}
+            {fatalError && (
+              <div className="absolute inset-0 backdrop-blur-xl bg-black/95 flex flex-col items-center justify-center z-30 p-6 transition-all duration-300">
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 rounded-full bg-red-500/20 blur-xl animate-pulse" />
+                  <div className="relative rounded-2xl border border-red-500/30 bg-red-500/10 p-3">
+                    <ShieldAlert className="h-10 w-10 text-red-500 animate-bounce" />
+                  </div>
+                </div>
+
+                <h3 className="text-white font-display text-lg font-bold tracking-wider mb-1 uppercase text-center">
+                  Playback Failed
+                </h3>
+
+                <div className="text-slate-400 text-xs max-w-md text-center mb-6 leading-relaxed space-y-1.5 text-wrap">
+                  <p>
+                    We encountered an issue loading this recording. This error has been logged automatically for support.
+                  </p>
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 text-left font-mono text-[10px] text-slate-300">
+                    <div><strong>Error Code:</strong> {fatalError.code} ({
+                      fatalError.code === 1 ? "Aborted" :
+                      fatalError.code === 2 ? "Network Error" :
+                      fatalError.code === 3 ? "Decoding Error" :
+                      fatalError.code === 4 ? "Source Not Supported" : "Unknown"
+                    })</div>
+                    <div className="truncate"><strong>Details:</strong> {fatalError.message || "No additional information"}</div>
+                    <div><strong>Stream Mode:</strong> {useProxyFallback ? "Local Proxy" : "Direct S3 Redirect"}</div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 italic">
+                    Troubleshooting tip: {
+                      fatalError.code === 2 ? "Ensure you have an active internet connection." :
+                      fatalError.code === 3 ? "Try using a different browser (Chrome/Firefox)." :
+                      fatalError.code === 4 ? "Your school firewall may be blocking Cloudflare storage domains, or browser tracking prevention is blocking the redirect. Try streaming via proxy." :
+                      "Refresh the page and try playing again."
+                    }
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  {!useProxyFallback && (
+                    <Button
+                      onClick={() => {
+                        setFatalError(null);
+                        setUseProxyFallback(true);
+                        setRetryCount(2);
+                        setTimeout(() => {
+                          if (videoRef.current) {
+                            videoRef.current.load();
+                            videoRef.current.play().catch(() => {});
+                          }
+                        }, 500);
+                      }}
+                      className="bg-[#C084FC] text-black hover:scale-105 active:scale-95 text-xs h-9"
+                    >
+                      <Settings className="w-3.5 h-3.5 mr-1" />
+                      Force Proxy Streaming
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      setFatalError(null);
+                      setRetryCount(0);
+                      setUseProxyFallback(false);
+                      setTimeout(() => {
+                        if (videoRef.current) {
+                          videoRef.current.load();
+                          videoRef.current.play().catch(() => {});
+                        }
+                      }, 500);
+                    }}
+                    variant="outline"
+                    className="hover:scale-105 active:scale-95 text-xs h-9"
+                  >
+                    <RotateCw className="w-3.5 h-3.5 mr-1" />
+                    Retry Direct Stream
+                  </Button>
+                  <Button
+                    onClick={() => setActivePlayRec(null)}
+                    variant="ghost"
+                    className="hover:scale-105 active:scale-95 text-xs h-9 text-white/60"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                    Close
+                  </Button>
+                </div>
               </div>
             )}
           </div>

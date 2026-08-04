@@ -84,6 +84,73 @@ router.post('/upload-cloudflare', protect, restrictTo('admin', 'superadmin', 'fa
   }
 });
 
+// GET /:id/stream → Redirect to a secure presigned Cloudflare R2 GET URL or stream via local proxy
+router.get('/:id/stream', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid recording ID' });
+    }
+    const recording = await LibraryRecording.findById(req.params.id).lean();
+    if (!recording) {
+      return res.status(404).json({ success: false, message: 'Recording not found' });
+    }
+
+    if (recording.storageProvider !== 'cloudflare' || !recording.cloudflareKey) {
+      return res.status(404).json({ success: false, message: 'Stream not available for this recording' });
+    }
+
+    const useProxy = req.query.proxy === 'true';
+
+    if (useProxy) {
+      const { getS3Client, getCloudflareConfig } = require('../config/cloudflare');
+      const { GetObjectCommand } = require('@aws-sdk/client-s3');
+      const client = getS3Client();
+      const { CLOUDFLARE_R2_BUCKET } = getCloudflareConfig();
+
+      const range = req.headers.range;
+      const s3Params = {
+        Bucket: CLOUDFLARE_R2_BUCKET,
+        Key: recording.cloudflareKey,
+      };
+
+      if (range) {
+        s3Params.Range = range;
+      }
+
+      const command = new GetObjectCommand(s3Params);
+      const s3Response = await client.send(command);
+
+      // Set headers from S3 response to support proper media range streaming
+      res.status(s3Response.$metadata.httpStatusCode || (range ? 206 : 200));
+
+      if (s3Response.ContentType) res.setHeader('Content-Type', s3Response.ContentType);
+      if (s3Response.ContentLength) res.setHeader('Content-Length', s3Response.ContentLength);
+      if (s3Response.ContentRange) res.setHeader('Content-Range', s3Response.ContentRange);
+      if (s3Response.AcceptRanges) res.setHeader('Accept-Ranges', s3Response.AcceptRanges);
+      if (s3Response.ETag) res.setHeader('ETag', s3Response.ETag);
+
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+      return s3Response.Body.pipe(res);
+    }
+
+    const { generatePresignedGetUrl } = require('../config/cloudflare');
+
+    // Generate a fresh 1-hour presigned GET URL
+    const presignedUrl = await generatePresignedGetUrl(recording.cloudflareKey, 3600);
+
+    // Set CORP header to cross-origin to permit browser to follow redirect in cross-origin environments
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+    // Redirect the browser to the presigned URL
+    res.redirect(307, presignedUrl);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /:id -> Get library recording detail
 router.get('/:id', protect, restrictTo('admin', 'superadmin', 'faculty'), async (req, res, next) => {
   try {
